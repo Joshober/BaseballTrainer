@@ -47,13 +47,13 @@ export default function PosePreview({ imageUrl, onResult, useServer = false }: P
 
         const authToken = await getAuthToken();
         
-        // Check if we should use ngrok backend or Next.js API route
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 
-                          process.env.NEXT_PUBLIC_NGROK_URL;
+        // Get backend URL (supports both Express and Python backends)
+        const { getBackendUrl } = await import('@/lib/utils/backend-url');
+        const backendUrl = getBackendUrl();
         
         const apiUrl = backendUrl 
-          ? `${backendUrl}/api/pose/detect`  // Use Express server via ngrok
-          : '/api/pose';  // Use Next.js API route (local)
+          ? `${backendUrl}/api/pose/detect`  // Use backend server (Express or Python)
+          : '/api/pose';  // Use Next.js API route (local fallback)
         
         const res = await fetch(apiUrl, {
           method: 'POST',

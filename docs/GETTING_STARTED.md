@@ -119,7 +119,7 @@ DATABASE_TYPE=firestore
 ### **"MongoDB connection failed"**
 - Check `.env.local` has `MONGODB_URI`
 - Run `npm run test:mongodb` to test connection
-- See `MONGODB_QUICK_FIX.md` for troubleshooting
+- See `MONGODB_SETUP.md` for troubleshooting
 
 ### **"AI models not loading"**
 - Models download automatically on first use
@@ -134,12 +134,14 @@ DATABASE_TYPE=firestore
 
 ## 📚 **Documentation**
 
+All documentation files are in the `docs/` directory:
+
 - **Firebase Setup**: `FIREBASE_SETUP.md`
 - **MongoDB Setup**: `MONGODB_SETUP.md`
-- **MongoDB Troubleshooting**: `MONGODB_QUICK_FIX.md`
+- **MongoDB Troubleshooting**: `MONGODB_SETUP.md`
 - **Ngrok Setup**: `NGROK_SETUP.md` (for remote backend)
 - **Billing Protection**: `BILLING_PROTECTION.md`
-- **Costs**: `COSTS.md`
+- **Costs**: `BILLING_PROTECTION.md`
 
 ---
 
@@ -158,7 +160,7 @@ DATABASE_TYPE=firestore
 3. **Deploy** (when ready):
    - Deploy to Vercel (recommended for Next.js)
    - Or use Firebase Hosting
-   - See deployment guides in `README.md`
+   - See deployment guides in `../README.md`
 
 ---
 

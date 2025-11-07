@@ -20,10 +20,22 @@ export const config = {
   // Storage & Database toggles
   storageType: (process.env.STORAGE_TYPE || 'firebase') as 'firebase' | 'local',
   databaseType: (process.env.DATABASE_TYPE || 'firestore') as 'firestore' | 'mongodb',
-  // Local server
-  localServer: {
-    url: process.env.NGROK_URL || process.env.LOCAL_SERVER_URL || 'http://localhost:3001',
-    port: parseInt(process.env.EXPRESS_SERVER_PORT || '3001', 10),
+  // Pose Detection Service
+  poseDetectionService: {
+    url: process.env.POSE_DETECTION_SERVICE_URL || process.env.NGROK_POSE_DETECTION_URL || 'http://localhost:5000',
+    port: parseInt(process.env.POSE_DETECTION_SERVICE_PORT || '5000', 10),
+  },
+  drillRecommender: {
+    url: process.env.DRILL_RECOMMENDER_URL || process.env.NGROK_DRILL_RECOMMENDER_URL || 'http://localhost:5001',
+    port: parseInt(process.env.DRILL_RECOMMENDER_PORT || '5001', 10),
+  },
+  blastConnector: {
+    url: process.env.BLAST_CONNECTOR_URL || process.env.NGROK_BLAST_CONNECTOR_URL || 'http://localhost:5002',
+    port: parseInt(process.env.BLAST_CONNECTOR_PORT || '5002', 10),
+  },
+  gateway: {
+    url: process.env.GATEWAY_URL || process.env.NGROK_GATEWAY_URL || 'http://localhost:3001',
+    port: parseInt(process.env.GATEWAY_PORT || '3001', 10),
   },
   // Ngrok configuration
   ngrok: {
@@ -52,7 +64,7 @@ export function validateConfig() {
   }
 
   if (config.storageType === 'local') {
-    if (!config.localServer.url) errors.push('LOCAL_SERVER_URL is required');
+    if (!config.poseDetectionService.url) errors.push('POSE_DETECTION_SERVICE_URL is required');
   }
 
   if (errors.length > 0) {

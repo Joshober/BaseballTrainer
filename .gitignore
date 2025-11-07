@@ -44,7 +44,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local storage uploads
+# local storage uploads (Pose Detection Service)
+/pose-detection-service/uploads/
 /server/uploads/
 
 # ngrok config (contains auth token - keep local)
@@ -83,3 +84,18 @@ logs/
 *.tmp
 *.temp
 .cache/
+
+# Python
+pose-detection-service/uploads/
+pose-detection-service/__pycache__/
+pose-detection-service/*.pyc
+drill-recommender/__pycache__/
+drill-recommender/*.pyc
+blast-connector/__pycache__/
+blast-connector/*.pyc
+*.pyc
+__pycache__/
+.python-version
+venv/
+env/
+ENV/

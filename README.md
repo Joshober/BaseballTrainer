@@ -4,7 +4,7 @@ A Next.js application that analyzes baseball swings using AI pose detection and 
 
 ## Features
 
-- **AI Pose Detection**: Client-side and server-side pose detection using TensorFlow.js MoveNet
+- **AI Pose Detection**: Client-side (TensorFlow.js) and server-side (MediaPipe) pose detection
 - **Flexible Storage**: Support for Firebase Storage or local PC server storage
 - **Flexible Database**: Support for Firebase Firestore or MongoDB Atlas
 - **Space Game**: Calculate distance based on exit velocity and launch angle, track progress through space zones
@@ -18,7 +18,10 @@ A Next.js application that analyzes baseball swings using AI pose detection and 
 - **Database**: Firebase Firestore or MongoDB Atlas
 - **Storage**: Firebase Storage or Local PC Server
 - **Auth**: Firebase Authentication
-- **Server**: Express.js (optional, for local storage and pose detection)
+- **Backend**: Main Gateway (Node.js) + Flask Services (Python)
+  - Pose Detection Service (MediaPipe)
+  - Drill Recommender Service
+  - Blast Connector Service
 
 ## Prerequisites
 
@@ -31,15 +34,34 @@ A Next.js application that analyzes baseball swings using AI pose detection and 
 
 ### 1. Clone and Install
 
+**Quick Install (Recommended):**
 ```bash
-npm install
+npm run install:all
 ```
 
-This will automatically install and cache the AI models (~17MB). If you want to install models manually:
+This will install:
+- Node.js dependencies
+- Python dependencies for all Flask services (pose-detection-service, drill-recommender, blast-connector)
+- AI models (~17MB)
 
+**Manual Install:**
 ```bash
+# Install Node.js dependencies
+npm install
+
+# Install Python dependencies for all services
+npm run install:python
+
+# Or install individually:
+npm run install:python:pose      # Pose Detection Service
+npm run install:python:drills    # Drill Recommender
+npm run install:python:blast     # Blast Connector
+
+# Install AI models (optional - will download on first use)
 npm run install:models
 ```
+
+**Note:** Make sure you have Python 3.8+ and pip installed. The install script will automatically detect your Python installation.
 
 ### 2. Environment Variables
 
@@ -60,15 +82,29 @@ FIREBASE_ADMIN_CLIENT_EMAIL=your_service_account_email
 FIREBASE_ADMIN_PRIVATE_KEY=your_private_key
 
 # MongoDB Atlas (if using MongoDB)
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/database?retryWrites=true&w=majority
+MONGODB_URI="mongodb+srv://username:password@cluster.mongodb.net/database?retryWrites=true&w=majority"
+# Or specify database separately:
+MONGODB_DATABASE=baseball
 
 # Storage & Database Toggles
 STORAGE_TYPE=firebase  # or "local"
 DATABASE_TYPE=firestore  # or "mongodb"
 
-# Local Server (if STORAGE_TYPE=local)
-LOCAL_SERVER_URL=http://localhost:3001
-EXPRESS_SERVER_PORT=3001
+# Backend Gateway Configuration
+GATEWAY_PORT=3001
+GATEWAY_URL=http://localhost:3001
+NEXT_PUBLIC_GATEWAY_URL=http://localhost:3001  # For frontend
+
+# Flask Services Configuration
+POSE_DETECTION_SERVICE_PORT=5000
+POSE_DETECTION_SERVICE_URL=http://localhost:5000
+DRILL_RECOMMENDER_PORT=5001
+DRILL_RECOMMENDER_URL=http://localhost:5001
+BLAST_CONNECTOR_PORT=5002
+BLAST_CONNECTOR_URL=http://localhost:5002
+
+# Test Mode (for Flask services - bypasses authentication)
+TEST_MODE=false
 
 # Ngrok Configuration (optional - for remote backend and/or public frontend)
 # Backend via ngrok (if backend is on different PC)
@@ -106,12 +142,12 @@ FIREBASE_MAX_BANDWIDTH_GB=0.8
    - Copy the config values
 5. Add config to `.env.local` (see example above)
 
-**See `FIREBASE_SETUP.md` for detailed step-by-step instructions.**
+**See `docs/FIREBASE_SETUP.md` for detailed step-by-step instructions.**
 
 **Optional (for Storage & Database):**
 - Enable **Firestore Database** (for database)
 - Enable **Storage** (for file storage)
-- Set up **Security Rules** (see `FIREBASE_SETUP.md`)
+- Set up **Security Rules** (see `docs/FIREBASE_SETUP.md`)
 - Create **Service Account** (for server-side operations)
 
 ### 4. MongoDB Atlas Setup (Optional)
@@ -211,7 +247,7 @@ baseballhackathon/
 │   ├── game/              # Game logic (physics, zones, labels)
 │   ├── firebase/          # Firebase configuration
 │   └── mongodb/           # MongoDB configuration
-├── server/                # Express server (optional)
+├── pose-detection-service/  # Pose detection service (MediaPipe)
 ├── types/                 # TypeScript type definitions
 └── public/                # Static assets
 ```
@@ -221,7 +257,7 @@ baseballhackathon/
 ### Storage Types
 
 - **firebase**: Uses Firebase Storage (default)
-- **local**: Uses local Express server for file storage
+- **local**: Uses local Python backend for file storage
 
 ### Database Types
 
@@ -294,7 +330,7 @@ distanceFt = (exitVelocity^2 / 32.174) * sin(2 * launchAngleRadians)
 - Run `npm run install:models` to install models manually
 - Check your internet connection (models download from Google CDN)
 - Models are cached after first download (~17MB total)
-- See `MODEL_INSTALLATION.md` for detailed instructions
+- See `docs/MODEL_INSTALLATION.md` for detailed instructions
 
 ### Firebase Auth Errors
 
@@ -305,7 +341,7 @@ distanceFt = (exitVelocity^2 / 32.174) * sin(2 * launchAngleRadians)
 - **"Firebase Auth is disabled"**:
   - Check that all `NEXT_PUBLIC_FIREBASE_*` variables are set in `.env.local`
   - Make sure values don't have quotes
-  - See `FIREBASE_SETUP.md` for complete setup guide
+  - See `docs/FIREBASE_SETUP.md` for complete setup guide
 - **Google Sign-In not working**:
   - Make sure Google sign-in is enabled in Firebase Console
   - Check that support email is selected
