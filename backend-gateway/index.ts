@@ -149,6 +149,120 @@ app.get('/api/auth/callback', async (req, res) => {
   }
 });
 
+// Email/Password Registration
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, connection = 'Username-Password-Authentication' } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+    
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    
+    const domain = process.env.AUTH0_DOMAIN;
+    const clientId = process.env.AUTH0_CLIENT_ID;
+    const clientSecret = process.env.AUTH0_CLIENT_SECRET;
+    
+    if (!domain || !clientId || !clientSecret) {
+      return res.status(500).json({ error: 'Auth0 not configured' });
+    }
+    
+    // Create user in Auth0
+    const createUserResponse = await axios.post(`https://${domain}/dbconnections/signup`, {
+      client_id: clientId,
+      email,
+      password,
+      connection,
+    });
+    
+    // After creating user, authenticate them
+    const tokenResponse = await axios.post(`https://${domain}/oauth/token`, {
+      grant_type: 'password',
+      client_id: clientId,
+      client_secret: clientSecret,
+      username: email,
+      password,
+      connection,
+      scope: 'openid profile email',
+    });
+    
+    const { access_token, id_token } = tokenResponse.data;
+    
+    // Get user info
+    const userResponse = await axios.get(`https://${domain}/userinfo`, {
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+      },
+    });
+    
+    const user = userResponse.data;
+    
+    res.json({
+      access_token,
+      id_token,
+      user,
+    });
+  } catch (error: any) {
+    console.error('Registration error:', error.response?.data || error.message);
+    const errorMessage = error.response?.data?.description || error.response?.data?.error_description || error.message || 'Registration failed';
+    res.status(error.response?.status || 500).json({ error: errorMessage });
+  }
+});
+
+// Email/Password Login
+app.post('/api/auth/login-email', async (req, res) => {
+  try {
+    const { email, password, connection = 'Username-Password-Authentication' } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+    
+    const domain = process.env.AUTH0_DOMAIN;
+    const clientId = process.env.AUTH0_CLIENT_ID;
+    const clientSecret = process.env.AUTH0_CLIENT_SECRET;
+    
+    if (!domain || !clientId || !clientSecret) {
+      return res.status(500).json({ error: 'Auth0 not configured' });
+    }
+    
+    // Authenticate user
+    const tokenResponse = await axios.post(`https://${domain}/oauth/token`, {
+      grant_type: 'password',
+      client_id: clientId,
+      client_secret: clientSecret,
+      username: email,
+      password,
+      connection,
+      scope: 'openid profile email',
+    });
+    
+    const { access_token, id_token } = tokenResponse.data;
+    
+    // Get user info
+    const userResponse = await axios.get(`https://${domain}/userinfo`, {
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+      },
+    });
+    
+    const user = userResponse.data;
+    
+    res.json({
+      access_token,
+      id_token,
+      user,
+    });
+  } catch (error: any) {
+    console.error('Login error:', error.response?.data || error.message);
+    const errorMessage = error.response?.data?.description || error.response?.data?.error_description || error.message || 'Login failed';
+    res.status(error.response?.status || 401).json({ error: errorMessage });
+  }
+});
+
 app.get('/api/auth/logout', (req, res) => {
   // Logout from Auth0
   const domain = process.env.AUTH0_DOMAIN;

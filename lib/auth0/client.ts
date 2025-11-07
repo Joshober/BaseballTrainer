@@ -52,9 +52,36 @@ export function signInWithGoogle(): void {
 /**
  * Sign in with email/password
  */
-export function signInWithEmail(): void {
+export async function signInWithEmail(email: string, password: string): Promise<{ access_token: string; user: Auth0User } | null> {
   const gatewayUrl = getBackendUrl();
-  window.location.href = `${gatewayUrl}/api/auth/login?connection=Username-Password-Authentication`;
+  try {
+    const response = await fetch(`${gatewayUrl}/api/auth/login-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Login failed');
+    }
+    
+    const data = await response.json();
+    
+    // Store tokens
+    localStorage.setItem('auth_token', data.access_token);
+    localStorage.setItem('auth_user', JSON.stringify(data.user));
+    
+    return {
+      access_token: data.access_token,
+      user: data.user,
+    };
+  } catch (error: any) {
+    console.error('Email login error:', error);
+    throw error;
+  }
 }
 
 /**
@@ -68,9 +95,36 @@ export function signUpWithGoogle(): void {
 /**
  * Sign up with email/password
  */
-export function signUpWithEmail(): void {
+export async function signUpWithEmail(email: string, password: string): Promise<{ access_token: string; user: Auth0User } | null> {
   const gatewayUrl = getBackendUrl();
-  window.location.href = `${gatewayUrl}/api/auth/login?connection=Username-Password-Authentication&screen_hint=signup`;
+  try {
+    const response = await fetch(`${gatewayUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Registration failed');
+    }
+    
+    const data = await response.json();
+    
+    // Store tokens
+    localStorage.setItem('auth_token', data.access_token);
+    localStorage.setItem('auth_user', JSON.stringify(data.user));
+    
+    return {
+      access_token: data.access_token,
+      user: data.user,
+    };
+  } catch (error: any) {
+    console.error('Email registration error:', error);
+    throw error;
+  }
 }
 
 /**

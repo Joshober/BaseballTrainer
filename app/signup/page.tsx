@@ -68,7 +68,7 @@ export default function SignUpPage() {
     signUpWithGoogle();
   };
 
-  const handleEmailSignUp = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleEmailSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -92,14 +92,75 @@ export default function SignUpPage() {
       return;
     }
 
-    // Store selected role in session storage before redirect
+    // Store selected role in session storage
     sessionStorage.setItem('selectedRole', selectedRole);
-    signUpWithEmail();
+    
+    try {
+      const result = await signUpWithEmail(email, password);
+      if (result) {
+        // User created successfully, now create user profile
+        await createUserProfile(result.access_token, result.user, selectedRole);
+      }
+    } catch (error: any) {
+      setError(error.message || 'Registration failed. Please try again.');
+      setLoading(false);
+    }
+  };
+  
+  const createUserProfile = async (token: string, user: any, role: string) => {
+    try {
+      // Check if user already exists
+      const checkResponse = await fetch(`/api/users?uid=${user.sub}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!checkResponse.ok) {
+        // User doesn't exist, create user with selected role
+        const createResponse = await fetch('/api/users', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            uid: user.sub,
+            displayName: user.name || user.nickname || user.email?.split('@')[0] || 'User',
+            email: user.email || '',
+            role: role,
+          }),
+        });
+        
+        if (createResponse.ok) {
+          sessionStorage.removeItem('selectedRole');
+          
+          // Redirect based on selected role
+          if (role === 'coach') {
+            router.push('/coach');
+          } else {
+            router.push('/player');
+          }
+        } else {
+          const errorData = await createResponse.json();
+          setError(errorData.error || 'Failed to create user profile');
+          setLoading(false);
+        }
+      } else {
+        // User exists, redirect will be handled by checkUserProfile
+        sessionStorage.removeItem('selectedRole');
+        await checkUserProfile(token, user);
+      }
+    } catch (error) {
+      console.error('Failed to create user profile:', error);
+      setError('Failed to create user profile. Please try again.');
+      setLoading(false);
+    }
   };
 
-  // After Auth0 callback, create user profile
+  // After Auth0 callback (for Google OAuth), create user profile
   useEffect(() => {
-    const createUserProfile = async () => {
+    const handleGoogleCallback = async () => {
       const token = getAuthToken();
       const user = getAuthUser();
       
@@ -118,33 +179,11 @@ export default function SignUpPage() {
         
         if (!checkResponse.ok) {
           // User doesn't exist, create user with selected role
-          const createResponse = await fetch('/api/users', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              uid: user.sub,
-              displayName: user.name || user.nickname || user.email?.split('@')[0] || 'User',
-              email: user.email || '',
-              role: storedRole,
-            }),
-          });
-          
-          if (createResponse.ok) {
-            sessionStorage.removeItem('selectedRole');
-            
-            // Redirect based on selected role
-            if (storedRole === 'coach') {
-              router.push('/coach');
-            } else {
-              router.push('/player');
-            }
-          }
+          await createUserProfile(token, user, storedRole);
         } else {
           // User exists, redirect will be handled by checkUserProfile
           sessionStorage.removeItem('selectedRole');
+          await checkUserProfile(token, user);
         }
       } catch (error) {
         console.error('Failed to create user profile:', error);
@@ -154,7 +193,7 @@ export default function SignUpPage() {
     const token = getAuthToken();
     const user = getAuthUser();
     if (token && user) {
-      createUserProfile();
+      handleGoogleCallback();
     }
   }, [router]);
 

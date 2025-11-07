@@ -60,11 +60,24 @@ export default function LoginPage() {
     signInWithGoogle();
   };
 
-  const handleEmailSignIn = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleEmailSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    signInWithEmail();
+    
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    
+    try {
+      const result = await signInWithEmail(email, password);
+      if (result) {
+        await checkUserProfile(result.access_token, result.user);
+      }
+    } catch (error: any) {
+      setError(error.message || 'Login failed. Please check your credentials.');
+      setLoading(false);
+    }
   };
 
   return (
