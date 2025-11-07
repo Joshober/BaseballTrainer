@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/database';
+import { getDatabaseAdapter } from '@/lib/database';
 import { verifyIdToken } from '@/lib/firebase/admin';
 import type { CreateSessionInput } from '@/types/session';
 
@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    const db = getDatabaseAdapter();
     const session = await db.createSession(body);
     return NextResponse.json(session);
   } catch (error) {
@@ -45,8 +46,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    const uid = request.nextUrl.searchParams.get('uid') || decodedToken.uid;
-    const sessions = await db.getSessionsByUser(uid);
+    const searchParams = request.nextUrl.searchParams;
+    const uid = searchParams.get('uid') || decodedToken.uid;
+    const teamId = searchParams.get('teamId');
+
+    const db = getDatabaseAdapter();
+    let sessions;
+    if (teamId) {
+      sessions = await db.getSessionsByTeam(teamId);
+    } else {
+      sessions = await db.getSessionsByUser(uid);
+    }
+    
     return NextResponse.json(sessions);
   } catch (error) {
     console.error('Session fetch error:', error);

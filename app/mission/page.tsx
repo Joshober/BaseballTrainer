@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Rocket, Loader2 } from 'lucide-react';
 import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
-import { db } from '@/lib/database';
-import { storage } from '@/lib/storage';
+import { getStorageAdapter } from '@/lib/storage';
 import { calculateDistance } from '@/lib/game/physics';
 import { getZone, getMilestone, getProgressToNext } from '@/lib/game/zones';
 import { classifySwing } from '@/lib/game/label';
@@ -118,6 +117,9 @@ export default function MissionPage() {
         const ext = selectedFile.type.startsWith('video/') ? 'mp4' : 'jpg';
         const path = `swings/${uid}/${sessionId}.${ext}`;
 
+        // Get storage adapter (respects STORAGE_TYPE config)
+        const storage = getStorageAdapter();
+        
         if (selectedFile.type.startsWith('video/')) {
           videoPath = path;
           videoURL = await storage.uploadFile(path, selectedFile);
@@ -127,31 +129,68 @@ export default function MissionPage() {
         }
       }
 
-      // Create session in database
-      const session = await db.createSession({
-        uid: user.uid,
-        teamId: 'default', // TODO: Get from user profile
-        photoPath,
-        photoURL,
-        videoPath,
-        videoURL,
-        metrics: {
-          launchAngleEst: poseResult.launchAngleEst || 28,
-          attackAngleEst: poseResult.attackAngleEst,
-          exitVelocity,
-          confidence: poseResult.confidence || 0,
+      // Get Firebase Auth token for API calls
+      const auth = getFirebaseAuth();
+      if (!auth?.currentUser) {
+        throw new Error('User not authenticated');
+      }
+      const token = await auth.currentUser.getIdToken();
+
+      // Create session in database via API
+      const sessionResponse = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
-        game: {
-          distanceFt,
-          zone: zone.name,
-          milestone,
-          progressToNext: progress,
-        },
-        label,
+        body: JSON.stringify({
+          uid: user.uid,
+          teamId: 'default', // TODO: Get from user profile
+          photoPath,
+          photoURL,
+          videoPath,
+          videoURL,
+          metrics: {
+            launchAngleEst: poseResult.launchAngleEst || 28,
+            attackAngleEst: poseResult.attackAngleEst,
+            exitVelocity,
+            confidence: poseResult.confidence || 0,
+          },
+          game: {
+            distanceFt,
+            zone: zone.name,
+            milestone,
+            progressToNext: progress,
+          },
+          label,
+        }),
       });
 
-      // Update leaderboard
-      await db.updateLeaderboard('default', user.uid, distanceFt, session.id);
+      if (!sessionResponse.ok) {
+        const error = await sessionResponse.json();
+        throw new Error(error.error || 'Failed to create session');
+      }
+
+      const session = await sessionResponse.json();
+
+      // Update leaderboard via API
+      const leaderboardResponse = await fetch('/api/leaderboard', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          teamId: 'default',
+          uid: user.uid,
+          distanceFt,
+          sessionId: session.id,
+        }),
+      });
+
+      if (!leaderboardResponse.ok) {
+        console.warn('Failed to update leaderboard');
+      }
 
       // Show success message
       alert('Mission saved successfully!');

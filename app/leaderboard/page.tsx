@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trophy, Loader2 } from 'lucide-react';
-import { onAuthChange } from '@/lib/firebase/auth';
-import { db } from '@/lib/database';
+import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
 import LeaderboardTable from '@/components/Leaderboard/LeaderboardTable';
 import type { LeaderboardEntry } from '@/types/team';
 
@@ -28,16 +27,46 @@ export default function LeaderboardPage() {
 
   const loadLeaderboard = async () => {
     try {
-      const leaderboardEntries = await db.getLeaderboardEntries(teamId);
-      
-      // Fetch user display names
+      // Get Firebase Auth token
+      const auth = getFirebaseAuth();
+      if (!auth?.currentUser) {
+        return;
+      }
+      const token = await auth.currentUser.getIdToken();
+
+      // Load leaderboard via API
+      const leaderboardResponse = await fetch(`/api/leaderboard?teamId=${teamId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!leaderboardResponse.ok) {
+        throw new Error('Failed to load leaderboard');
+      }
+
+      const leaderboardEntries = await leaderboardResponse.json();
+
+      // Fetch user display names via API
       const entriesWithNames = await Promise.all(
-        leaderboardEntries.map(async (entry) => {
-          const user = await db.getUser(entry.uid);
-          return {
-            ...entry,
-            displayName: user?.displayName || 'Anonymous',
-          };
+        leaderboardEntries.map(async (entry: any) => {
+          try {
+            const userResponse = await fetch(`/api/users?uid=${entry.uid}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            });
+            const user = userResponse.ok ? await userResponse.json() : null;
+            return {
+              ...entry,
+              displayName: user?.displayName || 'Anonymous',
+            };
+          } catch {
+            return {
+              ...entry,
+              displayName: 'Anonymous',
+            };
+          }
         })
       );
 

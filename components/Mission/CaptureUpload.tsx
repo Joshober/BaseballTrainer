@@ -17,10 +17,14 @@ export default function CaptureUpload({
   onModeChange,
 }: CaptureUploadProps) {
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -74,6 +78,90 @@ export default function CaptureUpload({
         stopCamera();
       }
     }, 'image/jpeg');
+  };
+
+  const startVideoRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false, // No audio for swing videos
+      });
+      streamRef.current = stream;
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setIsCapturing(true);
+      }
+
+      // Wait a moment for video to be ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Set up MediaRecorder
+      const mimeType = MediaRecorder.isTypeSupported('video/webm') 
+        ? 'video/webm' 
+        : MediaRecorder.isTypeSupported('video/mp4')
+        ? 'video/mp4'
+        : '';
+      
+      if (!mimeType) {
+        alert('Video recording is not supported in this browser');
+        stopCamera();
+        return;
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      recordedChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+        setRecordedBlob(blob);
+        setIsRecording(false);
+        // Stop camera stream after recording stops
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
+        setIsCapturing(false);
+      };
+
+      // Start recording immediately
+      mediaRecorder.start();
+      setIsRecording(true);
+      console.log('Video recording started');
+    } catch (error) {
+      console.error('Video recording error:', error);
+      alert('Could not access camera for video recording');
+    }
+  };
+
+  const stopVideoRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+    }
+    stopCamera();
+  };
+
+  const saveRecordedVideo = () => {
+    if (recordedBlob) {
+      const file = new File([recordedBlob], `recording-${Date.now()}.${recordedBlob.type.includes('webm') ? 'webm' : 'mp4'}`, {
+        type: recordedBlob.type,
+      });
+      onVideoSelect(file);
+      setRecordedBlob(null);
+      recordedChunksRef.current = [];
+    }
+  };
+
+  const discardRecordedVideo = () => {
+    setRecordedBlob(null);
+    recordedChunksRef.current = [];
   };
 
   return (
@@ -167,14 +255,97 @@ export default function CaptureUpload({
       )}
 
       {mode === 'video' && (
-        <div>
-          <button
-            onClick={() => videoInputRef.current?.click()}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Video className="w-5 h-5" />
-            Upload Video
-          </button>
+        <div className="space-y-4">
+          {!isCapturing && !recordedBlob && (
+            <div className="flex gap-4">
+              <button
+                onClick={startVideoRecording}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Video className="w-5 h-5" />
+                Record Video
+              </button>
+              <button
+                onClick={() => videoInputRef.current?.click()}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <Upload className="w-5 h-5" />
+                Upload Video
+              </button>
+            </div>
+          )}
+
+          {isCapturing && (
+            <div className="space-y-4">
+              <div className="relative">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full rounded-lg bg-black"
+                />
+                {isRecording && (
+                  <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1 bg-red-600 text-white rounded-full shadow-lg z-10">
+                    <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
+                    <span className="text-sm font-medium">Recording...</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-4">
+                {isRecording ? (
+                  <button
+                    onClick={stopVideoRecording}
+                    className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  >
+                    ⏹ Stop Recording
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={startVideoRecording}
+                      className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                    >
+                      🔴 Start Recording
+                    </button>
+                    <button
+                      onClick={stopCamera}
+                      className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {recordedBlob && !isCapturing && (
+            <div className="space-y-4">
+              <div className="relative">
+                <video
+                  src={URL.createObjectURL(recordedBlob)}
+                  controls
+                  className="w-full rounded-lg bg-black"
+                />
+              </div>
+              <div className="flex gap-4">
+                <button
+                  onClick={saveRecordedVideo}
+                  className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Use This Video
+                </button>
+                <button
+                  onClick={discardRecordedVideo}
+                  className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          )}
+
           <input
             ref={videoInputRef}
             type="file"

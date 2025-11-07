@@ -35,6 +35,12 @@ A Next.js application that analyzes baseball swings using AI pose detection and 
 npm install
 ```
 
+This will automatically install and cache the AI models (~17MB). If you want to install models manually:
+
+```bash
+npm run install:models
+```
+
 ### 2. Environment Variables
 
 Create a `.env.local` file in the root directory:
@@ -63,19 +69,50 @@ DATABASE_TYPE=firestore  # or "mongodb"
 # Local Server (if STORAGE_TYPE=local)
 LOCAL_SERVER_URL=http://localhost:3001
 EXPRESS_SERVER_PORT=3001
+
+# Ngrok Configuration (optional - for remote backend and/or public frontend)
+# Backend via ngrok (if backend is on different PC)
+NEXT_PUBLIC_BACKEND_URL=https://baseball.ngrok.app
+NGROK_URL=https://baseball.ngrok.app
+
+# Frontend via ngrok (optional - for public access)
+NEXT_PUBLIC_NGROK_FRONTEND_URL=https://baseball.ngrok.dev
+NGROK_FRONTEND_URL=https://baseball.ngrok.dev
+
+# Firebase Billing Protection (prevents charges over $1)
+# Note: Firebase Auth is FREE on Spark plan (50K MAU/month) - no charges!
+FIREBASE_BILLING_PROTECTION=true
+FIREBASE_MAX_SPEND=1.0
+FIREBASE_MAX_READS_PER_DAY=40000
+FIREBASE_MAX_WRITES_PER_DAY=15000
+FIREBASE_MAX_STORAGE_GB=4.0
+FIREBASE_MAX_BANDWIDTH_GB=0.8
 ```
 
 ### 3. Firebase Setup
 
-1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
-2. Enable Authentication (Google and Email/Password providers)
-3. Create a Firestore database
-4. Create a Storage bucket
-5. Get your Firebase config from Project Settings
-6. For server-side operations, create a Service Account:
-   - Go to Project Settings > Service Accounts
-   - Generate a new private key
-   - Copy the project ID, client email, and private key to `.env.local`
+**Quick Setup (5 minutes):**
+
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create a new project
+3. Enable **Authentication**:
+   - Go to Authentication > Sign-in method
+   - Enable **Google** sign-in
+   - Enable **Email/Password** sign-in
+4. Get your Firebase config:
+   - Go to Project Settings (gear icon)
+   - Scroll to "Your apps" section
+   - Click Web icon (`</>`) to add web app
+   - Copy the config values
+5. Add config to `.env.local` (see example above)
+
+**See `FIREBASE_SETUP.md` for detailed step-by-step instructions.**
+
+**Optional (for Storage & Database):**
+- Enable **Firestore Database** (for database)
+- Enable **Storage** (for file storage)
+- Set up **Security Rules** (see `FIREBASE_SETUP.md`)
+- Create **Service Account** (for server-side operations)
 
 ### 4. MongoDB Atlas Setup (Optional)
 
@@ -248,14 +285,31 @@ distanceFt = (exitVelocity^2 / 32.174) * sin(2 * launchAngleRadians)
 ### Pose Detection Not Working
 
 - Ensure TensorFlow.js models are loaded (check browser console)
+- Run `npm run install:models` to pre-download and cache models
 - Verify image has clear pose visibility
 - Try server-side detection if client-side fails
 
+### Models Not Loading
+
+- Run `npm run install:models` to install models manually
+- Check your internet connection (models download from Google CDN)
+- Models are cached after first download (~17MB total)
+- See `MODEL_INSTALLATION.md` for detailed instructions
+
 ### Firebase Auth Errors
 
-- Check Firebase config in `.env.local`
-- Verify Authentication providers are enabled in Firebase Console
-- Ensure domain is whitelisted in Firebase Console
+- **"Firebase: Error (auth/invalid-api-key)"**:
+  - Check that `.env.local` has correct `NEXT_PUBLIC_FIREBASE_API_KEY`
+  - Make sure API key starts with `AIzaSy`
+  - Restart dev server after adding config
+- **"Firebase Auth is disabled"**:
+  - Check that all `NEXT_PUBLIC_FIREBASE_*` variables are set in `.env.local`
+  - Make sure values don't have quotes
+  - See `FIREBASE_SETUP.md` for complete setup guide
+- **Google Sign-In not working**:
+  - Make sure Google sign-in is enabled in Firebase Console
+  - Check that support email is selected
+  - Try clearing browser cache
 
 ### MongoDB Connection Issues
 

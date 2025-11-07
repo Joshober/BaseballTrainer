@@ -15,15 +15,22 @@ export const config = {
   },
   // MongoDB
   mongodb: {
-    uri: process.env.MONGODB_URI || '',
+    uri: (process.env.MONGODB_URI || '').replace(/^["']|["']$/g, ''), // Remove quotes if present
   },
   // Storage & Database toggles
   storageType: (process.env.STORAGE_TYPE || 'firebase') as 'firebase' | 'local',
   databaseType: (process.env.DATABASE_TYPE || 'firestore') as 'firestore' | 'mongodb',
   // Local server
   localServer: {
-    url: process.env.LOCAL_SERVER_URL || 'http://localhost:3001',
+    url: process.env.NGROK_URL || process.env.LOCAL_SERVER_URL || 'http://localhost:3001',
     port: parseInt(process.env.EXPRESS_SERVER_PORT || '3001', 10),
+  },
+  // Ngrok configuration
+  ngrok: {
+    enabled: !!process.env.NGROK_URL,
+    url: process.env.NGROK_URL || '',
+    frontendUrl: process.env.NEXT_PUBLIC_NGROK_FRONTEND_URL || process.env.NGROK_FRONTEND_URL || '',
+    frontendEnabled: !!(process.env.NEXT_PUBLIC_NGROK_FRONTEND_URL || process.env.NGROK_FRONTEND_URL),
   },
 } as const;
 

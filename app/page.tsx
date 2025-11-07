@@ -70,13 +70,25 @@ export default function Home() {
           </div>
 
           {/* CTA */}
-          <div className="text-center">
+          <div className="text-center space-x-4">
             <Link
               href="/leaderboard"
               className="inline-flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
             >
               <Trophy className="w-5 h-5" />
               View Leaderboard
+            </Link>
+            <Link
+              href="/teams"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+            >
+              Teams
+            </Link>
+            <Link
+              href="/coach"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+            >
+              Coach Dashboard
             </Link>
           </div>
         </div>

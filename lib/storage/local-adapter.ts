@@ -1,11 +1,13 @@
 import type { StorageAdapter } from './adapter';
 import { config } from '@/lib/utils/config';
+import { getBackendUrl } from '@/lib/utils/backend-url';
 
 export class LocalStorageAdapter implements StorageAdapter {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = config.localServer.url;
+    // Use ngrok URL if available, otherwise use config
+    this.baseUrl = getBackendUrl();
   }
 
   async uploadFile(path: string, file: Blob | File | Buffer): Promise<string> {

@@ -39,14 +39,23 @@ export default function PosePreview({ imageUrl, onResult, useServer = false }: P
 
     try {
       if (useServer) {
-        // Server-side detection
+        // Server-side detection - use ngrok backend if available
         const formData = new FormData();
         const response = await fetch(imageUrl);
         const blob = await response.blob();
         formData.append('image', blob, 'image.jpg');
 
         const authToken = await getAuthToken();
-        const res = await fetch('/api/pose', {
+        
+        // Check if we should use ngrok backend or Next.js API route
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 
+                          process.env.NEXT_PUBLIC_NGROK_URL;
+        
+        const apiUrl = backendUrl 
+          ? `${backendUrl}/api/pose/detect`  // Use Express server via ngrok
+          : '/api/pose';  // Use Next.js API route (local)
+        
+        const res = await fetch(apiUrl, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${authToken}`,

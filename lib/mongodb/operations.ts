@@ -1,7 +1,7 @@
 import { getMongoDb } from './client';
 import type { User, CreateUserInput } from '@/types/user';
 import type { Session, CreateSessionInput } from '@/types/session';
-import type { LeaderboardEntry } from '@/types/team';
+import type { LeaderboardEntry, Team } from '@/types/team';
 
 // Users
 export async function getUser(uid: string): Promise<User | null> {
@@ -101,6 +101,44 @@ export async function getLeaderboardEntries(teamId: string): Promise<Leaderboard
     bestSessionId: entry.bestSessionId,
     updatedAt: entry.updatedAt || new Date(),
   })) as LeaderboardEntry[];
+}
+
+// Teams
+export async function createTeam(name: string, coachUid: string): Promise<Team> {
+  const db = await getMongoDb();
+  const team = {
+    id: crypto.randomUUID(),
+    name,
+    coachUid,
+    createdAt: new Date(),
+  };
+  await db.collection('teams').insertOne(team);
+  return team as Team;
+}
+
+export async function getTeam(teamId: string): Promise<Team | null> {
+  const db = await getMongoDb();
+  const team = await db.collection('teams').findOne({ id: teamId });
+  if (!team) return null;
+  return team as Team;
+}
+
+export async function getTeamsByUser(uid: string): Promise<Team[]> {
+  const db = await getMongoDb();
+  const teams = await db.collection('teams').find({ coachUid: uid }).toArray();
+  return teams as Team[];
+}
+
+export async function getAllTeams(): Promise<Team[]> {
+  const db = await getMongoDb();
+  const teams = await db.collection('teams').find({}).toArray();
+  return teams as Team[];
+}
+
+export async function getSessionsByTeam(teamId: string): Promise<Session[]> {
+  const db = await getMongoDb();
+  const sessions = await db.collection('sessions').find({ teamId }).toArray();
+  return sessions as Session[];
 }
 
 

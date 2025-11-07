@@ -2,7 +2,7 @@ import type { DatabaseAdapter } from './adapter';
 import * as mongodb from '@/lib/mongodb/operations';
 import type { User, CreateUserInput } from '@/types/user';
 import type { Session, CreateSessionInput } from '@/types/session';
-import type { LeaderboardEntry } from '@/types/team';
+import type { LeaderboardEntry, Team } from '@/types/team';
 
 export class MongodbAdapter implements DatabaseAdapter {
   async getUser(uid: string): Promise<User | null> {
@@ -36,6 +36,26 @@ export class MongodbAdapter implements DatabaseAdapter {
 
   async getLeaderboardEntries(teamId: string): Promise<LeaderboardEntry[]> {
     return mongodb.getLeaderboardEntries(teamId);
+  }
+
+  async getSessionsByTeam(teamId: string): Promise<Session[]> {
+    return mongodb.getSessionsByTeam(teamId);
+  }
+
+  async createTeam(name: string, coachUid: string): Promise<Team> {
+    return mongodb.createTeam(name, coachUid);
+  }
+
+  async getTeam(teamId: string): Promise<Team | null> {
+    return mongodb.getTeam(teamId);
+  }
+
+  async getTeamsByUser(uid: string): Promise<Team[]> {
+    return mongodb.getTeamsByUser(uid);
+  }
+
+  async getAllTeams(): Promise<Team[]> {
+    return mongodb.getAllTeams();
   }
 }
 

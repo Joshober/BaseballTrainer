@@ -1,5 +1,21 @@
-import * as tf from '@tensorflow/tfjs-node';
-import * as posedetection from '@tensorflow-models/pose-detection';
+// Try to import TensorFlow.js Node, but make it optional (Windows native bindings issue)
+let tf: any = null;
+let posedetection: any = null;
+let tfjsNodeAvailable = false;
+
+try {
+  tf = require('@tensorflow/tfjs-node');
+  posedetection = require('@tensorflow-models/pose-detection');
+  tfjsNodeAvailable = true;
+  console.log('✅ TensorFlow.js Node loaded successfully');
+} catch (error: any) {
+  console.warn('⚠️  TensorFlow.js Node not available (native bindings issue).');
+  console.warn('   This is common on Windows. Server-side pose detection will be disabled.');
+  console.warn('   Client-side pose detection will still work in the browser.');
+  console.warn(`   Error: ${error.message}`);
+  tfjsNodeAvailable = false;
+}
+
 import { createCanvas, loadImage, Image } from 'canvas';
 import type { PoseResult } from '@/types/pose';
 import {
@@ -11,11 +27,26 @@ import {
   type KeypointMap,
 } from './angles';
 import { calculateBaseballSwingMetrics } from './baseball-detector';
+import { detectBatLine, getHandRegion } from './bat-detector';
 
 let detector: posedetection.PoseDetector | null = null;
+let tfReady = false;
+
+async function ensureTensorFlowReady(): Promise<void> {
+  if (!tfjsNodeAvailable || !tf) {
+    throw new Error('TensorFlow.js Node is not available. Server-side pose detection is disabled.');
+  }
+  if (!tfReady) {
+    await tf.ready();
+    tfReady = true;
+  }
+}
 
 async function getDetector(): Promise<posedetection.PoseDetector> {
   if (!detector) {
+    // Ensure TensorFlow.js backend is initialized
+    await ensureTensorFlowReady();
+    
     // Use MoveNet Thunder for better accuracy on server-side
     try {
       detector = await posedetection.createDetector(
@@ -41,6 +72,14 @@ export async function estimateAnglesFromImageBuffer(
   imageBuffer: Buffer
 ): Promise<PoseResult> {
   try {
+    // Check if TensorFlow.js Node is available
+    if (!tfjsNodeAvailable || !tf || !posedetection) {
+      console.warn('Server-side pose detection not available. Returning error result.');
+      return { ok: false };
+    }
+    
+    // Ensure TensorFlow.js is ready before using detector
+    await ensureTensorFlowReady();
     const detector = await getDetector();
     const image = await loadImage(imageBuffer);
     const canvas = createCanvas(image.width, image.height);
@@ -93,9 +132,31 @@ export async function estimateAnglesFromImageBuffer(
       score: kp.score || 0,
     })));
 
-    // Use baseball metrics if available, otherwise fallback to generic
-    const launchAngleEst = baseballMetrics?.launchAngle || estimateLaunchAngle(shoulderAngle, handLineAngle);
-    const attackAngleEst = baseballMetrics?.attackAngle || handLineAngle;
+    // Try to detect bat line for more accurate angle
+    let batAngle: number | null = null;
+    try {
+      const handRegion = getHandRegion(keypoints.map((kp) => ({
+        name: kp.name || '',
+        x: kp.x,
+        y: kp.y,
+        score: kp.score || 0,
+      })));
+
+      if (handRegion) {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const batLine = detectBatLine(imageData, handRegion);
+        if (batLine && batLine.confidence > 0.3) {
+          batAngle = batLine.angle;
+        }
+      }
+    } catch (error) {
+      console.warn('Bat detection failed:', error);
+    }
+
+    // Use bat angle if detected, otherwise use baseball metrics or fallback
+    const finalAttackAngle = batAngle !== null ? batAngle : (baseballMetrics?.attackAngle || handLineAngle);
+    const launchAngleEst = baseballMetrics?.launchAngle || estimateLaunchAngle(shoulderAngle, finalAttackAngle || handLineAngle);
+    const attackAngleEst = finalAttackAngle;
     const confidence = baseballMetrics?.confidence || calculateConfidence(keypoints.map((kp) => ({
       name: kp.name || '',
       x: kp.x,

@@ -21,8 +21,9 @@ export default function AuthButton() {
   const handleSignIn = async () => {
     try {
       await signInWithGoogle();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Sign in error:', error);
+      alert(error?.message || 'Firebase Auth is not configured. Please configure Firebase or use local storage/database.');
     }
   };
 

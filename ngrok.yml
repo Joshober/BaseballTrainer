@@ -1,0 +1,16 @@
+version: 3
+agent:
+  authtoken: 33iaELUMFFFvmbxODvOPZdb9gtm_6ZgRzTW3LcbG1shh2J5hN
+endpoints:
+  # Backend server (Express + AI models) - runs on port 3001
+  - name: baseball-backend
+    url: baseball.ngrok.app
+    upstream:
+      url: http://localhost:3001
+  
+  # Frontend (Next.js) - runs on port 3000
+  - name: baseball-frontend
+    url: baseball.ngrok.dev
+    upstream:
+      url: http://localhost:3000
+

@@ -1,0 +1,3 @@
+# This directory contains server-only code
+# MongoDB should NEVER be imported in client components
+

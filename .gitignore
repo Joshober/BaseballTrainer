@@ -47,6 +47,9 @@ next-env.d.ts
 # local storage uploads
 /server/uploads/
 
+# ngrok config (contains auth token - keep local)
+# ngrok.yml
+
 # package lock files (optional - some teams commit these)
 package-lock.json
 yarn.lock
