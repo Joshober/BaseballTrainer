@@ -5,8 +5,8 @@ A Next.js application that analyzes baseball swings using AI pose detection and 
 ## Features
 
 - **AI Pose Detection**: Client-side (TensorFlow.js) and server-side (MediaPipe) pose detection
-- **Flexible Storage**: Support for Firebase Storage or local PC server storage
-- **Flexible Database**: Support for Firebase Firestore or MongoDB Atlas
+- **Storage**: Local PC server storage
+- **Database**: MongoDB Atlas
 - **Space Game**: Calculate distance based on exit velocity and launch angle, track progress through space zones
 - **Leaderboard**: Compete with your team and see who can launch their swing the farthest
 - **Photo & Video Support**: Capture or upload photos/videos, extract best frame from videos
@@ -15,9 +15,9 @@ A Next.js application that analyzes baseball swings using AI pose detection and 
 
 - **Frontend**: Next.js 14+, React, TypeScript, Tailwind CSS
 - **AI**: TensorFlow.js, MoveNet (SinglePose Lightning)
-- **Database**: Firebase Firestore or MongoDB Atlas
-- **Storage**: Firebase Storage or Local PC Server
-- **Auth**: Firebase Authentication
+- **Database**: MongoDB Atlas
+- **Storage**: Local PC Server
+- **Auth**: Auth0 Authentication
 - **Backend**: Main Gateway (Node.js) + Flask Services (Python)
   - Pose Detection Service (MediaPipe)
   - Drill Recommender Service
@@ -26,9 +26,8 @@ A Next.js application that analyzes baseball swings using AI pose detection and 
 ## Prerequisites
 
 - Node.js 18+ and npm
-- Firebase project (for Firebase Auth, Firestore, Storage)
-- MongoDB Atlas account (optional, if using MongoDB)
-- Firebase Admin SDK credentials (for server-side operations)
+- Auth0 account (for authentication)
+- MongoDB Atlas account (for database)
 
 ## Setup Instructions
 
@@ -68,27 +67,22 @@ npm run install:models
 Create a `.env.local` file in the root directory:
 
 ```env
-# Firebase Configuration
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+# Auth0 Configuration
+AUTH0_DOMAIN=your-app.auth0.com
+AUTH0_CLIENT_ID=your_client_id
+AUTH0_CLIENT_SECRET=your_client_secret
+AUTH0_BASE_URL=http://localhost:3001
+AUTH0_AUDIENCE=your_api_identifier
+AUTH0_SCOPE=openid profile email
 
-# Firebase Admin (for server-side operations)
-FIREBASE_ADMIN_PROJECT_ID=your_project_id
-FIREBASE_ADMIN_CLIENT_EMAIL=your_service_account_email
-FIREBASE_ADMIN_PRIVATE_KEY=your_private_key
-
-# MongoDB Atlas (if using MongoDB)
+# MongoDB Atlas
 MONGODB_URI="mongodb+srv://username:password@cluster.mongodb.net/database?retryWrites=true&w=majority"
 # Or specify database separately:
 MONGODB_DATABASE=baseball
 
 # Storage & Database Toggles
-STORAGE_TYPE=firebase  # or "local"
-DATABASE_TYPE=firestore  # or "mongodb"
+STORAGE_TYPE=local
+DATABASE_TYPE=mongodb
 
 # Backend Gateway Configuration
 GATEWAY_PORT=3001
@@ -119,42 +113,27 @@ NGROK_URL=https://baseball.ngrok.app
 NEXT_PUBLIC_NGROK_FRONTEND_URL=https://baseball.ngrok.dev
 NGROK_FRONTEND_URL=https://baseball.ngrok.dev
 
-# Firebase Billing Protection (prevents charges over $1)
-# Note: Firebase Auth is FREE on Spark plan (50K MAU/month) - no charges!
-FIREBASE_BILLING_PROTECTION=true
-FIREBASE_MAX_SPEND=1.0
-FIREBASE_MAX_READS_PER_DAY=40000
-FIREBASE_MAX_WRITES_PER_DAY=15000
-FIREBASE_MAX_STORAGE_GB=4.0
-FIREBASE_MAX_BANDWIDTH_GB=0.8
 ```
 
-### 3. Firebase Setup
+### 3. Auth0 Setup
 
 **Quick Setup (5 minutes):**
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Create a new project
-3. Enable **Authentication**:
-   - Go to Authentication > Sign-in method
-   - Enable **Google** sign-in
-   - Enable **Email/Password** sign-in
-4. Get your Firebase config:
-   - Go to Project Settings (gear icon)
-   - Scroll to "Your apps" section
-   - Click Web icon (`</>`) to add web app
-   - Copy the config values
+1. Go to [Auth0 Dashboard](https://manage.auth0.com/)
+2. Create a new application (Regular Web Application)
+3. Configure callback URLs:
+   - Allowed Callback URLs: `http://localhost:3001/api/auth/callback`
+   - Allowed Logout URLs: `http://localhost:3000`
+   - Allowed Web Origins: `http://localhost:3000`
+4. Get your Auth0 credentials:
+   - Domain: Found at the top of your Auth0 Dashboard
+   - Client ID: Found in your Application settings
+   - Client Secret: Click "Show" in Application settings
 5. Add config to `.env.local` (see example above)
 
-**See `docs/FIREBASE_SETUP.md` for detailed step-by-step instructions.**
+**See `docs/AUTH0_SETUP.md` for detailed step-by-step instructions.**
 
-**Optional (for Storage & Database):**
-- Enable **Firestore Database** (for database)
-- Enable **Storage** (for file storage)
-- Set up **Security Rules** (see `docs/FIREBASE_SETUP.md`)
-- Create **Service Account** (for server-side operations)
-
-### 4. MongoDB Atlas Setup (Optional)
+### 4. MongoDB Atlas Setup
 
 1. Create a MongoDB Atlas account at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
 2. Create a new cluster
@@ -162,54 +141,7 @@ FIREBASE_MAX_BANDWIDTH_GB=0.8
 4. Whitelist your IP address (or use 0.0.0.0/0 for development)
 5. Get your connection string and add it to `.env.local` as `MONGODB_URI`
 
-### 5. Firebase Security Rules
-
-#### Firestore Rules
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Users: read/write own doc
-    match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-    }
-    
-    // Sessions: owner can read/write; team coach can read team sessions
-    match /sessions/{sessionId} {
-      allow read: if request.auth != null && 
-        (resource.data.uid == request.auth.uid || 
-         get(/databases/$(database)/documents/teams/$(resource.data.teamId)).data.coachUid == request.auth.uid);
-      allow write: if request.auth != null && request.resource.data.uid == request.auth.uid;
-    }
-    
-    // Leaderboards: public read per team
-    match /leaderboards/{teamId}/entries/{uid} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == uid;
-    }
-  }
-}
-```
-
-#### Storage Rules
-
-```javascript
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /swings/{uid}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-      // Coaches can read team images
-      allow read: if request.auth != null && 
-        exists(/databases/$(database)/documents/teams/$(teamId)) &&
-        get(/databases/$(database)/documents/teams/$(teamId)).data.coachUid == request.auth.uid;
-    }
-  }
-}
-```
-
-### 6. Running the Application
+### 5. Running the Application
 
 #### Development Mode
 
@@ -245,11 +177,11 @@ baseballhackathon/
 │   ├── Mission/           # Mission flow components
 │   └── Leaderboard/       # Leaderboard components
 ├── lib/                   # Core libraries
-│   ├── database/          # Database adapters (Firestore/MongoDB)
-│   ├── storage/           # Storage adapters (Firebase/Local)
+│   ├── database/          # Database adapters (MongoDB)
+│   ├── storage/           # Storage adapters (Local)
 │   ├── pose/              # Pose detection (client/server)
 │   ├── game/              # Game logic (physics, zones, labels)
-│   ├── firebase/          # Firebase configuration
+│   ├── auth0/             # Auth0 configuration
 │   └── mongodb/           # MongoDB configuration
 ├── pose-detection-service/  # Pose detection service (MediaPipe)
 ├── types/                 # TypeScript type definitions
@@ -260,18 +192,16 @@ baseballhackathon/
 
 ### Storage Types
 
-- **firebase**: Uses Firebase Storage (default)
-- **local**: Uses local Python backend for file storage
+- **local**: Uses local Python backend for file storage (default)
 
 ### Database Types
 
-- **firestore**: Uses Firebase Firestore (default)
-- **mongodb**: Uses MongoDB Atlas
+- **mongodb**: Uses MongoDB Atlas (default)
 
 Set these in `.env.local`:
 ```env
-STORAGE_TYPE=firebase  # or "local"
-DATABASE_TYPE=firestore  # or "mongodb"
+STORAGE_TYPE=local
+DATABASE_TYPE=mongodb
 ```
 
 ## Usage
@@ -336,19 +266,20 @@ distanceFt = (exitVelocity^2 / 32.174) * sin(2 * launchAngleRadians)
 - Models are cached after first download (~17MB total)
 - See `docs/MODEL_INSTALLATION.md` for detailed instructions
 
-### Firebase Auth Errors
+### Auth0 Errors
 
-- **"Firebase: Error (auth/invalid-api-key)"**:
-  - Check that `.env.local` has correct `NEXT_PUBLIC_FIREBASE_API_KEY`
-  - Make sure API key starts with `AIzaSy`
+- **"Auth0 not configured"**:
+  - Check that `.env.local` has all `AUTH0_*` variables set
+  - Make sure `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` are set
   - Restart dev server after adding config
-- **"Firebase Auth is disabled"**:
-  - Check that all `NEXT_PUBLIC_FIREBASE_*` variables are set in `.env.local`
-  - Make sure values don't have quotes
-  - See `docs/FIREBASE_SETUP.md` for complete setup guide
+- **"Invalid token" errors**:
+  - Check that callback URLs are configured in Auth0 Dashboard
+  - Ensure `AUTH0_BASE_URL` matches your backend gateway URL
+  - Verify `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` are set correctly
+  - See `docs/AUTH0_SETUP.md` for complete setup guide
 - **Google Sign-In not working**:
-  - Make sure Google sign-in is enabled in Firebase Console
-  - Check that support email is selected
+  - Make sure Google sign-in is enabled in Auth0 Dashboard
+  - Check that callback URLs are configured correctly
   - Try clearing browser cache
 
 ### MongoDB Connection Issues

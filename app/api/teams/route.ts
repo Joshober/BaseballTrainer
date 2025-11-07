@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabaseAdapter } from '@/lib/database';
-import { verifyIdToken } from '@/lib/firebase/admin';
+import { verifyIdToken } from '@/lib/auth0/admin';
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getDatabaseAdapter();
-    const team = await db.createTeam(name, decodedToken.uid);
+    // Auth0 uses 'sub' as the user ID
+    const team = await db.createTeam(name, decodedToken.sub);
 
     return NextResponse.json(team);
   } catch (error: any) {

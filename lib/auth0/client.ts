@@ -94,8 +94,9 @@ export function signUpWithGoogle(): void {
 
 /**
  * Sign up with email/password
+ * After successful signup, user needs to sign in
  */
-export async function signUpWithEmail(email: string, password: string): Promise<{ access_token: string; user: Auth0User } | null> {
+export async function signUpWithEmail(email: string, password: string): Promise<{ success: boolean; email: string; message: string } | null> {
   const gatewayUrl = getBackendUrl();
   try {
     const response = await fetch(`${gatewayUrl}/api/auth/register`, {
@@ -108,19 +109,24 @@ export async function signUpWithEmail(email: string, password: string): Promise<
     
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Registration failed');
+      throw new Error(error.error || error.message || 'Registration failed');
     }
     
     const data = await response.json();
     
-    // Store tokens
-    localStorage.setItem('auth_token', data.access_token);
-    localStorage.setItem('auth_user', JSON.stringify(data.user));
-    
-    return {
-      access_token: data.access_token,
-      user: data.user,
-    };
+    // After successful signup, automatically sign them in
+    // Use the login endpoint to authenticate
+    try {
+      const loginResult = await signInWithEmail(email, password);
+      return loginResult ? { success: true, email, message: 'Account created and signed in successfully' } : null;
+    } catch (loginError: any) {
+      // If login fails, return success but indicate they need to sign in
+      return {
+        success: true,
+        email,
+        message: 'Account created successfully. Please sign in.',
+      };
+    }
   } catch (error: any) {
     console.error('Email registration error:', error);
     throw error;

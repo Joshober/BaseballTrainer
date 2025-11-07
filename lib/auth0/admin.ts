@@ -1,6 +1,5 @@
 /**
  * Auth0 Server-Side Token Verification
- * Replaces Firebase Admin token verification
  */
 import { NextRequest } from 'next/server';
 import * as jwt from 'jsonwebtoken';
@@ -98,7 +97,7 @@ export async function getAuth0User(request: NextRequest): Promise<any> {
 }
 
 /**
- * Verify ID token from request (replaces Firebase verifyIdToken)
+ * Verify ID token from request
  */
 export async function verifyIdToken(token: string): Promise<any> {
   return verifyAuth0Token(token);

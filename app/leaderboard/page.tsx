@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trophy, Loader2 } from 'lucide-react';
-import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { onAuthChange, getAuth, getIdToken } from '@/lib/auth0/client-auth';
 import LeaderboardTable from '@/components/Leaderboard/LeaderboardTable';
 import type { LeaderboardEntry } from '@/types/team';
 
@@ -27,12 +27,12 @@ export default function LeaderboardPage() {
 
   const loadLeaderboard = async () => {
     try {
-      // Get Firebase Auth token
-      const auth = getFirebaseAuth();
+      // Get Auth0 token
+      const auth = getAuth();
       if (!auth?.currentUser) {
         return;
       }
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
 
       // Load leaderboard via API
       const leaderboardResponse = await fetch(`/api/leaderboard?teamId=${teamId}`, {

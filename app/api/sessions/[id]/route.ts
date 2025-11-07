@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabaseAdapter } from '@/lib/database';
-import { verifyIdToken } from '@/lib/firebase/admin';
+import { verifyIdToken } from '@/lib/auth0/admin';
 
 export async function GET(
   request: NextRequest,
@@ -27,7 +27,8 @@ export async function GET(
     }
     
     // Verify user has access to this session (owner or team coach)
-    if (session.uid !== decodedToken.uid) {
+    // Auth0 uses 'sub' as the user ID
+    if (session.uid !== decodedToken.sub) {
       // TODO: Check if user is team coach
       // For now, only allow owner access
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

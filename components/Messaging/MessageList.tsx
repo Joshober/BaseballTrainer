@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Message } from '@/types/message';
 import type { Session } from '@/types/session';
 import { Video, Play, TrendingUp, Target } from 'lucide-react';
-import { getFirebaseAuth } from '@/lib/firebase/auth';
+import { getAuth, getIdToken } from '@/lib/auth0/client-auth';
 
 interface MessageListProps {
   messages: Message[];
@@ -30,10 +30,10 @@ export default function MessageList({ messages, currentUserId }: MessageListProp
       if (sessionIds.length === 0) return;
 
       try {
-        const auth = getFirebaseAuth();
+        const auth = getAuth();
         if (!auth?.currentUser) return;
         
-        const token = await auth.currentUser.getIdToken();
+        const token = await getIdToken();
         const sessionPromises = sessionIds.map(async (sessionId) => {
           const response = await fetch(`/api/sessions/${sessionId}`, {
             headers: {

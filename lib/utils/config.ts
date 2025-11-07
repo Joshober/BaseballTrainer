@@ -9,28 +9,13 @@ export const config = {
     baseURL: process.env.AUTH0_BASE_URL || process.env.NEXT_PUBLIC_AUTH0_BASE_URL || '',
     secret: process.env.AUTH0_SECRET || '',
   },
-  // Firebase configuration (deprecated - kept for backward compatibility)
-  // Firebase is no longer used for authentication, only for other services if needed
-  firebase: {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '',
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '', // Not used if storageType is 'local'
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
-  },
-  firebaseAdmin: {
-    projectId: process.env.FIREBASE_ADMIN_PROJECT_ID || '',
-    clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL || '',
-    privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n') || '',
-  },
   // MongoDB
   mongodb: {
     uri: (process.env.MONGODB_URI || '').replace(/^["']|["']$/g, ''), // Remove quotes if present
   },
   // Storage & Database toggles
   storageType: 'local' as const, // Always use local storage
-  databaseType: (process.env.DATABASE_TYPE || 'mongodb') as 'firestore' | 'mongodb',
+  databaseType: 'mongodb' as const, // Only MongoDB supported
   // Pose Detection Service
   poseDetectionService: {
     url: process.env.POSE_DETECTION_SERVICE_URL || process.env.NGROK_POSE_DETECTION_URL || 'http://localhost:5000',
@@ -65,11 +50,7 @@ export const config = {
 export function validateConfig() {
   const errors: string[] = [];
 
-  if (config.databaseType === 'firestore') {
-    if (!config.firebase.apiKey) errors.push('NEXT_PUBLIC_FIREBASE_API_KEY is required');
-    if (!config.firebase.projectId) errors.push('NEXT_PUBLIC_FIREBASE_PROJECT_ID is required');
-  }
-
+  // Only MongoDB is supported
   if (config.databaseType === 'mongodb') {
     if (!config.mongodb.uri) errors.push('MONGODB_URI is required');
   }

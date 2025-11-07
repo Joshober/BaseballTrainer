@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabaseAdapter } from '@/lib/database';
-import { verifyIdToken } from '@/lib/firebase/admin';
+import { verifyIdToken } from '@/lib/auth0/admin';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getDatabaseAdapter();
-    const conversations = await db.getConversations(decodedToken.uid);
+    // Auth0 uses 'sub' as the user ID
+    const conversations = await db.getConversations(decodedToken.sub);
     
     return NextResponse.json(conversations);
   } catch (error) {

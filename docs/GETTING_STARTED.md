@@ -5,7 +5,7 @@
 ### **Current Status:**
 - ✅ **Next.js Frontend**: Running on http://localhost:3000
 - ✅ **MongoDB**: Connected and ready
-- ✅ **Firebase Auth**: Configured (FREE tier)
+- ✅ **Auth0**: Configured
 - ✅ **AI Models**: Will download on first use
 
 ---
@@ -25,7 +25,7 @@ Click **"Sign In"** and choose:
 - **Google Sign-In** (recommended)
 - **Email/Password** (if you set it up)
 
-**Note**: Firebase Auth is FREE on Spark plan (50K users/month) - no charges!
+**Note**: Auth0 provides free tier for development
 
 ### **3. Start Your First Mission**
 
@@ -62,13 +62,13 @@ Click **"Sign In"** and choose:
 
 ### **Current Setup:**
 - **Database**: MongoDB Atlas (connected ✓)
-- **Storage**: Firebase Storage (default)
-- **Auth**: Firebase Authentication (FREE tier)
+- **Storage**: Local storage (default)
+- **Auth**: Auth0 Authentication
 
 ### **To Change Storage:**
 Edit `.env.local`:
 ```env
-# Use local storage instead of Firebase
+# Use local storage
 STORAGE_TYPE=local
 ```
 
@@ -80,8 +80,8 @@ npm run dev:server
 ### **To Change Database:**
 Edit `.env.local`:
 ```env
-# Use Firestore instead of MongoDB
-DATABASE_TYPE=firestore
+# MongoDB is the only supported database
+DATABASE_TYPE=mongodb
 ```
 
 ---
@@ -112,9 +112,9 @@ DATABASE_TYPE=firestore
 
 ## 🐛 **Troubleshooting**
 
-### **"Firebase Auth not configured"**
-- Check `.env.local` has all `NEXT_PUBLIC_FIREBASE_*` variables
-- See `FIREBASE_SETUP.md` for setup guide
+### **"Auth0 not configured"**
+- Check `.env.local` has all `AUTH0_*` variables
+- See `AUTH0_SETUP.md` for setup guide
 
 ### **"MongoDB connection failed"**
 - Check `.env.local` has `MONGODB_URI`
@@ -127,8 +127,7 @@ DATABASE_TYPE=firestore
 - Run `npm run install:models` to pre-download
 
 ### **"Can't upload photos"**
-- If using Firebase Storage: Check Firebase config
-- If using local storage: Start Express server (`npm run dev:server`)
+- If using local storage: Start storage server (`npm run dev:storage`)
 
 ---
 
@@ -136,7 +135,7 @@ DATABASE_TYPE=firestore
 
 All documentation files are in the `docs/` directory:
 
-- **Firebase Setup**: `FIREBASE_SETUP.md`
+- **Auth0 Setup**: `AUTH0_SETUP.md`
 - **MongoDB Setup**: `MONGODB_SETUP.md`
 - **MongoDB Troubleshooting**: `MONGODB_SETUP.md`
 - **Ngrok Setup**: `NGROK_SETUP.md` (for remote backend)
@@ -159,17 +158,17 @@ All documentation files are in the `docs/` directory:
 
 3. **Deploy** (when ready):
    - Deploy to Vercel (recommended for Next.js)
-   - Or use Firebase Hosting
+   - Or use Vercel Hosting
    - See deployment guides in `../README.md`
 
 ---
 
 ## 💡 **Tips**
 
-- **Firebase Auth is FREE** - use it freely!
+- **Auth0** - provides free tier for development
 - **MongoDB FREE tier** - 512MB is plenty for development
 - **AI models** - download once, cached locally
-- **Local storage** - use for development, Firebase for production
+- **Local storage** - use for development
 
 ---
 

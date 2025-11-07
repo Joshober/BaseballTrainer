@@ -20,6 +20,7 @@ export function getDatabaseAdapter(): DatabaseAdapter {
   }
 
   if (!adapter) {
+    // Only MongoDB is supported now
     if (config.databaseType === 'mongodb') {
       // CRITICAL: Use require() instead of import to prevent bundling
       // This ensures MongoDB is never included in client bundle
@@ -27,10 +28,7 @@ export function getDatabaseAdapter(): DatabaseAdapter {
       const MongodbAdapter = mongodbAdapterModule.MongodbAdapter;
       adapter = new MongodbAdapter();
     } else {
-      // Dynamic require for Firestore too to be safe
-      const firestoreAdapterModule = require('./firestore-adapter');
-      const FirestoreAdapter = firestoreAdapterModule.FirestoreAdapter;
-      adapter = new FirestoreAdapter();
+      throw new Error('Only MongoDB is supported. Please set DATABASE_TYPE=mongodb in .env.local');
     }
   }
   return adapter;

@@ -63,12 +63,12 @@ export default function MessageInput({ onSend, onAttachVideo, sessions }: Messag
     setIsSending(true);
     try {
       // Get auth token
-      const { getFirebaseAuth } = await import('@/lib/firebase/auth');
-      const auth = getFirebaseAuth();
+      const { getAuth, getIdToken } = await import('@/lib/auth0/client-auth');
+      const auth = getAuth();
       if (!auth?.currentUser) {
         throw new Error('Not authenticated');
       }
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
       
       // Upload via API
       const sessionId = crypto.randomUUID();

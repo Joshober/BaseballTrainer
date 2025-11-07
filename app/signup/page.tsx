@@ -97,9 +97,23 @@ export default function SignUpPage() {
     
     try {
       const result = await signUpWithEmail(email, password);
-      if (result) {
-        // User created successfully, now create user profile
-        await createUserProfile(result.access_token, result.user, selectedRole);
+      if (result && result.success) {
+        // Check if user was automatically signed in
+        const token = getAuthToken();
+        const user = getAuthUser();
+        
+        if (token && user) {
+          // User was automatically signed in, create profile
+          await createUserProfile(token, user, selectedRole);
+        } else {
+          // User needs to sign in manually
+          setError('Account created successfully. Please sign in.');
+          setLoading(false);
+          // Redirect to login after a short delay
+          setTimeout(() => {
+            router.push('/login?email=' + encodeURIComponent(email));
+          }, 2000);
+        }
       }
     } catch (error: any) {
       setError(error.message || 'Registration failed. Please try again.');

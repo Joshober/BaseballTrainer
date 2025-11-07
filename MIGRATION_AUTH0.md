@@ -39,24 +39,21 @@ The following API routes need to be updated:
 ## Key Differences
 
 ### User ID
-- **Firebase**: Uses `uid` as the user identifier
 - **Auth0**: Uses `sub` (subject) as the user identifier
 
 ### Token Verification
-- **Firebase**: Uses Firebase Admin SDK to verify ID tokens
 - **Auth0**: Uses JWKS (JSON Web Key Set) to verify access tokens
 
 ### Authentication Flow
-- **Firebase**: Client-side authentication with Firebase SDK
 - **Auth0**: Redirect-based authentication with Auth0 SDK
 
 ## Remaining Tasks
 
 1. Update all API routes to:
-   - Import from `@/lib/auth0/admin` instead of `@/lib/firebase/admin`
-   - Change `decodedToken.uid` to `decodedToken.sub`
+   - Import from `@/lib/auth0/admin`
+   - Use `decodedToken.sub` as the user ID
 
-2. Update any components that directly use Firebase auth
+2. Update any components that directly use auth functions
 
 3. Test authentication flow end-to-end
 

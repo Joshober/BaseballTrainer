@@ -1,11 +1,10 @@
 /**
  * Auth0 Authentication Library
- * Replaces Firebase Auth with Auth0
  */
 import { useUser, useAuth0 } from '@auth0/nextjs-auth0/client';
 
 export interface Auth0User {
-  sub: string; // User ID (equivalent to Firebase uid)
+  sub: string; // User ID
   email?: string;
   name?: string;
   picture?: string;
@@ -80,9 +79,9 @@ export async function getIdToken(): Promise<string | null> {
 }
 
 /**
- * Convert Auth0 user to Firebase-like user format for compatibility
+ * Convert Auth0 user to simplified user format
  */
-export function convertAuth0UserToFirebaseUser(auth0User: any): Auth0User | null {
+export function convertAuth0User(auth0User: any): Auth0User | null {
   if (!auth0User) return null;
   
   return {

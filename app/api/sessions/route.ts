@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabaseAdapter } from '@/lib/database';
-import { verifyIdToken } from '@/lib/firebase/admin';
+import { verifyIdToken } from '@/lib/auth0/admin';
 import type { CreateSessionInput } from '@/types/session';
 
 export async function POST(request: NextRequest) {
@@ -20,7 +20,8 @@ export async function POST(request: NextRequest) {
     const body: CreateSessionInput = await request.json();
     
     // Verify user owns this session
-    if (body.uid !== decodedToken.uid) {
+    // Auth0 uses 'sub' as the user ID
+    if (body.uid !== decodedToken.sub) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -47,7 +48,8 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const uid = searchParams.get('uid') || decodedToken.uid;
+    // Auth0 uses 'sub' as the user ID
+    const uid = searchParams.get('uid') || decodedToken.sub;
     const teamId = searchParams.get('teamId');
 
     const db = getDatabaseAdapter();

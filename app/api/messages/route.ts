@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabaseAdapter } from '@/lib/database';
-import { verifyIdToken } from '@/lib/firebase/admin';
+import { verifyIdToken } from '@/lib/auth0/admin';
 import type { CreateMessageInput } from '@/types/message';
 
 export async function POST(request: NextRequest) {
@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getDatabaseAdapter();
-    const message = await db.createMessage(decodedToken.uid, body);
+    // Auth0 uses 'sub' as the user ID
+    const message = await db.createMessage(decodedToken.sub, body);
     return NextResponse.json(message);
   } catch (error) {
     console.error('Message creation error:', error);
@@ -46,7 +47,8 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const uid1 = searchParams.get('uid1') || decodedToken.uid;
+    // Auth0 uses 'sub' as the user ID
+    const uid1 = searchParams.get('uid1') || decodedToken.sub;
     const uid2 = searchParams.get('uid2');
 
     if (!uid2) {
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify user is part of this conversation
-    if (uid1 !== decodedToken.uid && uid2 !== decodedToken.uid) {
+    if (uid1 !== decodedToken.sub && uid2 !== decodedToken.sub) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

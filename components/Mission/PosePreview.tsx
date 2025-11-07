@@ -18,11 +18,13 @@ export default function PosePreview({ imageUrl, onResult, useServer = false }: P
   const imgRef = useRef<HTMLImageElement>(null);
 
   const getAuthToken = async (): Promise<string> => {
-    const { getFirebaseAuth } = await import('@/lib/firebase/auth');
-    const auth = getFirebaseAuth();
+    const { getAuth, getIdToken } = await import('@/lib/auth0/client-auth');
+    const auth = getAuth();
     const user = auth.currentUser;
     if (!user) throw new Error('Not authenticated');
-    return user.getIdToken();
+    const token = await getIdToken();
+    if (!token) throw new Error('Not authenticated');
+    return token;
   };
 
   useEffect(() => {

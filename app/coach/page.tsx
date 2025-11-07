@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users, TrendingUp, BarChart3, Plus, UserPlus, Eye, Target, ArrowRight } from 'lucide-react';
-import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { onAuthChange, getAuth, getIdToken } from '@/lib/auth0/client-auth';
 import type { Team } from '@/types/team';
 import type { User } from '@/types/user';
 import type { Session } from '@/types/session';
@@ -40,16 +40,16 @@ export default function CoachDashboard() {
   });
 
   useEffect(() => {
-    const unsubscribe = onAuthChange(async (firebaseUser) => {
-      if (!firebaseUser) {
+    const unsubscribe = onAuthChange(async (authUser) => {
+      if (!authUser) {
         router.push('/login');
       } else {
         // Get user data
-        const auth = getFirebaseAuth();
+        const auth = getAuth();
         if (auth?.currentUser) {
           try {
-            const token = await auth.currentUser.getIdToken();
-            const userResponse = await fetch(`/api/users?uid=${firebaseUser.uid}`, {
+            const token = await getIdToken();
+            const userResponse = await fetch(`/api/users?uid=${authUser.uid}`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
               },
@@ -64,7 +64,7 @@ export default function CoachDashboard() {
                 return;
               }
               
-              loadTeams(firebaseUser.uid);
+              loadTeams(authUser.uid);
             }
           } catch (error) {
             console.error('Failed to load user:', error);
@@ -78,10 +78,10 @@ export default function CoachDashboard() {
 
   const loadTeams = async (coachUid: string) => {
     try {
-      const auth = getFirebaseAuth();
+      const auth = getAuth();
       if (!auth?.currentUser) return;
       
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
       const teamsResponse = await fetch('/api/teams', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -107,10 +107,10 @@ export default function CoachDashboard() {
 
   const loadTeamPlayers = async (teamId: string) => {
     try {
-      const auth = getFirebaseAuth();
+      const auth = getAuth();
       if (!auth?.currentUser) return;
       
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
 
       // Load players in team
       const playersResponse = await fetch(`/api/users?teamId=${teamId}`, {
@@ -192,10 +192,10 @@ export default function CoachDashboard() {
     if (!teamName.trim() || !user) return;
 
     try {
-      const auth = getFirebaseAuth();
+      const auth = getAuth();
       if (!auth?.currentUser) return;
       
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
 
       // Create team via API
       const teamResponse = await fetch('/api/teams', {

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Rocket, TrendingUp, Target, BarChart3, ArrowRight } from 'lucide-react';
-import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { onAuthChange, getAuth, getIdToken } from '@/lib/auth0/client-auth';
 import type { Session } from '@/types/session';
 import type { User } from '@/types/user';
 
@@ -25,10 +25,10 @@ export default function PlayerDashboard() {
 
   const loadDashboardData = async (uid: string) => {
     try {
-      const auth = getFirebaseAuth();
+      const auth = getAuth();
       if (!auth?.currentUser) return;
       
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
 
       // Load user data if viewing another player
       const isViewingOtherPlayer = uid !== auth.currentUser.uid;
@@ -96,16 +96,16 @@ export default function PlayerDashboard() {
       }
     }
 
-    const unsubscribe = onAuthChange(async (firebaseUser) => {
-      if (!firebaseUser) {
+    const unsubscribe = onAuthChange(async (authUser) => {
+      if (!authUser) {
         router.push('/login');
       } else {
         // Get user data
-        const auth = getFirebaseAuth();
+        const auth = getAuth();
         if (auth?.currentUser) {
           try {
-            const token = await auth.currentUser.getIdToken();
-            const userResponse = await fetch(`/api/users?uid=${firebaseUser.uid}`, {
+            const token = await getIdToken();
+            const userResponse = await fetch(`/api/users?uid=${authUser.uid}`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
               },
@@ -128,7 +128,7 @@ export default function PlayerDashboard() {
                 }
               }
               
-              loadDashboardData(firebaseUser.uid);
+              loadDashboardData(authUser.uid);
             }
           } catch (error) {
             console.error('Failed to load user:', error);

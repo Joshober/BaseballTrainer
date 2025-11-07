@@ -384,7 +384,6 @@ async function main() {
     }
 
     console.log('✅ Project is running!');
-    console.log('\nNote: Warnings about firebase_admin are expected if Firebase auth is not configured.');
     console.log('Press Ctrl+C to stop all services.\n');
 
     // Handle cleanup on exit

@@ -43,12 +43,11 @@ export class LocalStorageAdapter implements StorageAdapter {
 
   async deleteFile(path: string): Promise<void> {
     // Get auth token for delete
-    const { getFirebaseAuth } = await import('@/lib/firebase/auth');
-    const auth = getFirebaseAuth();
-    if (!auth?.currentUser) {
-      throw new Error('User not authenticated');
+    const { getAuthToken } = await import('@/lib/auth0/client');
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error('User not authenticated. Please sign in first.');
     }
-    const token = await auth.currentUser.getIdToken();
 
     // Delete from Flask storage server
     const storageServerUrl = getStorageServerUrl();

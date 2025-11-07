@@ -7,9 +7,9 @@ A Flask-based storage server for video and image files. Can run on a separate co
 - Upload videos and images
 - Retrieve files via URL
 - Delete files (with authentication)
-- Firebase authentication support
+- Auth0 authentication support
 - CORS enabled for cross-origin requests
-- Demo mode for testing without Firebase
+- Demo mode for testing without authentication
 
 ## Setup
 
@@ -30,10 +30,9 @@ STORAGE_SERVER_PORT=5003
 STORAGE_SERVER_HOST=0.0.0.0  # Use 0.0.0.0 to allow external connections
 STORAGE_UPLOAD_DIR=uploads
 
-# Firebase Admin (for authentication)
-FIREBASE_ADMIN_PROJECT_ID=your_project_id
-FIREBASE_ADMIN_CLIENT_EMAIL=your_service_account_email
-FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+# Auth0 (for authentication)
+AUTH0_DOMAIN=your-app.auth0.com
+AUTH0_AUDIENCE=your_api_identifier
 
 # Optional: Demo mode (skip authentication)
 DEMO_MODE=false
@@ -53,7 +52,7 @@ The server will start on `http://localhost:5003` (or the port specified in `STOR
 
 ```http
 POST /api/storage/upload
-Authorization: Bearer <firebase_token>
+Authorization: Bearer <auth0_token>
 Content-Type: multipart/form-data
 
 file: <file>
@@ -81,7 +80,7 @@ Returns the file with appropriate content type.
 
 ```http
 DELETE /api/storage?path={path}
-Authorization: Bearer <firebase_token>
+Authorization: Bearer <auth0_token>
 ```
 
 **Response:**
@@ -102,7 +101,7 @@ Authorization: Bearer <firebase_token>
 
 ## Demo Mode
 
-For testing without Firebase authentication:
+For testing without authentication:
 
 ```env
 DEMO_MODE=true
@@ -128,5 +127,5 @@ uploads/
 - Files are stored with user-specific paths (user_id/filename)
 - Users can only delete their own files
 - Path traversal attacks are prevented
-- Firebase authentication required for upload/delete operations
+- Auth0 authentication required for upload/delete operations
 

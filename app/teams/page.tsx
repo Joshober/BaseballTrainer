@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users, Plus, UserPlus } from 'lucide-react';
-import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { onAuthChange, getAuth, getIdToken } from '@/lib/auth0/client-auth';
 import type { Team } from '@/types/team';
 import type { User } from '@/types/user';
 
@@ -17,16 +17,16 @@ export default function TeamsPage() {
   const [teamName, setTeamName] = useState('');
 
   useEffect(() => {
-    const unsubscribe = onAuthChange(async (firebaseUser) => {
-      if (!firebaseUser) {
+    const unsubscribe = onAuthChange(async (authUser) => {
+      if (!authUser) {
         router.push('/login');
       } else {
         // Get user via API
-        const auth = getFirebaseAuth();
+        const auth = getAuth();
         if (auth?.currentUser) {
-          const token = await auth.currentUser.getIdToken();
+          const token = await getIdToken();
           try {
-            const userResponse = await fetch(`/api/users?uid=${firebaseUser.uid}`, {
+            const userResponse = await fetch(`/api/users?uid=${authUser.uid}`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
               },
@@ -48,10 +48,10 @@ export default function TeamsPage() {
 
   const loadTeams = async () => {
     try {
-      const auth = getFirebaseAuth();
+      const auth = getAuth();
       if (!auth?.currentUser) return;
       
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
       const teamsResponse = await fetch('/api/teams', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -75,10 +75,10 @@ export default function TeamsPage() {
     if (!teamName.trim() || !user) return;
 
     try {
-      const auth = getFirebaseAuth();
+      const auth = getAuth();
       if (!auth?.currentUser) return;
       
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
 
       // Create team via API
       const teamResponse = await fetch('/api/teams', {
@@ -135,10 +135,10 @@ export default function TeamsPage() {
     if (!user) return;
 
     try {
-      const auth = getFirebaseAuth();
+      const auth = getAuth();
       if (!auth?.currentUser) return;
       
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
 
       // Update user with teamId via API
       await fetch('/api/users', {

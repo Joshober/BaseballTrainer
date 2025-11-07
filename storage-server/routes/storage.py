@@ -139,7 +139,7 @@ def delete_file():
             return jsonify({'error': 'File not found'}), 404
         
         # Verify user owns the file (path should start with user_id)
-        # Auth0 uses 'sub' as the user ID (equivalent to Firebase 'uid')
+        # Auth0 uses 'sub' as the user ID
         user_id = request.user.get('sub', '')
         if not path.startswith(user_id + '/'):
             return jsonify({'error': 'Forbidden - you can only delete your own files'}), 403

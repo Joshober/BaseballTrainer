@@ -28,19 +28,17 @@
   - No native binding issues on Windows
 
 ### **Database**
-- **Option 1**: Firebase Firestore (cloud)
-- **Option 2**: MongoDB Atlas (cloud) via `pymongo` 4.6.0
-- **Toggle**: Set `DATABASE_TYPE` in `.env.local`
+- **MongoDB Atlas** (cloud) via `pymongo` 4.6.0
+- Set `DATABASE_TYPE=mongodb` in `.env.local`
 
 ### **Storage**
-- **Option 1**: Firebase Storage (cloud)
-- **Option 2**: Local file system (via Pose Detection Service)
-- **Toggle**: Set `STORAGE_TYPE` in `.env.local`
+- **Local file system** (via Storage Server)
+- Set `STORAGE_TYPE=local` in `.env.local`
 
 ### **Authentication**
-- **Provider**: Firebase Authentication
+- **Provider**: Auth0
 - **Methods**: Google Sign-In, Email/Password
-- **Backend**: Firebase Admin SDK (Python)
+- **Backend**: Auth0 token verification (Python/Node.js)
 
 ### **Image Processing**
 - **Server-side**: OpenCV 4.8.1, Pillow 10.1.0 (Python)
@@ -231,8 +229,8 @@ npm run install:models
 - Next.js + React + TypeScript (frontend)
 - Main Backend Gateway (Node.js/Express) + Flask Services (Python)
 - TensorFlow.js (client-side AI) + MediaPipe (server-side AI)
-- Firebase or MongoDB (database)
-- Firebase Storage or Local (storage)
+- MongoDB (database)
+- Local storage (storage)
 
 ### **AI Models**
 - **Client-Side**: Google's TensorFlow.js Model Hub (FREE)

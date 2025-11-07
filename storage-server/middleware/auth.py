@@ -144,7 +144,7 @@ def require_auth(f):
             }), 401
         
         # Attach user info to request
-        # Auth0 uses 'sub' as the user ID (equivalent to Firebase 'uid')
+        # Auth0 uses 'sub' as the user ID
         request.user = {
             'sub': decoded_token.get('sub'),
             'email': decoded_token.get('email'),

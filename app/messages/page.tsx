@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { MessageCircle, ArrowLeft } from 'lucide-react';
-import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { onAuthChange, getAuth, getIdToken } from '@/lib/auth0/client-auth';
 import type { Message, Conversation } from '@/types/message';
 import type { Session } from '@/types/session';
 import MessageList from '@/components/Messaging/MessageList';
@@ -49,10 +49,10 @@ export default function MessagesPage() {
 
   const loadConversations = async () => {
     try {
-      const auth = getFirebaseAuth();
+      const auth = getAuth();
       if (!auth?.currentUser) return;
       
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
       const response = await fetch('/api/conversations', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -72,10 +72,10 @@ export default function MessagesPage() {
 
   const loadMessages = async (uid1: string, uid2: string) => {
     try {
-      const auth = getFirebaseAuth();
+      const auth = getAuth();
       if (!auth?.currentUser) return;
       
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
       const response = await fetch(`/api/messages?uid1=${uid1}&uid2=${uid2}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -93,10 +93,10 @@ export default function MessagesPage() {
 
   const loadSessions = async () => {
     try {
-      const auth = getFirebaseAuth();
+      const auth = getAuth();
       if (!auth?.currentUser) return;
       
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
       const response = await fetch(`/api/sessions?uid=${auth.currentUser.uid}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -114,10 +114,10 @@ export default function MessagesPage() {
 
   const markMessagesAsRead = async (uid1: string, uid2: string) => {
     try {
-      const auth = getFirebaseAuth();
+      const auth = getAuth();
       if (!auth?.currentUser) return;
       
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
       await fetch('/api/messages/read', {
         method: 'POST',
         headers: {
@@ -135,10 +135,10 @@ export default function MessagesPage() {
     if (!user || !selectedOtherUid) return;
 
     try {
-      const auth = getFirebaseAuth();
+      const auth = getAuth();
       if (!auth?.currentUser) return;
       
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: {
@@ -176,10 +176,10 @@ export default function MessagesPage() {
     }
 
     try {
-      const auth = getFirebaseAuth();
+      const auth = getAuth();
       if (!auth?.currentUser) return 'Unknown User';
       
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
       const response = await fetch(`/api/users?uid=${uid}`, {
         headers: {
           'Authorization': `Bearer ${token}`,

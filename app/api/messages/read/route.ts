@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabaseAdapter } from '@/lib/database';
-import { verifyIdToken } from '@/lib/firebase/admin';
+import { verifyIdToken } from '@/lib/auth0/admin';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,12 +23,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify user is part of this conversation
-    if (uid1 !== decodedToken.uid && uid2 !== decodedToken.uid) {
+    // Auth0 uses 'sub' as the user ID
+    if (uid1 !== decodedToken.sub && uid2 !== decodedToken.sub) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const db = getDatabaseAdapter();
-    await db.markMessagesAsRead(uid1, uid2, decodedToken.uid);
+    await db.markMessagesAsRead(uid1, uid2, decodedToken.sub);
     
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -109,7 +109,7 @@ NEXT_PUBLIC_NGROK_FRONTEND_URL=https://baseball.ngrok.dev
 
 # Other configs...
 STORAGE_TYPE=local
-DATABASE_TYPE=firestore
+DATABASE_TYPE=mongodb
 # ... rest of your config
 ```
 
@@ -172,13 +172,12 @@ The frontend will automatically connect to the backend via ngrok if `NEXT_PUBLIC
 # Express server config
 EXPRESS_SERVER_PORT=3001
 
-# Firebase Admin (for auth verification)
-FIREBASE_ADMIN_PROJECT_ID=your_project_id
-FIREBASE_ADMIN_CLIENT_EMAIL=your_service_account_email
-FIREBASE_ADMIN_PRIVATE_KEY=your_private_key
+# Auth0 (for auth verification)
+AUTH0_DOMAIN=your-app.auth0.com
+AUTH0_AUDIENCE=your_api_identifier
 
 # Database & Storage
-DATABASE_TYPE=firestore  # or mongodb
+DATABASE_TYPE=mongodb
 STORAGE_TYPE=local
 ```
 
@@ -192,14 +191,13 @@ NGROK_URL=https://baseball.ngrok.app
 NEXT_PUBLIC_NGROK_FRONTEND_URL=https://baseball.ngrok.dev
 NGROK_FRONTEND_URL=https://baseball.ngrok.dev
 
-# Firebase Client Config
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-# ... rest of Firebase config
+# Auth0 Client Config
+AUTH0_DOMAIN=your-app.auth0.com
+AUTH0_CLIENT_ID=your_client_id
+# ... rest of Auth0 config
 
 # Database & Storage
-DATABASE_TYPE=firestore
+DATABASE_TYPE=mongodb
 STORAGE_TYPE=local  # Will use ngrok backend if NEXT_PUBLIC_BACKEND_URL is set
 ```
 
@@ -215,7 +213,7 @@ STORAGE_TYPE=local  # Will use ngrok backend if NEXT_PUBLIC_BACKEND_URL is set
 - Make sure ngrok URL is correct in frontend `.env.local`
 
 ### **Auth Errors**
-- Make sure Firebase Admin is configured on backend PC
+- Make sure Auth0 is configured on backend PC
 - Verify auth tokens are being passed correctly
 
 ### **404 Not Found**
@@ -229,7 +227,7 @@ STORAGE_TYPE=local  # Will use ngrok backend if NEXT_PUBLIC_BACKEND_URL is set
 
 2. **HTTPS**: Ngrok provides HTTPS automatically, so all traffic is encrypted.
 
-3. **Auth**: All backend endpoints require Firebase auth tokens, so unauthorized access is prevented.
+3. **Auth**: All backend endpoints require Auth0 auth tokens, so unauthorized access is prevented.
 
 4. **Premium Benefits**: With ngrok premium, you get:
    - Custom domain (`baseball.ngrok.app`)

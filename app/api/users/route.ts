@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Otherwise, get single user
-    // Auth0 uses 'sub' as the user ID (equivalent to Firebase 'uid')
+    // Auth0 uses 'sub' as the user ID
     const targetUid = uid || decodedToken.sub;
     const user = await db.getUser(targetUid);
 
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify user owns this account
-    // Auth0 uses 'sub' as the user ID (equivalent to Firebase 'uid')
+    // Auth0 uses 'sub' as the user ID
     if (uid !== decodedToken.sub) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }

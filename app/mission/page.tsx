@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Rocket, Loader2 } from 'lucide-react';
-import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { onAuthChange, getAuth, getIdToken } from '@/lib/auth0/client-auth';
 import { getStorageAdapter } from '@/lib/storage';
 import { calculateDistance } from '@/lib/game/physics';
 import { getZone, getMilestone, getProgressToNext } from '@/lib/game/zones';
@@ -13,14 +13,14 @@ import PosePreview from '@/components/Mission/PosePreview';
 import VelocityInput from '@/components/Mission/VelocityInput';
 import LaunchAnimation from '@/components/Mission/LaunchAnimation';
 import type { PoseResult } from '@/types/pose';
-import type { User as FirebaseUser } from 'firebase/auth';
+import type { Auth0User } from '@/lib/auth0/client-auth';
 import type { VideoAnalysis } from '@/types/session';
 
 type Mode = 'photo' | 'video' | 'manual';
 
 export default function MissionPage() {
   const router = useRouter();
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [user, setUser] = useState<Auth0User | null>(null);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<Mode>('photo');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -167,11 +167,11 @@ export default function MissionPage() {
   const analyzeVideo = async (file: File) => {
     try {
       setAnalyzingVideo(true);
-      const auth = getFirebaseAuth();
+      const auth = getAuth();
       if (!auth?.currentUser) {
         throw new Error('User not authenticated');
       }
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
 
       // Create FormData for video upload
       const formData = new FormData();
@@ -268,12 +268,12 @@ export default function MissionPage() {
         }
       }
 
-      // Get Firebase Auth token for API calls
-      const auth = getFirebaseAuth();
+      // Get Auth0 token for API calls
+      const auth = getAuth();
       if (!auth?.currentUser) {
         throw new Error('User not authenticated');
       }
-      const token = await auth.currentUser.getIdToken();
+      const token = await getIdToken();
 
       // Create session in database via API
       const sessionResponse = await fetch('/api/sessions', {

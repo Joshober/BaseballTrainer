@@ -46,7 +46,7 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
   }
 
   (req as any).user = decodedToken;
-  // Auth0 uses 'sub' as the user ID (equivalent to Firebase 'uid')
+  // Auth0 uses 'sub' as the user ID
   (req as any).userId = decodedToken.sub;
   next();
 }
@@ -170,49 +170,43 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(500).json({ error: 'Auth0 not configured' });
     }
     
-    // Create user in Auth0
-    const createUserResponse = await axios.post(`https://${domain}/dbconnections/signup`, {
-      client_id: clientId,
-      email,
-      password,
-      connection,
-    });
+    // Create user in Auth0 using the signup endpoint
+    try {
+      await axios.post(`https://${domain}/dbconnections/signup`, {
+        client_id: clientId,
+        email,
+        password,
+        connection,
+      });
+    } catch (signupError: any) {
+      // If user already exists, that's okay - they can just login
+      if (signupError.response?.status === 409 || signupError.response?.data?.code === 'user_exists') {
+        return res.status(409).json({ 
+          error: 'User already exists',
+          message: 'An account with this email already exists. Please sign in instead.'
+        });
+      }
+      throw signupError;
+    }
     
-    // After creating user, authenticate them
-    const tokenResponse = await axios.post(`https://${domain}/oauth/token`, {
-      grant_type: 'password',
-      client_id: clientId,
-      client_secret: clientSecret,
-      username: email,
-      password,
-      connection,
-      scope: 'openid profile email',
-    });
-    
-    const { access_token, id_token } = tokenResponse.data;
-    
-    // Get user info
-    const userResponse = await axios.get(`https://${domain}/userinfo`, {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-      },
-    });
-    
-    const user = userResponse.data;
-    
+    // After creating user, redirect them to login
+    // We can't use password grant type (not enabled by default for security)
+    // Instead, return success and let frontend redirect to login
     res.json({
-      access_token,
-      id_token,
-      user,
+      success: true,
+      message: 'Account created successfully. Please sign in.',
+      email,
     });
   } catch (error: any) {
     console.error('Registration error:', error.response?.data || error.message);
-    const errorMessage = error.response?.data?.description || error.response?.data?.error_description || error.message || 'Registration failed';
+    const errorMessage = error.response?.data?.description || error.response?.data?.error_description || error.response?.data?.error || error.message || 'Registration failed';
     res.status(error.response?.status || 500).json({ error: errorMessage });
   }
 });
 
 // Email/Password Login
+// Note: This requires the "Password" grant type to be enabled in Auth0
+// To enable: Auth0 Dashboard > Applications > Your App > Advanced Settings > Grant Types > Enable "Password"
 app.post('/api/auth/login-email', async (req, res) => {
   try {
     const { email, password, connection = 'Username-Password-Authentication' } = req.body;
@@ -229,36 +223,49 @@ app.post('/api/auth/login-email', async (req, res) => {
       return res.status(500).json({ error: 'Auth0 not configured' });
     }
     
-    // Authenticate user
-    const tokenResponse = await axios.post(`https://${domain}/oauth/token`, {
-      grant_type: 'password',
-      client_id: clientId,
-      client_secret: clientSecret,
-      username: email,
-      password,
-      connection,
-      scope: 'openid profile email',
-    });
-    
-    const { access_token, id_token } = tokenResponse.data;
-    
-    // Get user info
-    const userResponse = await axios.get(`https://${domain}/userinfo`, {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-      },
-    });
-    
-    const user = userResponse.data;
-    
-    res.json({
-      access_token,
-      id_token,
-      user,
-    });
+    // Authenticate user using password grant
+    // This requires the grant type to be enabled in Auth0 Dashboard
+    try {
+      const tokenResponse = await axios.post(`https://${domain}/oauth/token`, {
+        grant_type: 'password',
+        client_id: clientId,
+        client_secret: clientSecret,
+        username: email,
+        password,
+        connection,
+        scope: 'openid profile email',
+      });
+      
+      const { access_token, id_token } = tokenResponse.data;
+      
+      // Get user info
+      const userResponse = await axios.get(`https://${domain}/userinfo`, {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+        },
+      });
+      
+      const user = userResponse.data;
+      
+      res.json({
+        access_token,
+        id_token,
+        user,
+      });
+    } catch (tokenError: any) {
+      // If password grant is not enabled, provide helpful error
+      if (tokenError.response?.data?.error === 'unauthorized_client' || 
+          tokenError.response?.data?.error === 'invalid_grant') {
+        return res.status(400).json({ 
+          error: 'Password grant type not enabled',
+          message: 'Please enable the "Password" grant type in Auth0 Dashboard: Applications > Your App > Advanced Settings > Grant Types > Enable "Password"'
+        });
+      }
+      throw tokenError;
+    }
   } catch (error: any) {
     console.error('Login error:', error.response?.data || error.message);
-    const errorMessage = error.response?.data?.description || error.response?.data?.error_description || error.message || 'Login failed';
+    const errorMessage = error.response?.data?.description || error.response?.data?.error_description || error.response?.data?.error || error.message || 'Login failed';
     res.status(error.response?.status || 401).json({ error: errorMessage });
   }
 });
