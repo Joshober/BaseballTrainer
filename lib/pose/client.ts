@@ -117,3 +117,4 @@ export async function extractBestFrameFromVideo(video: HTMLVideoElement): Promis
   return canvas;
 }
 
+

@@ -4,3 +4,4 @@ export interface StorageAdapter {
   deleteFile(path: string): Promise<void>;
 }
 
+

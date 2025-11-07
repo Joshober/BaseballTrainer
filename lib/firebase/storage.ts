@@ -22,3 +22,4 @@ export async function deleteFile(path: string): Promise<void> {
   await deleteObject(storageRef);
 }
 
+

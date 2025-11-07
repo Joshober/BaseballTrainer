@@ -32,12 +32,51 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
+next-env.d.ts
 
 # local storage uploads
 /server/uploads/
+
+# package lock files (optional - some teams commit these)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# secrets and credentials
+*.key
+*.p12
+!package.json
+!tsconfig.json
+!next.config.*
+!eslint.config.*
+!postcss.config.*
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

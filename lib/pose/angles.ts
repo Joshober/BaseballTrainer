@@ -47,3 +47,4 @@ export function calculateConfidence(keypoints: PoseKeypoint[]): number {
   return totalScore / keypoints.length;
 }
 
+

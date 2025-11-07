@@ -42,3 +42,4 @@ export class LocalStorageAdapter implements StorageAdapter {
   }
 }
 
+

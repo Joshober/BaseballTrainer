@@ -55,3 +55,4 @@ export function validateConfig() {
   return errors.length === 0;
 }
 
+

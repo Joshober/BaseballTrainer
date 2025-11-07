@@ -12,3 +12,4 @@ export interface DatabaseAdapter {
   getLeaderboardEntries(teamId: string): Promise<LeaderboardEntry[]>;
 }
 
+

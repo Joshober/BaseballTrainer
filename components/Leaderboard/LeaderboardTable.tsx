@@ -74,3 +74,4 @@ export default function LeaderboardTable({ entries }: LeaderboardTableProps) {
   );
 }
 
+

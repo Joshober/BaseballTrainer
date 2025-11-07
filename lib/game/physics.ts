@@ -9,3 +9,4 @@ export function calculateDistance(exitVelocity: number, launchAngleDegrees: numb
   return Math.max(0, distanceFt); // Ensure non-negative
 }
 
+
