@@ -47,10 +47,30 @@ export async function createUser(input: CreateUserInput): Promise<User> {
   await setDoc(userRef, {
     displayName: input.displayName,
     email: input.email,
+    role: input.role,
     teamId: input.teamId || null,
     createdAt: serverTimestamp(),
   });
   return getUser(input.uid) as Promise<User>;
+}
+
+export async function getUsersByTeam(teamId: string): Promise<User[]> {
+  const db = getFirestoreDb();
+  if (!db) {
+    throw new Error('Firestore is disabled due to billing protection or missing configuration.');
+  }
+  
+  trackFirestoreRead();
+  const q = query(collection(db, 'users'), where('teamId', '==', teamId), where('role', '==', 'player'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      uid: doc.id,
+      ...data,
+      createdAt: data.createdAt?.toDate() || new Date(),
+    } as User;
+  });
 }
 
 // Sessions

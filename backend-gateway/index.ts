@@ -18,7 +18,12 @@ app.use(cors());
 app.use(express.json());
 
 // Multer for file uploads
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 500 * 1024 * 1024, // 500MB limit for video files
+  }
+});
 
 // Auth middleware
 async function authenticate(req: Request, res: Response, next: NextFunction) {
@@ -91,6 +96,120 @@ app.post('/api/pose/detect', authenticate, upload.single('image'), async (req, r
     res.json(response.data);
   } catch (error: any) {
     console.error('Pose detection error:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+// Proxy to Python Backend (Video Analysis)
+app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No video provided' });
+    }
+
+    // Get configuration parameters from request body or query
+    const config = {
+      processingMode: req.body.processingMode || 'full',
+      sampleRate: parseInt(req.body.sampleRate || '1', 10),
+      maxFrames: req.body.maxFrames ? parseInt(req.body.maxFrames, 10) : undefined,
+      enableYOLO: req.body.enableYOLO !== 'false',
+      yoloConfidence: parseFloat(req.body.yoloConfidence || '0.5'),
+      calibration: req.body.calibration ? parseFloat(req.body.calibration) : undefined,
+    };
+
+    // Create FormData for Python backend
+    const FormData = require('form-data');
+    const formData = new FormData();
+    formData.append('video', req.file.buffer, {
+      filename: req.file.originalname || 'video.mp4',
+      contentType: req.file.mimetype || 'video/mp4',
+    });
+    
+    // Append configuration parameters
+    Object.entries(config).forEach(([key, value]) => {
+      if (value !== undefined) {
+        formData.append(key, String(value));
+      }
+    });
+
+    // Forward to Pose Detection Service
+    const response = await axios.post(
+      `${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video`,
+      formData,
+      {
+        headers: {
+          'X-Internal-Request': 'true',
+          'X-User-Id': (req as any).userId || 'anonymous',
+          ...formData.getHeaders(),
+        },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        timeout: 300000, // 5 minute timeout for video processing
+      }
+    );
+    res.json(response.data);
+  } catch (error: any) {
+    console.error('Video analysis error:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+// Proxy to Python Backend (Live Stream Analysis)
+app.post('/api/pose/analyze-live', authenticate, upload.single('video'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No video stream provided' });
+    }
+
+    // Get configuration parameters
+    const config = {
+      processingMode: 'streaming',
+      sampleRate: parseInt(req.body.sampleRate || '1', 10),
+      maxFrames: req.body.maxFrames ? parseInt(req.body.maxFrames, 10) : undefined,
+      enableYOLO: req.body.enableYOLO !== 'false',
+      yoloConfidence: parseFloat(req.body.yoloConfidence || '0.5'),
+      calibration: req.body.calibration ? parseFloat(req.body.calibration) : undefined,
+    };
+
+    // Create FormData for Python backend
+    const FormData = require('form-data');
+    const formData = new FormData();
+    formData.append('video', req.file.buffer, {
+      filename: req.file.originalname || 'stream.webm',
+      contentType: req.file.mimetype || 'video/webm',
+    });
+    
+    // Append configuration parameters
+    Object.entries(config).forEach(([key, value]) => {
+      if (value !== undefined) {
+        formData.append(key, String(value));
+      }
+    });
+
+    // Forward to Pose Detection Service
+    const response = await axios.post(
+      `${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-live`,
+      formData,
+      {
+        headers: {
+          'X-Internal-Request': 'true',
+          'X-User-Id': (req as any).userId || 'anonymous',
+          ...formData.getHeaders(),
+        },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        timeout: 60000, // 1 minute timeout for live stream chunks
+      }
+    );
+    res.json(response.data);
+  } catch (error: any) {
+    console.error('Live stream analysis error:', error.message);
     res.status(error.response?.status || 500).json({
       error: 'Internal server error',
       message: error.message

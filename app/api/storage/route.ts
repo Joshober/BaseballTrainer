@@ -75,4 +75,36 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  try {
+    // Verify auth token
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    const decodedToken = await verifyIdToken(token);
+    if (!decodedToken) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    const path = request.nextUrl.searchParams.get('path');
+    if (!path) {
+      return NextResponse.json({ error: 'Missing path' }, { status: 400 });
+    }
+
+    const { unlink } = await import('fs/promises');
+    const { join } = await import('path');
+    const fullPath = join(process.cwd(), 'server', 'uploads', path);
+    
+    await unlink(fullPath);
+    
+    return NextResponse.json({ message: 'File deleted' });
+  } catch (error) {
+    console.error('File delete error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 

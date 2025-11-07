@@ -1,18 +1,45 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithGoogle, signInWithEmail, signUpWithEmail, onAuthChange } from '@/lib/firebase/auth';
-import { User } from 'lucide-react';
 import Link from 'next/link';
+import { LogIn, Mail, Lock } from 'lucide-react';
+import { signInWithGoogle, signInWithEmail, onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
 
 export default function LoginPage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthChange((user) => {
+    const unsubscribe = onAuthChange(async (user) => {
       if (user) {
-        router.push('/mission');
+        // Get user data to check role
+        const auth = getFirebaseAuth();
+        if (auth?.currentUser) {
+          try {
+            const token = await auth.currentUser.getIdToken();
+            const userResponse = await fetch(`/api/users?uid=${user.uid}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            });
+            if (userResponse.ok) {
+              const userData = await userResponse.json();
+              if (userData.role === 'coach') {
+                router.push('/coach');
+              } else {
+                router.push('/player');
+              }
+            } else {
+              // If user doesn't exist yet, redirect to signup
+              router.push('/signup');
+            }
+          } catch (error) {
+            console.error('Failed to get user data:', error);
+            router.push('/signup');
+          }
+        }
       }
     });
 
@@ -21,49 +48,59 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     try {
+      setLoading(true);
+      setError(null);
       await signInWithGoogle();
-      router.push('/mission');
-    } catch (error) {
+      // Redirect will be handled by useEffect
+    } catch (error: any) {
       console.error('Sign in error:', error);
-      alert('Failed to sign in');
+      setError(error.message || 'Failed to sign in with Google');
+      setLoading(false);
     }
   };
 
   const handleEmailSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setLoading(true);
+    setError(null);
+
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
-    const isSignUp = formData.get('action') === 'signup';
 
     try {
-      if (isSignUp) {
-        await signUpWithEmail(email, password);
-      } else {
-        await signInWithEmail(email, password);
-      }
-      router.push('/mission');
+      await signInWithEmail(email, password);
+      // Redirect will be handled by useEffect
     } catch (error: any) {
       console.error('Auth error:', error);
-      alert(error.message || 'Failed to authenticate');
+      setError(error.message || 'Failed to sign in');
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center px-4 py-12">
+      <div className="max-w-md w-full bg-white rounded-xl shadow-xl p-8">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <User className="w-8 h-8 text-blue-600" />
+            <LogIn className="w-8 h-8 text-blue-600" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome</h1>
-          <p className="text-gray-600">Sign in to start your mission</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
+          <p className="text-gray-600">Sign in to your account</p>
         </div>
 
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+
         <div className="space-y-4">
+          {/* Google Sign In */}
           <button
             onClick={handleGoogleSignIn}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -83,7 +120,7 @@ export default function LoginPage() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            Continue with Google
+            {loading ? 'Signing in...' : 'Continue with Google'}
           </button>
 
           <div className="relative">
@@ -91,58 +128,75 @@ export default function LoginPage() {
               <div className="w-full border-t border-gray-300"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or</span>
+              <span className="px-2 bg-white text-gray-500">Or continue with email</span>
             </div>
           </div>
 
+          {/* Email/Password Sign In */}
           <form onSubmit={handleEmailSignIn} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email
+                Email Address
               </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  required
+                  disabled={loading}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder="you@example.com"
+                />
+              </div>
             </div>
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
               </label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  required
+                  disabled={loading}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder="Enter your password"
+                />
+              </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                name="action"
-                value="signin"
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                Sign In
-              </button>
-              <button
-                type="submit"
-                name="action"
-                value="signup"
-                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-              >
-                Sign Up
-              </button>
-            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-5 h-5" />
+                  Sign In
+                </>
+              )}
+            </button>
           </form>
         </div>
 
-        <div className="mt-6 text-center">
-          <Link href="/" className="text-sm text-blue-600 hover:text-blue-700">
+        <div className="mt-6 text-center space-y-2">
+          <p className="text-sm text-gray-600">
+            Don't have an account?{' '}
+            <Link href="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
+              Sign up here
+            </Link>
+          </p>
+          <Link href="/" className="text-sm text-gray-500 hover:text-gray-700">
             ← Back to home
           </Link>
         </div>
@@ -150,5 +204,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-

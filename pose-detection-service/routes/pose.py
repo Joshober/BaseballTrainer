@@ -9,6 +9,7 @@ from PIL import Image
 import io
 
 from services.pose_detector import PoseDetector
+from services.video_analyzer import VideoAnalyzer
 from middleware.auth import require_auth
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,105 @@ def detect_pose():
     
     except Exception as e:
         logger.error(f'Pose detection error: {str(e)}', exc_info=True)
+        return jsonify({
+            'error': 'Internal server error',
+            'ok': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/api/pose/analyze-video', methods=['POST'])
+@require_auth
+def analyze_video():
+    """
+    Analyze video for baseball swing
+    Returns comprehensive swing analysis with pose, bat, ball detection, and metrics
+    """
+    try:
+        if 'video' not in request.files:
+            return jsonify({'error': 'No video provided', 'ok': False}), 400
+        
+        file = request.files['video']
+        if file.filename == '':
+            return jsonify({'error': 'No video selected', 'ok': False}), 400
+        
+        # Get configuration parameters
+        processing_mode = request.form.get('processingMode', 'full')
+        sample_rate = int(request.form.get('sampleRate', '1'))
+        max_frames = int(request.form.get('maxFrames', '0')) or None
+        enable_yolo = request.form.get('enableYOLO', 'true').lower() == 'true'
+        yolo_confidence = float(request.form.get('yoloConfidence', '0.5'))
+        calibration = request.form.get('calibration')
+        batter_height_m = float(calibration) if calibration else None
+        
+        # Read video bytes
+        video_bytes = file.read()
+        
+        # Initialize video analyzer
+        analyzer = VideoAnalyzer(
+            processing_mode=processing_mode,
+            sample_rate=sample_rate,
+            max_frames=max_frames,
+            enable_yolo=enable_yolo,
+            yolo_confidence=yolo_confidence,
+            batter_height_m=batter_height_m
+        )
+        
+        # Analyze video
+        result = analyzer.analyze_video(video_bytes, file.filename)
+        
+        return jsonify(result)
+    
+    except Exception as e:
+        logger.error(f'Video analysis error: {str(e)}', exc_info=True)
+        return jsonify({
+            'error': 'Internal server error',
+            'ok': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/api/pose/analyze-live', methods=['POST'])
+@require_auth
+def analyze_live():
+    """
+    Analyze live video stream for baseball swing
+    Returns progressive results for real-time feedback
+    """
+    try:
+        if 'video' not in request.files:
+            return jsonify({'error': 'No video stream provided', 'ok': False}), 400
+        
+        file = request.files['video']
+        if file.filename == '':
+            return jsonify({'error': 'No video stream selected', 'ok': False}), 400
+        
+        # Get configuration parameters
+        sample_rate = int(request.form.get('sampleRate', '1'))
+        max_frames = int(request.form.get('maxFrames', '30')) or None  # Default 30 frames for live
+        enable_yolo = request.form.get('enableYOLO', 'true').lower() == 'true'
+        yolo_confidence = float(request.form.get('yoloConfidence', '0.5'))
+        calibration = request.form.get('calibration')
+        batter_height_m = float(calibration) if calibration else None
+        
+        # Read video bytes
+        video_bytes = file.read()
+        
+        # Initialize video analyzer with streaming mode
+        analyzer = VideoAnalyzer(
+            processing_mode='streaming',
+            sample_rate=sample_rate,
+            max_frames=max_frames,
+            enable_yolo=enable_yolo,
+            yolo_confidence=yolo_confidence,
+            batter_height_m=batter_height_m
+        )
+        
+        # Analyze video (same as analyze-video but with streaming optimizations)
+        result = analyzer.analyze_video(video_bytes, file.filename)
+        
+        return jsonify(result)
+    
+    except Exception as e:
+        logger.error(f'Live stream analysis error: {str(e)}', exc_info=True)
         return jsonify({
             'error': 'Internal server error',
             'ok': False,

@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Message } from '@/types/message';
-import { Video, Play } from 'lucide-react';
+import type { Session } from '@/types/session';
+import { Video, Play, TrendingUp, Target } from 'lucide-react';
+import { getFirebaseAuth } from '@/lib/firebase/auth';
 
 interface MessageListProps {
   messages: Message[];
@@ -11,9 +13,54 @@ interface MessageListProps {
 
 export default function MessageList({ messages, currentUserId }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [sessions, setSessions] = useState<Record<string, Session>>({});
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  useEffect(() => {
+    // Load sessions for messages that have sessionId
+    const loadSessions = async () => {
+      const sessionIds = messages
+        .filter(m => m.sessionId)
+        .map(m => m.sessionId!)
+        .filter((id, index, self) => self.indexOf(id) === index); // unique
+
+      if (sessionIds.length === 0) return;
+
+      try {
+        const auth = getFirebaseAuth();
+        if (!auth?.currentUser) return;
+        
+        const token = await auth.currentUser.getIdToken();
+        const sessionPromises = sessionIds.map(async (sessionId) => {
+          const response = await fetch(`/api/sessions/${sessionId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          if (response.ok) {
+            const session: Session = await response.json();
+            return { sessionId, session };
+          }
+          return null;
+        });
+
+        const results = await Promise.all(sessionPromises);
+        const sessionMap: Record<string, Session> = {};
+        results.forEach(result => {
+          if (result) {
+            sessionMap[result.sessionId] = result.session;
+          }
+        });
+        setSessions(sessionMap);
+      } catch (error) {
+        console.error('Failed to load sessions:', error);
+      }
+    };
+
+    loadSessions();
   }, [messages]);
 
   return (
@@ -60,10 +107,47 @@ export default function MessageList({ messages, currentUserId }: MessageListProp
                 {message.content && (
                   <p className="whitespace-pre-wrap break-words">{message.content}</p>
                 )}
-                {message.sessionId && (
-                  <div className="mt-2 flex items-center gap-2 text-xs opacity-75">
-                    <Video className="w-3 h-3" />
-                    <span>Linked to session</span>
+                {message.sessionId && sessions[message.sessionId] && (
+                  <div className="mt-2 space-y-2">
+                    <div className="flex items-center gap-2 text-xs opacity-75">
+                      <Video className="w-3 h-3" />
+                      <span>Linked to session</span>
+                    </div>
+                    {sessions[message.sessionId].videoAnalysis && sessions[message.sessionId].videoAnalysis?.ok && (
+                      <div className={`p-3 rounded-lg text-sm ${
+                        isOwn 
+                          ? 'bg-blue-500 bg-opacity-20 text-blue-100' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-2 font-semibold">
+                          <TrendingUp className="w-4 h-4" />
+                          <span>Video Analysis</span>
+                        </div>
+                        {sessions[message.sessionId].videoAnalysis?.metrics && (
+                          <div className="space-y-1 text-xs">
+                            <p>Bat Speed: {sessions[message.sessionId].videoAnalysis!.metrics!.batLinearSpeedMph.toFixed(1)} mph</p>
+                            <p>Exit Velocity: {sessions[message.sessionId].videoAnalysis!.metrics!.exitVelocityEstimateMph.toFixed(1)} mph</p>
+                            {sessions[message.sessionId].videoAnalysis!.contactFrame !== null && (
+                              <p>Contact: Frame {sessions[message.sessionId].videoAnalysis!.contactFrame}</p>
+                            )}
+                          </div>
+                        )}
+                        {sessions[message.sessionId].videoAnalysis?.formAnalysis?.feedback && 
+                         sessions[message.sessionId].videoAnalysis!.formAnalysis!.feedback.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-opacity-20">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Target className="w-3 h-3" />
+                              <span className="font-semibold">Form Feedback:</span>
+                            </div>
+                            <ul className="list-disc list-inside space-y-1 text-xs">
+                              {sessions[message.sessionId].videoAnalysis!.formAnalysis!.feedback.map((fb, idx) => (
+                                <li key={idx}>{fb}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
                 <p className="text-xs mt-1 opacity-75">

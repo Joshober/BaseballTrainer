@@ -18,8 +18,8 @@ export const config = {
     uri: (process.env.MONGODB_URI || '').replace(/^["']|["']$/g, ''), // Remove quotes if present
   },
   // Storage & Database toggles
-  storageType: (process.env.STORAGE_TYPE || 'firebase') as 'firebase' | 'local',
-  databaseType: (process.env.DATABASE_TYPE || 'firestore') as 'firestore' | 'mongodb',
+  storageType: 'local' as const, // Always use local storage
+  databaseType: (process.env.DATABASE_TYPE || 'mongodb') as 'firestore' | 'mongodb',
   // Pose Detection Service
   poseDetectionService: {
     url: process.env.POSE_DETECTION_SERVICE_URL || process.env.NGROK_POSE_DETECTION_URL || 'http://localhost:5000',
@@ -59,13 +59,7 @@ export function validateConfig() {
     if (!config.mongodb.uri) errors.push('MONGODB_URI is required');
   }
 
-  if (config.storageType === 'firebase') {
-    if (!config.firebase.storageBucket) errors.push('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET is required');
-  }
-
-  if (config.storageType === 'local') {
-    if (!config.poseDetectionService.url) errors.push('POSE_DETECTION_SERVICE_URL is required');
-  }
+  // Local storage is always used - no validation needed
 
   if (errors.length > 0) {
     console.warn('Configuration validation errors:', errors);

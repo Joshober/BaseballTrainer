@@ -14,6 +14,7 @@ import VelocityInput from '@/components/Mission/VelocityInput';
 import LaunchAnimation from '@/components/Mission/LaunchAnimation';
 import type { PoseResult } from '@/types/pose';
 import type { User as FirebaseUser } from 'firebase/auth';
+import type { VideoAnalysis } from '@/types/session';
 
 type Mode = 'photo' | 'video' | 'manual';
 
@@ -25,6 +26,8 @@ export default function MissionPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [poseResult, setPoseResult] = useState<PoseResult | null>(null);
+  const [videoAnalysis, setVideoAnalysis] = useState<VideoAnalysis | null>(null);
+  const [analyzingVideo, setAnalyzingVideo] = useState(false);
   const [exitVelocity, setExitVelocity] = useState<number>(0);
   const [gameResult, setGameResult] = useState<{
     distanceFt: number;
@@ -55,7 +58,10 @@ export default function MissionPage() {
 
   const handleVideoSelect = async (file: File) => {
     setSelectedFile(file);
-    // For video, extract a frame (simplified - you could add frame selection UI)
+    setVideoAnalysis(null);
+    setAnalyzingVideo(true);
+    
+    // For video, extract a frame for pose detection preview
     const video = document.createElement('video');
     const objectUrl = URL.createObjectURL(file);
     video.src = objectUrl;
@@ -99,6 +105,20 @@ export default function MissionPage() {
             reject(new Error('Video seek error'));
           }, { once: true });
         });
+        
+        // Extract frame for preview
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0);
+          const imageUrl = canvas.toDataURL('image/jpeg');
+          setImageUrl(imageUrl);
+        }
+        
+        // Run full video analysis
+        await analyzeVideo(file);
       } else {
         // If duration is not available, use first frame (currentTime = 0)
         video.currentTime = 0;
@@ -140,6 +160,59 @@ export default function MissionPage() {
     } finally {
       // Clean up the object URL
       URL.revokeObjectURL(objectUrl);
+      setAnalyzingVideo(false);
+    }
+  };
+
+  const analyzeVideo = async (file: File) => {
+    try {
+      setAnalyzingVideo(true);
+      const auth = getFirebaseAuth();
+      if (!auth?.currentUser) {
+        throw new Error('User not authenticated');
+      }
+      const token = await auth.currentUser.getIdToken();
+
+      // Create FormData for video upload
+      const formData = new FormData();
+      formData.append('video', file);
+      formData.append('processingMode', 'full');
+      formData.append('sampleRate', '1');
+      formData.append('enableYOLO', 'true');
+      formData.append('yoloConfidence', '0.5');
+
+      // Call video analysis API
+      const response = await fetch('/api/pose/analyze-video', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to analyze video');
+      }
+
+      const analysis: VideoAnalysis = await response.json();
+      setVideoAnalysis(analysis);
+
+      // If analysis is successful, use the metrics for pose result
+      if (analysis.ok && analysis.metrics) {
+        setPoseResult({
+          ok: true,
+          launchAngleEst: analysis.metrics.launchAngle,
+          attackAngleEst: null,
+          confidence: 0.8,
+        });
+      }
+    } catch (error) {
+      console.error('Video analysis error:', error);
+      alert('Failed to analyze video. You can still proceed with manual entry.');
+      setVideoAnalysis({ ok: false, error: String(error) });
+    } finally {
+      setAnalyzingVideo(false);
     }
   };
 
@@ -229,6 +302,7 @@ export default function MissionPage() {
             progressToNext: progress,
           },
           label,
+          videoAnalysis: videoAnalysis || undefined,
         }),
       });
 
@@ -297,6 +371,31 @@ export default function MissionPage() {
                 mode={mode}
                 onModeChange={setMode}
               />
+              {analyzingVideo && (
+                <div className="mt-4 flex items-center gap-2 text-blue-600">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Analyzing video... This may take a moment.</span>
+                </div>
+              )}
+              {videoAnalysis && videoAnalysis.ok && (
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-green-800 font-semibold">Video analysis complete!</p>
+                  {videoAnalysis.metrics && (
+                    <div className="mt-2 text-sm text-green-700">
+                      <p>Bat Speed: {videoAnalysis.metrics.batLinearSpeedMph.toFixed(1)} mph</p>
+                      <p>Exit Velocity: {videoAnalysis.metrics.exitVelocityEstimateMph.toFixed(1)} mph</p>
+                      {videoAnalysis.contactFrame !== null && (
+                        <p>Contact detected at frame {videoAnalysis.contactFrame}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              {videoAnalysis && !videoAnalysis.ok && (
+                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-yellow-800">Video analysis unavailable. You can still proceed with manual entry.</p>
+                </div>
+              )}
             </section>
 
             {/* Step 2: Pose Detection */}

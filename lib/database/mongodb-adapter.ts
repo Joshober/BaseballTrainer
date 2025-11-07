@@ -14,6 +14,10 @@ export class MongodbAdapter implements DatabaseAdapter {
     return mongodb.createUser(input);
   }
 
+  async getUsersByTeam(teamId: string): Promise<User[]> {
+    return mongodb.getUsersByTeam(teamId);
+  }
+
   async createSession(input: CreateSessionInput): Promise<Session> {
     return mongodb.createSession(input);
   }

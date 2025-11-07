@@ -16,10 +16,20 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const uid = searchParams.get('uid') || decodedToken.uid;
+    const uid = searchParams.get('uid');
+    const teamId = searchParams.get('teamId');
 
     const db = getDatabaseAdapter();
-    const user = await db.getUser(uid);
+    
+    // If teamId is provided, get all users in that team
+    if (teamId) {
+      const users = await db.getUsersByTeam(teamId);
+      return NextResponse.json(users);
+    }
+    
+    // Otherwise, get single user
+    const targetUid = uid || decodedToken.uid;
+    const user = await db.getUser(targetUid);
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -49,11 +59,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { uid, displayName, email, teamId } = body;
+    const { uid, displayName, email, role, teamId } = body;
 
-    if (!uid || !displayName || !email) {
+    if (!uid || !displayName || !email || !role) {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    if (role !== 'player' && role !== 'coach') {
+      return NextResponse.json(
+        { error: 'Invalid role. Must be "player" or "coach"' },
         { status: 400 }
       );
     }
@@ -68,6 +85,7 @@ export async function POST(request: NextRequest) {
       uid,
       displayName,
       email,
+      role,
       teamId: teamId || null,
     });
 

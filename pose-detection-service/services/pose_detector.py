@@ -67,8 +67,20 @@ class PoseDetector:
             # Calculate metrics
             metrics = self._calculate_swing_metrics(landmarks, image_rgb.shape)
             
+            # Convert landmarks to list format for serialization
+            landmarks_list = [
+                {
+                    'x': lm.x,
+                    'y': lm.y,
+                    'z': lm.z,
+                    'visibility': lm.visibility
+                }
+                for lm in landmarks
+            ]
+            
             return {
                 'ok': True,
+                'landmarks': landmarks_list,
                 **metrics
             }
         

@@ -14,6 +14,10 @@ export class FirestoreAdapter implements DatabaseAdapter {
     return firestore.createUser(input);
   }
 
+  async getUsersByTeam(teamId: string): Promise<User[]> {
+    return firestore.getUsersByTeam(teamId);
+  }
+
   async createSession(input: CreateSessionInput): Promise<Session> {
     return firestore.createSession(input);
   }

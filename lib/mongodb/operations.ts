@@ -13,6 +13,7 @@ export async function getUser(uid: string): Promise<User | null> {
     uid: user.uid,
     displayName: user.displayName,
     email: user.email,
+    role: user.role || 'player',
     teamId: user.teamId || undefined,
     createdAt: user.createdAt || new Date(),
   } as User;
@@ -24,11 +25,25 @@ export async function createUser(input: CreateUserInput): Promise<User> {
     uid: input.uid,
     displayName: input.displayName,
     email: input.email,
+    role: input.role,
     teamId: input.teamId || null,
     createdAt: new Date(),
   };
   await db.collection('users').insertOne(user);
   return getUser(input.uid) as Promise<User>;
+}
+
+export async function getUsersByTeam(teamId: string): Promise<User[]> {
+  const db = await getMongoDb();
+  const users = await db.collection('users').find({ teamId, role: 'player' }).toArray();
+  return users.map((user) => ({
+    uid: user.uid,
+    displayName: user.displayName,
+    email: user.email,
+    role: user.role,
+    teamId: user.teamId || undefined,
+    createdAt: user.createdAt || new Date(),
+  })) as User[];
 }
 
 // Sessions
@@ -45,6 +60,7 @@ export async function createSession(input: CreateSessionInput): Promise<Session>
     metrics: input.metrics,
     game: input.game,
     label: input.label,
+    videoAnalysis: input.videoAnalysis || null,
     createdAt: new Date(),
   };
   await db.collection('sessions').insertOne(session);
