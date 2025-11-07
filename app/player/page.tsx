@@ -102,10 +102,10 @@ export default function PlayerDashboard() {
         router.push('/login');
       } else {
         // Get user data
-        const auth = getAuth();
+        const auth = getFirebaseAuth();
         if (auth?.currentUser) {
           try {
-            const token = await getIdToken();
+            const token = await auth.currentUser.getIdToken();
             const userResponse = await fetch(`/api/users?uid=${authUser.uid}`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
