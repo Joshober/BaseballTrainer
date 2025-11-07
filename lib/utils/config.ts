@@ -1,10 +1,12 @@
 export const config = {
-  // Firebase
+  // Firebase configuration (loaded from .env.local)
+  // For Auth only: apiKey and projectId are required
+  // Other fields are optional but recommended
   firebase: {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
     authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '',
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '',
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '', // Not used if storageType is 'local'
     messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
   },
@@ -32,6 +34,10 @@ export const config = {
   blastConnector: {
     url: process.env.BLAST_CONNECTOR_URL || process.env.NGROK_BLAST_CONNECTOR_URL || 'http://localhost:5002',
     port: parseInt(process.env.BLAST_CONNECTOR_PORT || '5002', 10),
+  },
+  storageServer: {
+    url: process.env.STORAGE_SERVER_URL || process.env.NGROK_STORAGE_SERVER_URL || 'http://localhost:5003',
+    port: parseInt(process.env.STORAGE_SERVER_PORT || '5003', 10),
   },
   gateway: {
     url: process.env.GATEWAY_URL || process.env.NGROK_GATEWAY_URL || 'http://localhost:3001',

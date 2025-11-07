@@ -1,4 +1,5 @@
 import type { StorageAdapter } from './adapter';
+import { getStorageServerUrl } from '@/lib/utils/storage-server-url';
 
 export class LocalStorageAdapter implements StorageAdapter {
   async uploadFile(path: string, file: Blob | File | Buffer): Promise<string> {
@@ -15,8 +16,9 @@ export class LocalStorageAdapter implements StorageAdapter {
     }
     const token = await auth.currentUser.getIdToken();
 
-    // Upload to Next.js API route (client-side)
-    const response = await fetch('/api/storage', {
+    // Upload to Flask storage server
+    const storageServerUrl = getStorageServerUrl();
+    const response = await fetch(`${storageServerUrl}/api/storage/upload`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -26,16 +28,18 @@ export class LocalStorageAdapter implements StorageAdapter {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: response.statusText }));
-      throw new Error(`Failed to upload file: ${error.error || response.statusText}`);
+      throw new Error(`Failed to upload file: ${error.error || error.message || response.statusText}`);
     }
 
     const data = await response.json();
-    return data.url;
+    // Return full URL to storage server
+    return `${storageServerUrl}${data.url}`;
   }
 
   async getFileURL(path: string): Promise<string> {
-    // Return Next.js API route URL for file access
-    return `/api/storage/${path}`;
+    // Return storage server URL for file access
+    const storageServerUrl = getStorageServerUrl();
+    return `${storageServerUrl}/api/storage/${path}`;
   }
 
   async deleteFile(path: string): Promise<void> {
@@ -47,7 +51,9 @@ export class LocalStorageAdapter implements StorageAdapter {
     }
     const token = await auth.currentUser.getIdToken();
 
-    const response = await fetch(`/api/storage?path=${encodeURIComponent(path)}`, {
+    // Delete from Flask storage server
+    const storageServerUrl = getStorageServerUrl();
+    const response = await fetch(`${storageServerUrl}/api/storage?path=${encodeURIComponent(path)}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -55,7 +61,8 @@ export class LocalStorageAdapter implements StorageAdapter {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to delete file: ${response.statusText}`);
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(`Failed to delete file: ${error.error || error.message || response.statusText}`);
     }
   }
 }

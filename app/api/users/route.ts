@@ -10,9 +10,24 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decodedToken = await verifyIdToken(token);
+    let decodedToken;
+    try {
+      decodedToken = await verifyIdToken(token);
+    } catch (error: any) {
+      // If Admin SDK is not configured, return helpful error
+      if (error.message && error.message.includes('Firebase Admin SDK not configured')) {
+        return NextResponse.json({ 
+          error: error.message 
+        }, { status: 500 });
+      }
+      return NextResponse.json({ 
+        error: 'Token verification failed', 
+        details: error.message 
+      }, { status: 500 });
+    }
+    
     if (!decodedToken) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
     const searchParams = request.nextUrl.searchParams;
@@ -53,9 +68,24 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const decodedToken = await verifyIdToken(token);
+    let decodedToken;
+    try {
+      decodedToken = await verifyIdToken(token);
+    } catch (error: any) {
+      // If Admin SDK is not configured, return helpful error
+      if (error.message && error.message.includes('Firebase Admin SDK not configured')) {
+        return NextResponse.json({ 
+          error: error.message 
+        }, { status: 500 });
+      }
+      return NextResponse.json({ 
+        error: 'Token verification failed', 
+        details: error.message 
+      }, { status: 500 });
+    }
+    
     if (!decodedToken) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
     const body = await request.json();

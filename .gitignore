@@ -47,6 +47,7 @@ next-env.d.ts
 # local storage uploads (Pose Detection Service)
 /pose-detection-service/uploads/
 /server/uploads/
+/storage-server/uploads/
 
 # ngrok config (contains auth token - keep local)
 # ngrok.yml

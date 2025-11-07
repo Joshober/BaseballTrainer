@@ -23,7 +23,7 @@ const auth = getAuthInstance();
 export async function signInWithGoogle(): Promise<User> {
   const auth = getAuthInstance();
   if (!auth) {
-    throw new Error('Firebase Auth is disabled due to billing protection or missing configuration.');
+    throw new Error('Firebase Auth is not configured or has been explicitly disabled. Note: Firebase Auth is FREE and not affected by billing protection.');
   }
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
@@ -33,7 +33,7 @@ export async function signInWithGoogle(): Promise<User> {
 export async function signInWithEmail(email: string, password: string): Promise<User> {
   const auth = getAuthInstance();
   if (!auth) {
-    throw new Error('Firebase Auth is disabled due to billing protection or missing configuration.');
+    throw new Error('Firebase Auth is not configured or has been explicitly disabled. Note: Firebase Auth is FREE and not affected by billing protection.');
   }
   const result = await signInWithEmailAndPassword(auth, email, password);
   return result.user;
@@ -42,7 +42,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
 export async function signUpWithEmail(email: string, password: string): Promise<User> {
   const auth = getAuthInstance();
   if (!auth) {
-    throw new Error('Firebase Auth is disabled due to billing protection or missing configuration.');
+    throw new Error('Firebase Auth is not configured or has been explicitly disabled. Note: Firebase Auth is FREE and not affected by billing protection.');
   }
   const result = await createUserWithEmailAndPassword(auth, email, password);
   return result.user;

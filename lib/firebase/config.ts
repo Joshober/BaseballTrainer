@@ -12,14 +12,9 @@ let storage: FirebaseStorage | undefined;
 let firebaseDisabled = false;
 
 /**
- * Check if Firebase is properly configured
+ * Check if Firebase Auth is configured (Auth is independent of storage/database)
  */
-function isFirebaseConfigured(): boolean {
-  // Allow app to run without Firebase if using local storage/database
-  if (config.storageType === 'local' && config.databaseType === 'mongodb') {
-    return false; // Firebase not needed
-  }
-  
+function isFirebaseAuthConfigured(): boolean {
   return !!(
     config.firebase.apiKey &&
     config.firebase.projectId &&
@@ -27,6 +22,18 @@ function isFirebaseConfigured(): boolean {
     config.firebase.projectId !== 'your_project_id' &&
     config.firebase.apiKey !== ''
   );
+}
+
+/**
+ * Check if Firebase is properly configured (for Firestore/Storage)
+ */
+function isFirebaseConfigured(): boolean {
+  // Allow app to run without Firebase if using local storage/database
+  if (config.storageType === 'local' && config.databaseType === 'mongodb') {
+    return false; // Firebase not needed for storage/database
+  }
+  
+  return isFirebaseAuthConfigured();
 }
 
 /**
@@ -52,8 +59,8 @@ function shouldDisable(): boolean {
  * Auth is FREE on Spark plan, so we allow it even if other services are disabled
  */
 function shouldDisableAuth(): boolean {
-  // Check if Firebase is configured
-  if (!isFirebaseConfigured()) {
+  // Check if Firebase Auth is configured (independent of storage/database)
+  if (!isFirebaseAuthConfigured()) {
     return true;
   }
   
@@ -87,21 +94,32 @@ export function getFirebaseApp(): FirebaseApp {
 }
 
 export function getFirebaseAuth(): Auth | null {
-  // Allow app to run without Firebase if not configured
-  if (!isFirebaseConfigured()) {
+  // Check if Firebase Auth is configured (independent of storage/database type)
+  // Auth only needs apiKey and projectId from .env.local
+  if (!isFirebaseAuthConfigured()) {
     return null;
   }
   
   // Auth is FREE on Spark plan, so we use separate check
+  // Auth is never disabled by billing protection
   if (shouldDisableAuth()) {
-    firebaseDisabled = true;
     console.warn('Firebase Auth is disabled (not configured or explicitly disabled).');
     return null;
   }
   
   if (!auth) {
     try {
-      auth = getAuth(getFirebaseApp());
+      // Initialize Firebase app for Auth (Auth is free, so we allow initialization
+      // even if billing protection disables other services or storage/database are local)
+      if (!app) {
+        const apps = getApps();
+        if (apps.length > 0) {
+          app = apps[0];
+        } else {
+          app = initializeApp(config.firebase);
+        }
+      }
+      auth = getAuth(app);
     } catch (error) {
       console.warn('Firebase Auth initialization failed:', error);
       return null;
