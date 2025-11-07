@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Rocket, TrendingUp, Target, BarChart3, ArrowRight, Video } from 'lucide-react';
-import { onAuthChange, getAuth, getIdToken } from '@/lib/auth0/client-auth';
+import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
 import TrendAnalysis from '@/components/Analytics/TrendAnalysis';
 import type { Session } from '@/types/session';
 import type { User } from '@/types/user';
@@ -26,10 +26,10 @@ export default function PlayerDashboard() {
 
   const loadDashboardData = async (uid: string) => {
     try {
-      const auth = getAuth();
+      const auth = getFirebaseAuth();
       if (!auth?.currentUser) return;
       
-      const token = await getIdToken();
+      const token = await auth.currentUser.getIdToken();
 
       // Load user data if viewing another player
       const isViewingOtherPlayer = uid !== auth.currentUser.uid;

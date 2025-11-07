@@ -16,14 +16,14 @@ import VelocityInput from '@/components/Mission/VelocityInput';
 import LaunchAnimation from '@/components/Mission/LaunchAnimation';
 import DrillRecommendations from '@/components/Drills/DrillRecommendations';
 import type { PoseResult } from '@/types/pose';
-import type { Auth0User } from '@/lib/auth0/client-auth';
+import type { User as FirebaseUser } from 'firebase/auth';
 import type { VideoAnalysis } from '@/types/session';
 
 type Mode = 'photo' | 'video' | 'manual';
 
 export default function MissionPage() {
   const router = useRouter();
-  const [user, setUser] = useState<Auth0User | null>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const { teamId, loading: teamLoading } = useTeam();
   const [mode, setMode] = useState<Mode>('photo');
@@ -171,11 +171,11 @@ export default function MissionPage() {
   const analyzeVideo = async (file: File) => {
     try {
       setAnalyzingVideo(true);
-      const auth = getAuth();
+      const auth = getFirebaseAuth();
       if (!auth?.currentUser) {
         throw new Error('User not authenticated');
       }
-      const token = await getIdToken();
+      const token = await auth.currentUser.getIdToken();
 
       // Create FormData for video upload
       const formData = new FormData();
@@ -272,12 +272,12 @@ export default function MissionPage() {
         }
       }
 
-      // Get Auth0 token for API calls
-      const auth = getAuth();
+      // Get Firebase Auth token for API calls
+      const auth = getFirebaseAuth();
       if (!auth?.currentUser) {
         throw new Error('User not authenticated');
       }
-      const token = await getIdToken();
+      const token = await auth.currentUser.getIdToken();
 
       // Create session in database via API
       const sessionResponse = await fetch('/api/sessions', {
