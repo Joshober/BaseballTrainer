@@ -3,6 +3,7 @@ import * as mongodb from '@/lib/mongodb/operations';
 import type { User, CreateUserInput } from '@/types/user';
 import type { Session, CreateSessionInput } from '@/types/session';
 import type { LeaderboardEntry, Team } from '@/types/team';
+import type { Message, CreateMessageInput, Conversation } from '@/types/message';
 
 export class MongodbAdapter implements DatabaseAdapter {
   async getUser(uid: string): Promise<User | null> {
@@ -56,6 +57,22 @@ export class MongodbAdapter implements DatabaseAdapter {
 
   async getAllTeams(): Promise<Team[]> {
     return mongodb.getAllTeams();
+  }
+
+  async createMessage(senderUid: string, input: CreateMessageInput): Promise<Message> {
+    return mongodb.createMessage(senderUid, input);
+  }
+
+  async getMessages(uid1: string, uid2: string): Promise<Message[]> {
+    return mongodb.getMessages(uid1, uid2);
+  }
+
+  async getConversations(uid: string): Promise<Conversation[]> {
+    return mongodb.getConversations(uid);
+  }
+
+  async markMessagesAsRead(uid1: string, uid2: string, readerUid: string): Promise<void> {
+    return mongodb.markMessagesAsRead(uid1, uid2, readerUid);
   }
 }
 

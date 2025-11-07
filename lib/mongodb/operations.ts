@@ -2,6 +2,7 @@ import { getMongoDb } from './client';
 import type { User, CreateUserInput } from '@/types/user';
 import type { Session, CreateSessionInput } from '@/types/session';
 import type { LeaderboardEntry, Team } from '@/types/team';
+import type { Message, CreateMessageInput, Conversation } from '@/types/message';
 
 // Users
 export async function getUser(uid: string): Promise<User | null> {
@@ -139,6 +140,135 @@ export async function getSessionsByTeam(teamId: string): Promise<Session[]> {
   const db = await getMongoDb();
   const sessions = await db.collection('sessions').find({ teamId }).toArray();
   return sessions as Session[];
+}
+
+// Messages
+function getConversationId(uid1: string, uid2: string): string {
+  // Always create consistent conversation ID regardless of order
+  return [uid1, uid2].sort().join('_');
+}
+
+export async function createMessage(senderUid: string, input: CreateMessageInput): Promise<Message> {
+  const db = await getMongoDb();
+  const conversationId = getConversationId(senderUid, input.receiverUid);
+  
+  const message = {
+    id: crypto.randomUUID(),
+    conversationId,
+    senderUid,
+    receiverUid: input.receiverUid,
+    content: input.content,
+    videoURL: input.videoURL || null,
+    videoPath: input.videoPath || null,
+    sessionId: input.sessionId || null,
+    createdAt: new Date(),
+    readAt: null,
+  };
+  
+  await db.collection('messages').insertOne(message);
+  
+  // Update or create conversation
+  await db.collection('conversations').updateOne(
+    { id: conversationId },
+    {
+      $set: {
+        id: conversationId,
+        participant1Uid: [senderUid, input.receiverUid].sort()[0],
+        participant2Uid: [senderUid, input.receiverUid].sort()[1],
+        lastMessage: message,
+        updatedAt: new Date(),
+      },
+      $inc: {
+        unreadCount: 1,
+      },
+    },
+    { upsert: true }
+  );
+  
+  // Reset unread count for sender's side
+  await db.collection('conversations').updateOne(
+    { id: conversationId },
+    {
+      $set: {
+        [`unreadCount_${senderUid}`]: 0,
+      },
+    }
+  );
+  
+  return message as Message;
+}
+
+export async function getMessages(uid1: string, uid2: string): Promise<Message[]> {
+  const db = await getMongoDb();
+  const conversationId = getConversationId(uid1, uid2);
+  
+  const messages = await db.collection('messages')
+    .find({ conversationId })
+    .sort({ createdAt: 1 })
+    .toArray();
+  
+  return messages as Message[];
+}
+
+export async function getConversations(uid: string): Promise<Conversation[]> {
+  const db = await getMongoDb();
+  
+  const conversations = await db.collection('conversations')
+    .find({
+      $or: [
+        { participant1Uid: uid },
+        { participant2Uid: uid },
+      ],
+    })
+    .sort({ updatedAt: -1 })
+    .toArray();
+  
+  // Calculate unread count for each conversation
+  const conversationsWithUnread = await Promise.all(
+    conversations.map(async (conv) => {
+      const otherUid = conv.participant1Uid === uid ? conv.participant2Uid : conv.participant1Uid;
+      const unreadCount = await db.collection('messages').countDocuments({
+        conversationId: conv.id,
+        receiverUid: uid,
+        readAt: null,
+      });
+      
+      return {
+        ...conv,
+        unreadCount,
+      } as Conversation;
+    })
+  );
+  
+  return conversationsWithUnread;
+}
+
+export async function markMessagesAsRead(uid1: string, uid2: string, readerUid: string): Promise<void> {
+  const db = await getMongoDb();
+  const conversationId = getConversationId(uid1, uid2);
+  
+  await db.collection('messages').updateMany(
+    {
+      conversationId,
+      receiverUid: readerUid,
+      readAt: null,
+    },
+    {
+      $set: {
+        readAt: new Date(),
+      },
+    }
+  );
+  
+  // Reset unread count in conversation
+  await db.collection('conversations').updateOne(
+    { id: conversationId },
+    {
+      $set: {
+        [`unreadCount_${readerUid}`]: 0,
+      },
+    }
+  );
 }
 
 

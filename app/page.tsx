@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Rocket, Trophy, Camera } from 'lucide-react';
+import { Rocket, Trophy, Camera, MessageCircle } from 'lucide-react';
 import AuthButton from '@/components/Auth/AuthButton';
 
 export default function Home() {
@@ -89,6 +89,13 @@ export default function Home() {
               className="inline-flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
             >
               Coach Dashboard
+            </Link>
+            <Link
+              href="/messages"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+            >
+              <MessageCircle className="w-5 h-5" />
+              Messages
             </Link>
           </div>
         </div>
