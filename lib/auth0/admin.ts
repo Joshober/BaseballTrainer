@@ -3,8 +3,8 @@
  * Replaces Firebase Admin token verification
  */
 import { NextRequest } from 'next/server';
-import jwt from 'jsonwebtoken';
-import jwksClient from 'jwks-rsa';
+import * as jwt from 'jsonwebtoken';
+import * as jwksClient from 'jwks-rsa';
 
 let jwksClientInstance: jwksClient.JwksClient | null = null;
 
