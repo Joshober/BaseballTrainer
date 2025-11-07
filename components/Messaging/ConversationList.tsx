@@ -54,7 +54,9 @@ export default function ConversationList({
         const otherUid = conv.participant1Uid === currentUserId 
           ? conv.participant2Uid 
           : conv.participant1Uid;
-        const otherName = userNames[otherUid] || 'Unknown User';
+        const otherName = otherUid === 'ai_bot' 
+          ? '🤖 AI Coach Bot' 
+          : (userNames[otherUid] || 'Unknown User');
         const isSelected = conv.id === selectedConversationId;
         const lastMessage = conv.lastMessage;
         const preview = lastMessage?.content?.substring(0, 50) || 'No messages yet';

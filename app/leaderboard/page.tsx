@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trophy, Loader2 } from 'lucide-react';
 import { onAuthChange, getAuth, getIdToken } from '@/lib/auth0/client-auth';
+import { useTeam } from '@/lib/hooks/useTeam';
 import LeaderboardTable from '@/components/Leaderboard/LeaderboardTable';
 import type { LeaderboardEntry } from '@/types/team';
 
@@ -11,7 +12,7 @@ export default function LeaderboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
-  const [teamId] = useState('default'); // TODO: Get from user profile or URL param
+  const { teamId } = useTeam();
 
   useEffect(() => {
     const unsubscribe = onAuthChange((user) => {

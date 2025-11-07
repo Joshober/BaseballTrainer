@@ -62,7 +62,26 @@ export default function MessagesPage() {
       if (!response.ok) throw new Error('Failed to load conversations');
       
       const data: Conversation[] = await response.json();
-      setConversations(data);
+      
+      // Add AI bot conversation if it doesn't exist
+      const aiBotUid = 'ai_bot';
+      const hasAIBotConversation = data.some(
+        (conv) => conv.participant1Uid === aiBotUid || conv.participant2Uid === aiBotUid
+      );
+      
+      if (!hasAIBotConversation) {
+        // Create AI bot conversation entry
+        const aiBotConversation: Conversation = {
+          id: `ai_bot_${auth.currentUser.uid}`,
+          participant1Uid: auth.currentUser.uid,
+          participant2Uid: aiBotUid,
+          unreadCount: 0,
+          updatedAt: new Date(),
+        };
+        setConversations([aiBotConversation, ...data]);
+      } else {
+        setConversations(data);
+      }
     } catch (error) {
       console.error('Failed to load conversations:', error);
     } finally {
@@ -159,9 +178,46 @@ export default function MessagesPage() {
       const newMessage: Message = await response.json();
       setMessages([...messages, newMessage]);
       loadConversations(); // Refresh conversations to update last message
+      
+      // If sending to AI bot, trigger AI response
+      if (selectedOtherUid === 'ai_bot' && (videoURL || sessionId)) {
+        // Trigger AI bot analysis
+        setTimeout(() => {
+          triggerAIBotResponse(newMessage.id, videoURL, sessionId);
+        }, 1000);
+      }
     } catch (error) {
       console.error('Failed to send message:', error);
       throw error;
+    }
+  };
+
+  const triggerAIBotResponse = async (messageId: string, videoURL?: string, sessionId?: string) => {
+    try {
+      const auth = getFirebaseAuth();
+      if (!auth?.currentUser) return;
+      
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch('/api/messages/ai-bot', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messageId,
+          videoURL,
+          sessionId,
+        }),
+      });
+
+      if (response.ok) {
+        const aiResponse: Message = await response.json();
+        setMessages((prev) => [...prev, aiResponse]);
+        loadConversations();
+      }
+    } catch (error) {
+      console.error('Failed to get AI bot response:', error);
     }
   };
 
@@ -247,7 +303,7 @@ export default function MessagesPage() {
                   <>
                     <div className="p-4 border-b bg-gray-50">
                       <h2 className="font-semibold text-gray-900">
-                        {userNames[selectedOtherUid] || 'Loading...'}
+                        {selectedOtherUid === 'ai_bot' ? '🤖 AI Coach Bot' : (userNames[selectedOtherUid] || 'Loading...')}
                       </h2>
                     </div>
                     <MessageList

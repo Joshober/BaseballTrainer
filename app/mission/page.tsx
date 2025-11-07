@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Rocket, Loader2 } from 'lucide-react';
-import { onAuthChange, getAuth, getIdToken } from '@/lib/auth0/client-auth';
+import { Rocket, Loader2, Video, Play } from 'lucide-react';
+import Link from 'next/link';
+import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { useTeam } from '@/lib/hooks/useTeam';
 import { getStorageAdapter } from '@/lib/storage';
 import { calculateDistance } from '@/lib/game/physics';
 import { getZone, getMilestone, getProgressToNext } from '@/lib/game/zones';
@@ -12,6 +14,7 @@ import CaptureUpload from '@/components/Mission/CaptureUpload';
 import PosePreview from '@/components/Mission/PosePreview';
 import VelocityInput from '@/components/Mission/VelocityInput';
 import LaunchAnimation from '@/components/Mission/LaunchAnimation';
+import DrillRecommendations from '@/components/Drills/DrillRecommendations';
 import type { PoseResult } from '@/types/pose';
 import type { Auth0User } from '@/lib/auth0/client-auth';
 import type { VideoAnalysis } from '@/types/session';
@@ -22,6 +25,7 @@ export default function MissionPage() {
   const router = useRouter();
   const [user, setUser] = useState<Auth0User | null>(null);
   const [loading, setLoading] = useState(true);
+  const { teamId, loading: teamLoading } = useTeam();
   const [mode, setMode] = useState<Mode>('photo');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -284,7 +288,7 @@ export default function MissionPage() {
         },
         body: JSON.stringify({
           uid: user.uid,
-          teamId: 'default', // TODO: Get from user profile
+          teamId: teamId || 'default',
           photoPath,
           photoURL,
           videoPath,
@@ -355,9 +359,18 @@ export default function MissionPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="flex items-center gap-3 mb-8">
-            <Rocket className="w-8 h-8 text-blue-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Mission Control</h1>
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <Rocket className="w-8 h-8 text-blue-600" />
+              <h1 className="text-3xl font-bold text-gray-900">Mission Control</h1>
+            </div>
+            <Link
+              href="/streaming"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg hover:from-purple-600 hover:to-blue-700 transition-colors font-medium"
+            >
+              <Play className="w-5 h-5" />
+              Real-Time Mode
+            </Link>
           </div>
 
           {/* Steps */}
@@ -448,6 +461,17 @@ export default function MissionPage() {
                   zone={gameResult.zone}
                   milestone={gameResult.milestone}
                   progress={gameResult.progress}
+                />
+              </section>
+            )}
+
+            {/* Drill Recommendations */}
+            {(poseResult?.ok || videoAnalysis?.ok) && (
+              <section className="bg-white rounded-lg shadow-md p-6">
+                <DrillRecommendations
+                  corrections={extractCorrections(poseResult, videoAnalysis)}
+                  metrics={extractMetrics(poseResult, videoAnalysis, exitVelocity)}
+                  limit={5}
                 />
               </section>
             )}

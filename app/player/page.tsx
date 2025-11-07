@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Rocket, TrendingUp, Target, BarChart3, ArrowRight } from 'lucide-react';
+import { Rocket, TrendingUp, Target, BarChart3, ArrowRight, Video } from 'lucide-react';
 import { onAuthChange, getAuth, getIdToken } from '@/lib/auth0/client-auth';
+import TrendAnalysis from '@/components/Analytics/TrendAnalysis';
 import type { Session } from '@/types/session';
 import type { User } from '@/types/user';
 
@@ -215,7 +216,7 @@ export default function PlayerDashboard() {
           </div>
 
           {/* Quick Actions */}
-          <div className="grid md:grid-cols-2 gap-6 mb-8">
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
             <Link
               href="/mission"
               className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
@@ -241,6 +242,49 @@ export default function PlayerDashboard() {
                 <ArrowRight className="w-6 h-6 text-blue-600" />
               </div>
             </Link>
+
+            <Link
+              href="/videos"
+              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold mb-2">My Videos</h3>
+                  <p className="text-gray-600">View and share your recorded swings</p>
+                </div>
+                <ArrowRight className="w-6 h-6 text-blue-600" />
+              </div>
+            </Link>
+
+            <Link
+              href="/messages"
+              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold mb-2">Messages</h3>
+                  <p className="text-gray-600">Chat with coaches and AI bot</p>
+                </div>
+                <ArrowRight className="w-6 h-6 text-blue-600" />
+              </div>
+            </Link>
+          </div>
+
+          {/* Real-Time Analysis Card */}
+          <div className="bg-gradient-to-r from-purple-500 to-blue-600 rounded-lg shadow-md p-6 mb-8 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-semibold mb-2">Real-Time Analysis</h3>
+                <p className="text-white text-opacity-90">Get instant feedback on your swing as you perform it</p>
+              </div>
+              <Link
+                href="/streaming"
+                className="flex items-center gap-2 px-6 py-3 bg-white text-purple-600 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+              >
+                <Video className="w-5 h-5" />
+                Start Live Analysis
+              </Link>
+            </div>
           </div>
 
           {/* Recent Sessions */}
@@ -281,6 +325,13 @@ export default function PlayerDashboard() {
               </div>
             )}
           </div>
+
+          {/* Trend Analysis */}
+          {sessions.length > 0 && (
+            <div className="mt-8">
+              <TrendAnalysis sessions={sessions} />
+            </div>
+          )}
         </div>
       </div>
     </div>

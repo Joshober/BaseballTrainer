@@ -13,4 +13,10 @@ endpoints:
     url: baseball.ngrok.dev
     upstream:
       url: http://localhost:3000
+  
+  # Storage Server (Flask) - runs on port 5003
+  - name: baseball-storage
+    url: baseball-storage.ngrok.app
+    upstream:
+      url: http://localhost:5003
 

@@ -39,14 +39,23 @@ endpoints:
     url: baseball.ngrok.dev
     upstream:
       url: http://localhost:3000
+  
+  # Storage Server (Flask) - port 5003
+  - name: baseball-storage
+    url: baseball-storage.ngrok.app
+    upstream:
+      url: http://localhost:5003
 ```
 
 **Note**: 
 - Backend endpoint points to port 3001 (Express server)
 - Frontend endpoint points to port 3000 (Next.js server)
-- You can use either or both endpoints independently
+- Storage server endpoint points to port 5003 (Flask storage server)
+- You can use any combination of endpoints independently
 
-## 🚀 **Step 2: Start Backend Server (Backend PC)**
+## 🚀 **Step 2: Start Servers**
+
+### **Backend Server (Backend PC)**
 
 On the backend PC, start the Express server:
 
@@ -56,9 +65,27 @@ npm run dev:server
 
 This will start the server on `http://localhost:3001`.
 
-## 🌐 **Step 3: Start Ngrok Tunnel (Backend PC)**
+### **Storage Server (Storage PC or same PC)**
 
-On the backend PC, start ngrok:
+Start the Flask storage server:
+
+```bash
+cd storage-server
+python app.py
+```
+
+Or if you have a script:
+```bash
+npm run dev:storage
+```
+
+This will start the server on `http://localhost:5003`.
+
+## 🌐 **Step 3: Start Ngrok Tunnels**
+
+### **Backend Ngrok (Backend PC)**
+
+On the backend PC, start ngrok for the backend:
 
 **Windows (PowerShell):**
 ```powershell
@@ -78,7 +105,29 @@ ngrok start baseball-backend --config ngrok.yml
 
 Ngrok will create a tunnel at `https://baseball.ngrok.app` pointing to your local Express server.
 
-## 💻 **Step 4: Configure Frontend (Frontend PC)**
+### **Storage Server Ngrok (Storage PC)**
+
+On the PC where the storage server is running, start ngrok for storage:
+
+**Windows (PowerShell):**
+```powershell
+.\scripts\start-ngrok-storage.ps1
+```
+
+**Linux/Mac:**
+```bash
+chmod +x scripts/start-ngrok-storage.sh
+./scripts/start-ngrok-storage.sh
+```
+
+**Or manually:**
+```bash
+ngrok start baseball-storage --config ngrok.yml
+```
+
+Ngrok will create a tunnel at `https://baseball-storage.ngrok.app` pointing to your local storage server.
+
+## 💻 **Step 4: Configure Environment Variables**
 
 On the frontend PC, create or update `.env.local`:
 
@@ -98,6 +147,12 @@ NEXT_PUBLIC_NGROK_FRONTEND_URL=https://baseball.ngrok.dev
 NGROK_FRONTEND_URL=https://baseball.ngrok.dev
 ```
 
+### **If using storage server via ngrok:**
+```env
+# Ngrok Storage Server URL
+NGROK_STORAGE_SERVER_URL=https://baseball-storage.ngrok.app
+```
+
 ### **Complete example:**
 ```env
 # Backend via ngrok
@@ -106,6 +161,9 @@ NGROK_URL=https://baseball.ngrok.app
 
 # Frontend via ngrok (optional)
 NEXT_PUBLIC_NGROK_FRONTEND_URL=https://baseball.ngrok.dev
+
+# Storage Server via ngrok
+NGROK_STORAGE_SERVER_URL=https://baseball-storage.ngrok.app
 
 # Other configs...
 STORAGE_TYPE=local
@@ -149,6 +207,11 @@ The frontend will automatically connect to the backend via ngrok if `NEXT_PUBLIC
 2. **Test backend**: Visit `https://baseball.ngrok.app/health` - should return `{"status":"ok"}`
 3. **Test frontend**: Visit `http://localhost:3000` - should connect to backend via ngrok
 
+### **Storage Server via Ngrok:**
+1. **Check ngrok status**: Visit `http://localhost:4040` on the storage PC to see ngrok dashboard
+2. **Test storage server**: Visit `https://baseball-storage.ngrok.app/api/health` - should return `{"status":"ok"}`
+3. **Test file upload**: The frontend should automatically use the ngrok URL if `NGROK_STORAGE_SERVER_URL` is set
+
 ### **Frontend via Ngrok:**
 1. **Check ngrok status**: Visit `http://localhost:4040` on the frontend PC to see ngrok dashboard
 2. **Test frontend**: Visit `https://baseball.ngrok.dev` - should show your Next.js app
@@ -191,6 +254,9 @@ NGROK_URL=https://baseball.ngrok.app
 NEXT_PUBLIC_NGROK_FRONTEND_URL=https://baseball.ngrok.dev
 NGROK_FRONTEND_URL=https://baseball.ngrok.dev
 
+# Ngrok Storage Server URL (if storage server is on different PC)
+NGROK_STORAGE_SERVER_URL=https://baseball-storage.ngrok.app
+
 # Auth0 Client Config
 AUTH0_DOMAIN=your-app.auth0.com
 AUTH0_CLIENT_ID=your_client_id
@@ -198,7 +264,7 @@ AUTH0_CLIENT_ID=your_client_id
 
 # Database & Storage
 DATABASE_TYPE=mongodb
-STORAGE_TYPE=local  # Will use ngrok backend if NEXT_PUBLIC_BACKEND_URL is set
+STORAGE_TYPE=local  # Will use ngrok storage server if NGROK_STORAGE_SERVER_URL is set
 ```
 
 ## 🛠️ **Troubleshooting**
