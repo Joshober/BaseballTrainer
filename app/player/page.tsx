@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Rocket, TrendingUp, Target, BarChart3, ArrowRight, Video } from 'lucide-react';
-import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { onAuthChange } from '@/lib/hooks/useAuth';
+import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import TrendAnalysis from '@/components/Analytics/TrendAnalysis';
 import type { Session } from '@/types/session';
 import type { User } from '@/types/user';
@@ -26,13 +27,12 @@ export default function PlayerDashboard() {
 
   const loadDashboardData = async (uid: string) => {
     try {
-      const auth = getFirebaseAuth();
-      if (!auth?.currentUser) return;
-      
-      const token = await auth.currentUser.getIdToken();
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) return;
 
       // Load user data if viewing another player
-      const isViewingOtherPlayer = uid !== auth.currentUser.uid;
+      const isViewingOtherPlayer = uid !== authUser.sub;
       if (isViewingOtherPlayer) {
         const userResponse = await fetch(`/api/users?uid=${uid}`, {
           headers: {
@@ -102,11 +102,10 @@ export default function PlayerDashboard() {
         router.push('/login');
       } else {
         // Get user data
-        const auth = getFirebaseAuth();
-        if (auth?.currentUser) {
+        const token = getAuthToken();
+        if (token) {
           try {
-            const token = await auth.currentUser.getIdToken();
-            const userResponse = await fetch(`/api/users?uid=${authUser.uid}`, {
+            const userResponse = await fetch(`/api/users?uid=${authUser.sub}`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
               },
@@ -129,7 +128,7 @@ export default function PlayerDashboard() {
                 }
               }
               
-              loadDashboardData(authUser.uid);
+              loadDashboardData(authUser.sub);
             }
           } catch (error) {
             console.error('Failed to load user:', error);
