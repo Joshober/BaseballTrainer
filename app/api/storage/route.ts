@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { verifyIdToken } from '@/lib/firebase/admin';
+import { verifyIdToken } from '@/lib/auth0/admin';
 
 const UPLOAD_DIR = join(process.cwd(), 'server', 'uploads');
 

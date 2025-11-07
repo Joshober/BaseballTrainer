@@ -1,113 +1,74 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { UserPlus, Mail, Lock, User } from 'lucide-react';
-import { signInWithGoogle, signUpWithEmail, onAuthChange, getFirebaseAuth, signOutUser } from '@/lib/firebase/auth';
+import { signUpWithGoogle, signUpWithEmail, getAuthUser, getAuthToken } from '@/lib/auth0/client';
 
 export default function SignUpPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<'player' | 'coach'>('player');
 
   useEffect(() => {
-    const unsubscribe = onAuthChange(async (user) => {
-      if (user) {
-        // Check if user already exists
-        const auth = getFirebaseAuth();
-        if (auth?.currentUser) {
-          try {
-            const token = await auth.currentUser.getIdToken();
-            const userResponse = await fetch(`/api/users?uid=${user.uid}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-              },
-            });
-            if (userResponse.ok) {
-              // User exists, redirect to appropriate dashboard
-              const userData = await userResponse.json();
-              if (userData.role === 'coach') {
-                router.push('/coach');
-              } else {
-                router.push('/player');
-              }
-            }
-            // If user doesn't exist, they need to complete signup
-          } catch (error) {
-            console.error('Failed to get user data:', error);
-          }
-        }
-      }
-    });
+    // Check if user is already authenticated
+    const token = getAuthToken();
+    const user = getAuthUser();
+    
+    if (token && user) {
+      checkUserProfile(token, user);
+    }
+    
+    // Check for error from callback
+    const errorParam = searchParams.get('error');
+    if (errorParam) {
+      setError(decodeURIComponent(errorParam));
+    }
+  }, [searchParams]);
 
-    return () => unsubscribe();
-  }, [router]);
-
-  const handleGoogleSignUp = async () => {
+  const checkUserProfile = async (token: string, user: any) => {
     try {
-      setLoading(true);
-      setError(null);
+      const response = await fetch(`/api/users?uid=${user.sub}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       
-      // Check if role is selected
-      if (!selectedRole) {
-        setError('Please select whether you are a Player or Coach');
-        setLoading(false);
-        return;
-      }
-      
-      const firebaseUser = await signInWithGoogle();
-      
-      // Check if user exists
-      const auth = getFirebaseAuth();
-      if (auth?.currentUser) {
-        const token = await auth.currentUser.getIdToken();
-        const userResponse = await fetch(`/api/users?uid=${firebaseUser.uid}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (!userResponse.ok) {
-          // User doesn't exist, create user with selected role
-          const createResponse = await fetch('/api/users', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              uid: firebaseUser.uid,
-              displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-              email: firebaseUser.email || '',
-              role: selectedRole,
-            }),
-          });
-          
-          if (!createResponse.ok) {
-            const errorData = await createResponse.json();
-            throw new Error(errorData.error || 'Failed to create user profile');
-          }
-          
-          // Redirect based on selected role
-          if (selectedRole === 'coach') {
-            router.push('/coach');
-          } else {
-            router.push('/player');
-          }
+      if (response.ok) {
+        // User exists, redirect to appropriate dashboard
+        const userData = await response.json();
+        if (userData.role === 'coach') {
+          router.push('/coach');
         } else {
-          // User exists, redirect will be handled by useEffect
+          router.push('/player');
         }
       }
-    } catch (error: any) {
-      console.error('Sign up error:', error);
-      setError(error.message || 'Failed to sign up with Google');
-      setLoading(false);
+      // If user doesn't exist, they need to complete signup
+    } catch (error) {
+      console.error('Failed to get user data:', error);
     }
   };
 
-  const handleEmailSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleGoogleSignUp = () => {
+    setLoading(true);
+    setError(null);
+    
+    // Check if role is selected
+    if (!selectedRole) {
+      setError('Please select whether you are a Player or Coach');
+      setLoading(false);
+      return;
+    }
+    
+    // Store selected role in session storage before redirect
+    sessionStorage.setItem('selectedRole', selectedRole);
+    signUpWithGoogle();
+  };
+
+  const handleEmailSignUp = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -131,47 +92,71 @@ export default function SignUpPage() {
       return;
     }
 
-    try {
-      const auth = getFirebaseAuth();
-      if (!auth) {
-        throw new Error('Firebase Auth is not configured');
-      }
-
-      // Sign up
-      const firebaseUser = await signUpWithEmail(email, password);
-      
-      // Create user profile with role
-      const token = await firebaseUser.getIdToken();
-      const userResponse = await fetch('/api/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          uid: firebaseUser.uid,
-          displayName: firebaseUser.displayName || email.split('@')[0],
-          email: firebaseUser.email || email,
-          role: selectedRole,
-        }),
-      });
-
-      if (!userResponse.ok) {
-        throw new Error('Failed to create user profile');
-      }
-
-      // Redirect based on role
-      if (selectedRole === 'coach') {
-        router.push('/coach');
-      } else {
-        router.push('/player');
-      }
-    } catch (error: any) {
-      console.error('Sign up error:', error);
-      setError(error.message || 'Failed to create account');
-      setLoading(false);
-    }
+    // Store selected role in session storage before redirect
+    sessionStorage.setItem('selectedRole', selectedRole);
+    signUpWithEmail();
   };
+
+  // After Auth0 callback, create user profile
+  useEffect(() => {
+    const createUserProfile = async () => {
+      const token = getAuthToken();
+      const user = getAuthUser();
+      
+      if (!token || !user) return;
+      
+      const storedRole = sessionStorage.getItem('selectedRole');
+      if (!storedRole) return; // No role selected, skip
+      
+      try {
+        // Check if user already exists
+        const checkResponse = await fetch(`/api/users?uid=${user.sub}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (!checkResponse.ok) {
+          // User doesn't exist, create user with selected role
+          const createResponse = await fetch('/api/users', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              uid: user.sub,
+              displayName: user.name || user.nickname || user.email?.split('@')[0] || 'User',
+              email: user.email || '',
+              role: storedRole,
+            }),
+          });
+          
+          if (createResponse.ok) {
+            sessionStorage.removeItem('selectedRole');
+            
+            // Redirect based on selected role
+            if (storedRole === 'coach') {
+              router.push('/coach');
+            } else {
+              router.push('/player');
+            }
+          }
+        } else {
+          // User exists, redirect will be handled by checkUserProfile
+          sessionStorage.removeItem('selectedRole');
+        }
+      } catch (error) {
+        console.error('Failed to create user profile:', error);
+      }
+    };
+
+    const token = getAuthToken();
+    const user = getAuthUser();
+    if (token && user) {
+      createUserProfile();
+    }
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center px-4 py-12">
@@ -356,5 +341,3 @@ export default function SignUpPage() {
     </div>
   );
 }
-
-

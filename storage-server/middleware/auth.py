@@ -1,12 +1,12 @@
 """
-Firebase authentication middleware for storage server
-Verifies Firebase ID tokens for authenticated requests
+Auth0 authentication middleware for storage server
+Verifies Auth0 access tokens for authenticated requests
 """
 from functools import wraps
 from flask import request, jsonify
 import os
-import firebase_admin
-from firebase_admin import credentials, auth
+import jwt
+import requests
 from pathlib import Path
 from dotenv import load_dotenv
 import logging
@@ -21,67 +21,92 @@ else:
 
 logger = logging.getLogger(__name__)
 
-# Initialize Firebase Admin SDK
-_admin_app = None
+# Cache for JWKS
+_jwks_cache = None
 
-def get_firebase_admin():
-    """Initialize and return Firebase Admin app"""
-    global _admin_app
+def get_jwks():
+    """Get JWKS (JSON Web Key Set) from Auth0"""
+    global _jwks_cache
     
-    if _admin_app is None:
-        # Check if already initialized
-        if len(firebase_admin._apps) > 0:
-            _admin_app = firebase_admin.get_app()
-            return _admin_app
-        
-        # Get Firebase Admin credentials from environment
-        project_id = os.getenv('FIREBASE_ADMIN_PROJECT_ID')
-        client_email = os.getenv('FIREBASE_ADMIN_CLIENT_EMAIL')
-        private_key = os.getenv('FIREBASE_ADMIN_PRIVATE_KEY', '').replace('\\n', '\n')
-        
-        if not project_id or not client_email or not private_key:
-            logger.warning(
-                "Firebase Admin SDK not configured. "
-                "Set FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, and FIREBASE_ADMIN_PRIVATE_KEY"
-            )
+    if _jwks_cache is None:
+        domain = os.getenv('AUTH0_DOMAIN')
+        if not domain:
+            logger.warning("AUTH0_DOMAIN is not configured")
             return None
         
         try:
-            cred = credentials.Certificate({
-                'project_id': project_id,
-                'client_email': client_email,
-                'private_key': private_key,
-            })
-            _admin_app = firebase_admin.initialize_app(cred)
-            logger.info("Firebase Admin SDK initialized successfully")
+            jwks_url = f"https://{domain}/.well-known/jwks.json"
+            response = requests.get(jwks_url, timeout=10)
+            response.raise_for_status()
+            _jwks_cache = response.json()
         except Exception as e:
-            logger.error(f"Failed to initialize Firebase Admin SDK: {e}")
+            logger.error(f"Failed to fetch JWKS: {e}")
             return None
     
-    return _admin_app
+    return _jwks_cache
 
-def verify_firebase_token(token: str):
-    """Verify Firebase ID token and return decoded token"""
+def get_signing_key(token):
+    """Get the signing key for a JWT token"""
+    jwks = get_jwks()
+    if not jwks:
+        return None
+    
     try:
-        admin_app = get_firebase_admin()
-        if not admin_app:
-            # Demo mode - allow requests without auth
-            demo_mode = os.getenv('DEMO_MODE', 'False').lower() == 'true'
-            if demo_mode:
-                logger.info("Demo mode enabled - skipping token verification")
-                return {'uid': 'demo_user', 'email': 'demo@example.com'}
+        unverified_header = jwt.get_unverified_header(token)
+        kid = unverified_header.get('kid')
+        
+        if not kid:
             return None
         
-        decoded_token = auth.verify_id_token(token)
-        return decoded_token
+        # Find the key with matching kid
+        for key in jwks.get('keys', []):
+            if key.get('kid') == kid:
+                return jwt.algorithms.RSAAlgorithm.from_jwk(key)
+        
+        return None
     except Exception as e:
-        logger.warning(f"Token verification failed: {e}")
+        logger.error(f"Failed to get signing key: {e}")
+        return None
+
+def verify_auth0_token(token: str):
+    """Verify Auth0 access token and return decoded token"""
+    try:
+        domain = os.getenv('AUTH0_DOMAIN')
+        audience = os.getenv('AUTH0_AUDIENCE')
+        
+        if not domain:
+            logger.warning("AUTH0_DOMAIN is not configured")
+            return None
+        
+        # Get signing key
+        signing_key = get_signing_key(token)
+        if not signing_key:
+            return None
+        
+        # Verify token
+        decoded = jwt.decode(
+            token,
+            signing_key,
+            algorithms=['RS256'],
+            audience=audience or f"https://{domain}/api/v2/",
+            issuer=f"https://{domain}/"
+        )
+        
+        return decoded
+    except jwt.ExpiredSignatureError:
+        logger.warning("Token has expired")
+        return None
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid token: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Token verification error: {e}")
         return None
 
 def require_auth(f):
     """
-    Decorator that requires Firebase authentication
-    Allows demo mode for testing without Firebase
+    Decorator that requires Auth0 authentication
+    Allows demo mode for testing without Auth0
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -93,7 +118,7 @@ def require_auth(f):
             # Demo mode: use demo user
             demo_user_id = os.getenv('DEMO_USER_ID', 'demo_user')
             request.user = {
-                'uid': demo_user_id,
+                'sub': demo_user_id,
                 'email': f'{demo_user_id}@demo.local',
                 'source': 'demo'
             }
@@ -110,7 +135,7 @@ def require_auth(f):
         
         # Extract and verify token
         token = auth_header[7:]  # Remove 'Bearer ' prefix
-        decoded_token = verify_firebase_token(token)
+        decoded_token = verify_auth0_token(token)
         
         if not decoded_token:
             return jsonify({
@@ -119,13 +144,13 @@ def require_auth(f):
             }), 401
         
         # Attach user info to request
+        # Auth0 uses 'sub' as the user ID (equivalent to Firebase 'uid')
         request.user = {
-            'uid': decoded_token.get('uid'),
+            'sub': decoded_token.get('sub'),
             'email': decoded_token.get('email'),
-            'source': 'firebase'
+            'source': 'auth0'
         }
         
         return f(*args, **kwargs)
     
     return decorated_function
-

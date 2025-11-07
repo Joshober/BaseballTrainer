@@ -6,7 +6,7 @@ import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import { config } from '../lib/utils/config';
-import { verifyIdToken } from '../lib/firebase/admin';
+import { verifyIdToken } from '../lib/auth0/admin';
 import axios from 'axios';
 import type { Request, Response, NextFunction } from 'express';
 
@@ -41,7 +41,8 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
   }
 
   (req as any).user = decodedToken;
-  (req as any).userId = decodedToken.uid;
+  // Auth0 uses 'sub' as the user ID (equivalent to Firebase 'uid')
+  (req as any).userId = decodedToken.sub;
   next();
 }
 
@@ -61,6 +62,111 @@ app.get('/health', (req, res) => {
       drillRecommender: DRILL_RECOMMENDER_URL,
       blastConnector: BLAST_CONNECTOR_URL,
     }
+  });
+});
+
+// Auth0 Authentication Endpoints
+app.get('/api/auth/login', (req, res) => {
+  // Redirect to Auth0 login
+  const domain = process.env.AUTH0_DOMAIN;
+  const clientId = process.env.AUTH0_CLIENT_ID;
+  // Auth0 callback should go to backend gateway
+  const backendUrl = process.env.AUTH0_BASE_URL || `http://localhost:${PORT}`;
+  const connection = req.query.connection || 'google-oauth2';
+  const screenHint = req.query.screen_hint || 'login';
+  
+  if (!domain || !clientId) {
+    return res.status(500).json({ error: 'Auth0 not configured' });
+  }
+  
+  const authUrl = `https://${domain}/authorize?` +
+    `response_type=code&` +
+    `client_id=${clientId}&` +
+    `redirect_uri=${encodeURIComponent(`${backendUrl}/api/auth/callback`)}&` +
+    `scope=openid profile email&` +
+    `connection=${connection}&` +
+    `screen_hint=${screenHint}`;
+  
+  res.redirect(authUrl);
+});
+
+app.get('/api/auth/callback', async (req, res) => {
+  // Handle Auth0 callback
+  const code = req.query.code;
+  const error = req.query.error;
+  
+  if (error) {
+    return res.redirect(`/?error=${encodeURIComponent(error as string)}`);
+  }
+  
+  if (!code) {
+    return res.redirect('/?error=no_code');
+  }
+  
+  try {
+    const domain = process.env.AUTH0_DOMAIN;
+    const clientId = process.env.AUTH0_CLIENT_ID;
+    const clientSecret = process.env.AUTH0_CLIENT_SECRET;
+    // Auth0 callback URL should be the backend gateway
+    const backendUrl = process.env.AUTH0_BASE_URL || `http://localhost:${PORT}`;
+    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
+    
+    if (!domain || !clientId || !clientSecret) {
+      return res.status(500).json({ error: 'Auth0 not configured' });
+    }
+    
+    // Exchange code for tokens
+    const tokenResponse = await axios.post(`https://${domain}/oauth/token`, {
+      grant_type: 'authorization_code',
+      client_id: clientId,
+      client_secret: clientSecret,
+      code: code as string,
+      redirect_uri: `${backendUrl}/api/auth/callback`,
+    });
+    
+    const { access_token, id_token } = tokenResponse.data;
+    
+    // Get user info
+    const userResponse = await axios.get(`https://${domain}/userinfo`, {
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+      },
+    });
+    
+    const user = userResponse.data;
+    
+    // Redirect to frontend with tokens
+    // Note: In production, use secure HTTP-only cookies instead of query params
+    res.redirect(`${frontendUrl}/auth/callback?token=${access_token}&user=${encodeURIComponent(JSON.stringify(user))}`);
+  } catch (error: any) {
+    console.error('Auth callback error:', error);
+    res.redirect(`/?error=${encodeURIComponent(error.message || 'auth_failed')}`);
+  }
+});
+
+app.get('/api/auth/logout', (req, res) => {
+  // Logout from Auth0
+  const domain = process.env.AUTH0_DOMAIN;
+  const clientId = process.env.AUTH0_CLIENT_ID;
+  const returnTo = req.query.returnTo || process.env.AUTH0_BASE_URL || 'http://localhost:3000';
+  
+  if (!domain || !clientId) {
+    return res.status(500).json({ error: 'Auth0 not configured' });
+  }
+  
+  const logoutUrl = `https://${domain}/v2/logout?` +
+    `client_id=${clientId}&` +
+    `returnTo=${encodeURIComponent(returnTo as string)}`;
+  
+  res.redirect(logoutUrl);
+});
+
+app.get('/api/auth/user', authenticate, (req, res) => {
+  // Get current user info
+  res.json({
+    sub: (req as any).user.sub,
+    email: (req as any).user.email,
+    name: (req as any).user.name,
   });
 });
 

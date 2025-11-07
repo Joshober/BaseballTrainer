@@ -80,7 +80,7 @@ def upload_file():
         # Save file
         file.save(str(full_path))
         
-        logger.info(f"File uploaded: {path} by user {request.user.get('uid')}")
+        logger.info(f"File uploaded: {path} by user {request.user.get('sub')}")
         
         # Return URL (relative to storage server)
         url = f"/api/storage/{path}"
@@ -139,14 +139,15 @@ def delete_file():
             return jsonify({'error': 'File not found'}), 404
         
         # Verify user owns the file (path should start with user_id)
-        user_id = request.user.get('uid', '')
+        # Auth0 uses 'sub' as the user ID (equivalent to Firebase 'uid')
+        user_id = request.user.get('sub', '')
         if not path.startswith(user_id + '/'):
             return jsonify({'error': 'Forbidden - you can only delete your own files'}), 403
         
         # Delete file
         full_path.unlink()
         
-        logger.info(f"File deleted: {path} by user {request.user.get('uid')}")
+        logger.info(f"File deleted: {path} by user {request.user.get('sub')}")
         
         return jsonify({'message': 'File deleted successfully'}), 200
     

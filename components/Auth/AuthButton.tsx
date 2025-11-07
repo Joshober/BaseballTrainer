@@ -2,37 +2,29 @@
 
 import { useState, useEffect } from 'react';
 import { User, LogOut, LogIn } from 'lucide-react';
-import { signInWithGoogle, signOutUser, onAuthChange } from '@/lib/firebase/auth';
-import type { User as FirebaseUser } from 'firebase/auth';
+import { getAuthUser, getAuthToken, signInWithGoogle, signOut } from '@/lib/auth0/client';
+import type { Auth0User } from '@/lib/auth0/client';
 
 export default function AuthButton() {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [user, setUser] = useState<Auth0User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthChange((user) => {
-      setUser(user);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    const token = getAuthToken();
+    const authUser = getAuthUser();
+    
+    if (token && authUser) {
+      setUser(authUser);
+    }
+    setLoading(false);
   }, []);
 
-  const handleSignIn = async () => {
-    try {
-      await signInWithGoogle();
-    } catch (error: any) {
-      console.error('Sign in error:', error);
-      alert(error?.message || 'Firebase Auth is not configured. Please configure Firebase or use local storage/database.');
-    }
+  const handleSignIn = () => {
+    signInWithGoogle();
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOutUser();
-    } catch (error) {
-      console.error('Sign out error:', error);
-    }
+  const handleSignOut = () => {
+    signOut();
   };
 
   if (loading) {
@@ -49,7 +41,7 @@ export default function AuthButton() {
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 text-blue-700">
           <User className="w-5 h-5" />
-          <span className="text-sm font-medium">{user.displayName || user.email}</span>
+          <span className="text-sm font-medium">{user.name || user.nickname || user.email}</span>
         </div>
         <button
           onClick={handleSignOut}
@@ -72,5 +64,3 @@ export default function AuthButton() {
     </button>
   );
 }
-
-

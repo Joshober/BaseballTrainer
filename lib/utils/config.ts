@@ -1,7 +1,16 @@
 export const config = {
-  // Firebase configuration (loaded from .env.local)
-  // For Auth only: apiKey and projectId are required
-  // Other fields are optional but recommended
+  // Auth0 configuration (loaded from .env.local)
+  auth0: {
+    domain: process.env.AUTH0_DOMAIN || '',
+    clientId: process.env.AUTH0_CLIENT_ID || '',
+    clientSecret: process.env.AUTH0_CLIENT_SECRET || '',
+    audience: process.env.AUTH0_AUDIENCE || '',
+    scope: process.env.AUTH0_SCOPE || 'openid profile email',
+    baseURL: process.env.AUTH0_BASE_URL || process.env.NEXT_PUBLIC_AUTH0_BASE_URL || '',
+    secret: process.env.AUTH0_SECRET || '',
+  },
+  // Firebase configuration (deprecated - kept for backward compatibility)
+  // Firebase is no longer used for authentication, only for other services if needed
   firebase: {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
     authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',

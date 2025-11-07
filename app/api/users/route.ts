@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabaseAdapter } from '@/lib/database';
-import { verifyIdToken } from '@/lib/firebase/admin';
+import { verifyIdToken } from '@/lib/auth0/admin';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,8 +14,8 @@ export async function GET(request: NextRequest) {
     try {
       decodedToken = await verifyIdToken(token);
     } catch (error: any) {
-      // If Admin SDK is not configured, return helpful error
-      if (error.message && error.message.includes('Firebase Admin SDK not configured')) {
+      // If Auth0 is not configured, return helpful error
+      if (error.message && error.message.includes('AUTH0_DOMAIN is not configured')) {
         return NextResponse.json({ 
           error: error.message 
         }, { status: 500 });
@@ -43,7 +43,8 @@ export async function GET(request: NextRequest) {
     }
     
     // Otherwise, get single user
-    const targetUid = uid || decodedToken.uid;
+    // Auth0 uses 'sub' as the user ID (equivalent to Firebase 'uid')
+    const targetUid = uid || decodedToken.sub;
     const user = await db.getUser(targetUid);
 
     if (!user) {
@@ -72,8 +73,8 @@ export async function POST(request: NextRequest) {
     try {
       decodedToken = await verifyIdToken(token);
     } catch (error: any) {
-      // If Admin SDK is not configured, return helpful error
-      if (error.message && error.message.includes('Firebase Admin SDK not configured')) {
+      // If Auth0 is not configured, return helpful error
+      if (error.message && error.message.includes('AUTH0_DOMAIN is not configured')) {
         return NextResponse.json({ 
           error: error.message 
         }, { status: 500 });
@@ -106,7 +107,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify user owns this account
-    if (uid !== decodedToken.uid) {
+    // Auth0 uses 'sub' as the user ID (equivalent to Firebase 'uid')
+    if (uid !== decodedToken.sub) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

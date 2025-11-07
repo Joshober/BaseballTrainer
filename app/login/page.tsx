@@ -1,81 +1,70 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { LogIn, Mail, Lock } from 'lucide-react';
-import { signInWithGoogle, signInWithEmail, onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { signInWithGoogle, signInWithEmail, getAuthUser, getAuthToken } from '@/lib/auth0/client';
+import { getBackendUrl } from '@/lib/utils/backend-url';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthChange(async (user) => {
-      if (user) {
-        // Get user data to check role
-        const auth = getFirebaseAuth();
-        if (auth?.currentUser) {
-          try {
-            const token = await auth.currentUser.getIdToken();
-            const userResponse = await fetch(`/api/users?uid=${user.uid}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-              },
-            });
-            if (userResponse.ok) {
-              const userData = await userResponse.json();
-              if (userData.role === 'coach') {
-                router.push('/coach');
-              } else {
-                router.push('/player');
-              }
-            } else {
-              // If user doesn't exist yet, redirect to signup
-              router.push('/signup');
-            }
-          } catch (error) {
-            console.error('Failed to get user data:', error);
-            router.push('/signup');
-          }
-        }
-      }
-    });
+    // Check if user is already authenticated
+    const token = getAuthToken();
+    const user = getAuthUser();
+    
+    if (token && user) {
+      checkUserProfile(token, user);
+    }
+    
+    // Check for error from callback
+    const errorParam = searchParams.get('error');
+    if (errorParam) {
+      setError(decodeURIComponent(errorParam));
+    }
+  }, [searchParams]);
 
-    return () => unsubscribe();
-  }, [router]);
-
-  const handleGoogleSignIn = async () => {
+  const checkUserProfile = async (token: string, user: any) => {
     try {
-      setLoading(true);
-      setError(null);
-      await signInWithGoogle();
-      // Redirect will be handled by useEffect
-    } catch (error: any) {
-      console.error('Sign in error:', error);
-      setError(error.message || 'Failed to sign in with Google');
-      setLoading(false);
+      const response = await fetch(`/api/users?uid=${user.sub}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        if (userData.role === 'coach') {
+          router.push('/coach');
+        } else {
+          router.push('/player');
+        }
+      } else {
+        // If user doesn't exist yet, redirect to signup
+        router.push('/signup');
+      }
+    } catch (error) {
+      console.error('Failed to get user data:', error);
+      router.push('/signup');
     }
   };
 
-  const handleEmailSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleGoogleSignIn = () => {
+    setLoading(true);
+    setError(null);
+    signInWithGoogle();
+  };
+
+  const handleEmailSignIn = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-
-    try {
-      await signInWithEmail(email, password);
-      // Redirect will be handled by useEffect
-    } catch (error: any) {
-      console.error('Auth error:', error);
-      setError(error.message || 'Failed to sign in');
-      setLoading(false);
-    }
+    signInWithEmail();
   };
 
   return (
