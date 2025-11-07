@@ -16,7 +16,7 @@ import VelocityInput from '@/components/Mission/VelocityInput';
 import LaunchAnimation from '@/components/Mission/LaunchAnimation';
 import DrillRecommendations from '@/components/Drills/DrillRecommendations';
 import type { PoseResult } from '@/types/pose';
-import type { User as FirebaseUser } from 'firebase/auth';
+import type { Auth0User } from '@/lib/auth0/client-auth';
 import type { VideoAnalysis } from '@/types/session';
 
 type Mode = 'photo' | 'video' | 'manual';
