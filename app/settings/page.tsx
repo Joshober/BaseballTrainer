@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Settings, Loader2, Save, CheckCircle, AlertCircle } from 'lucide-react';
-import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { onAuthChange } from '@/lib/hooks/useAuth';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import { useTeam } from '@/lib/hooks/useTeam';
 import PageContainer from '@/components/Layout/PageContainer';

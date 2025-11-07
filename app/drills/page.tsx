@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Target, Loader2, Search, Filter } from 'lucide-react';
-import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { onAuthChange } from '@/lib/hooks/useAuth';
 import { getDrills, searchDrills, type Drill } from '@/lib/services/drill-recommender';
-import { getAuthToken } from '@/lib/auth0/client';
+import { getAuthToken, getAuthUser } from '@/lib/auth0/client';
 import DrillCard from '@/components/Drills/DrillCard';
 import PageContainer from '@/components/Layout/PageContainer';
 
@@ -21,12 +21,18 @@ export default function DrillsPage() {
   const [selectedDrill, setSelectedDrill] = useState<Drill | null>(null);
 
   useEffect(() => {
+    let hasLoadedDrills = false;
+    
     const unsubscribe = onAuthChange((authUser) => {
       if (!authUser) {
         router.push('/login');
       } else {
         setUser(authUser);
-        loadDrills();
+        // Only load drills once when user is first authenticated
+        if (!hasLoadedDrills) {
+          hasLoadedDrills = true;
+          loadDrills();
+        }
       }
     });
 

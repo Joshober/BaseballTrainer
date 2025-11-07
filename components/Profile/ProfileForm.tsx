@@ -53,8 +53,17 @@ export default function ProfileForm({ user, onUpdate }: ProfileFormProps) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update profile');
+        let errorMessage = `Failed to update profile: ${response.statusText}`;
+        try {
+          const text = await response.text();
+          if (text) {
+            const errorData = JSON.parse(text);
+            errorMessage = errorData.error || errorMessage;
+          }
+        } catch {
+          // If response is not JSON, use status text
+        }
+        throw new Error(errorMessage);
       }
 
       const updatedUser = await response.json();

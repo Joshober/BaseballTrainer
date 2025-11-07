@@ -132,7 +132,14 @@ export async function getDrills(
   });
   
   if (!response.ok) {
-    throw new Error(`Failed to get drills: ${response.statusText}`);
+    let errorMessage = `Failed to get drills: ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorData.error || errorMessage;
+    } catch {
+      // If response is not JSON, use status text
+    }
+    throw new Error(errorMessage);
   }
   
   return response.json();

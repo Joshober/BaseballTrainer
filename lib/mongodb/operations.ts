@@ -46,6 +46,33 @@ export async function getUsersByTeam(teamId: string): Promise<User[]> {
   })) as User[];
 }
 
+export async function updateUser(uid: string, updates: Partial<CreateUserInput>): Promise<User> {
+  const db = await getMongoDb();
+  const updateData: any = {
+    updatedAt: new Date(),
+  };
+  
+  if (updates.displayName !== undefined) {
+    updateData.displayName = updates.displayName;
+  }
+  if (updates.email !== undefined) {
+    updateData.email = updates.email;
+  }
+  if (updates.role !== undefined) {
+    updateData.role = updates.role;
+  }
+  if (updates.teamId !== undefined) {
+    updateData.teamId = updates.teamId || null;
+  }
+  
+  await db.collection('users').updateOne(
+    { uid },
+    { $set: updateData }
+  );
+  
+  return getUser(uid) as Promise<User>;
+}
+
 // Sessions
 export async function createSession(input: CreateSessionInput): Promise<Session> {
   const db = await getMongoDb();

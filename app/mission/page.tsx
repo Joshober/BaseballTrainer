@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Rocket, Loader2, Video, Play } from 'lucide-react';
 import Link from 'next/link';
-import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { onAuthChange } from '@/lib/hooks/useAuth';
+import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import { useTeam } from '@/lib/hooks/useTeam';
 import { getStorageAdapter } from '@/lib/storage';
 import { calculateDistance } from '@/lib/game/physics';
@@ -16,14 +17,14 @@ import VelocityInput from '@/components/Mission/VelocityInput';
 import LaunchAnimation from '@/components/Mission/LaunchAnimation';
 import DrillRecommendations from '@/components/Drills/DrillRecommendations';
 import type { PoseResult } from '@/types/pose';
-import type { User as FirebaseUser } from 'firebase/auth';
+import type { Auth0User } from '@/lib/auth0/client';
 import type { VideoAnalysis } from '@/types/session';
 
 type Mode = 'photo' | 'video' | 'manual';
 
 export default function MissionPage() {
   const router = useRouter();
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [user, setUser] = useState<Auth0User | null>(null);
   const [loading, setLoading] = useState(true);
   const { teamId, loading: teamLoading } = useTeam();
   const [mode, setMode] = useState<Mode>('photo');
@@ -171,11 +172,11 @@ export default function MissionPage() {
   const analyzeVideo = async (file: File) => {
     try {
       setAnalyzingVideo(true);
-      const auth = getFirebaseAuth();
-      if (!auth?.currentUser) {
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) {
         throw new Error('User not authenticated');
       }
-      const token = await auth.currentUser.getIdToken();
 
       // Create FormData for video upload
       const formData = new FormData();
@@ -256,7 +257,7 @@ export default function MissionPage() {
 
       if (selectedFile) {
         const sessionId = crypto.randomUUID();
-        const uid = user.uid;
+        const uid = user.sub;
         const ext = selectedFile.type.startsWith('video/') ? 'mp4' : 'jpg';
         const path = `swings/${uid}/${sessionId}.${ext}`;
 
@@ -272,12 +273,12 @@ export default function MissionPage() {
         }
       }
 
-      // Get Firebase Auth token for API calls
-      const auth = getFirebaseAuth();
-      if (!auth?.currentUser) {
+      // Get Auth0 token for API calls
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) {
         throw new Error('User not authenticated');
       }
-      const token = await auth.currentUser.getIdToken();
 
       // Create session in database via API
       const sessionResponse = await fetch('/api/sessions', {
@@ -287,7 +288,7 @@ export default function MissionPage() {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          uid: user.uid,
+          uid: user.sub,
           teamId: teamId || 'default',
           photoPath,
           photoURL,
@@ -326,7 +327,7 @@ export default function MissionPage() {
         },
         body: JSON.stringify({
           teamId: 'default',
-          uid: user.uid,
+          uid: user.sub,
           distanceFt,
           sessionId: session.id,
         }),

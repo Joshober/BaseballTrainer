@@ -14,6 +14,10 @@ export class MongodbAdapter implements DatabaseAdapter {
     return mongodb.createUser(input);
   }
 
+  async updateUser(uid: string, updates: Partial<CreateUserInput>): Promise<User> {
+    return mongodb.updateUser(uid, updates);
+  }
+
   async getUsersByTeam(teamId: string): Promise<User[]> {
     return mongodb.getUsersByTeam(teamId);
   }

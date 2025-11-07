@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Video, Play, Square, Camera, TrendingUp, Target, AlertCircle } from 'lucide-react';
-import { getFirebaseAuth } from '@/lib/firebase/auth';
+import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import type { VideoAnalysis } from '@/types/session';
 
 interface RealTimeStreamProps {
@@ -121,12 +121,11 @@ export default function RealTimeStream({ onAnalysisUpdate, onStop }: RealTimeStr
 
     try {
       setIsAnalyzing(true);
-      const auth = getFirebaseAuth();
-      if (!auth?.currentUser) {
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) {
         throw new Error('Not authenticated');
       }
-
-      const token = await auth.currentUser.getIdToken();
 
       // Create FormData with chunk
       const formData = new FormData();

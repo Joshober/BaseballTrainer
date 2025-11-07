@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Video, MessageCircle, Bot, ArrowLeft } from 'lucide-react';
-import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { onAuthChange } from '@/lib/hooks/useAuth';
+import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import type { Session } from '@/types/session';
 import VideoGallery from '@/components/Dashboard/VideoGallery';
 
@@ -31,11 +32,11 @@ export default function VideosPage() {
 
   const loadSessions = async () => {
     try {
-      const auth = getFirebaseAuth();
-      if (!auth?.currentUser) return;
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) return;
 
-      const token = await auth.currentUser.getIdToken();
-      const response = await fetch(`/api/sessions?uid=${auth.currentUser.uid}`, {
+      const response = await fetch(`/api/sessions?uid=${authUser.sub}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -67,10 +68,10 @@ export default function VideosPage() {
     if (!selectedSession || !user) return;
 
     try {
-      const auth = getFirebaseAuth();
-      if (!auth?.currentUser) return;
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) return;
 
-      const token = await auth.currentUser.getIdToken();
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: {
@@ -102,10 +103,9 @@ export default function VideosPage() {
     if (!selectedSession || !user) return;
 
     try {
-      const auth = getFirebaseAuth();
-      if (!auth?.currentUser) return;
-
-      const token = await auth.currentUser.getIdToken();
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) return;
       
       // Create or get AI bot conversation
       // For now, we'll use a special "ai_bot" user ID
@@ -214,22 +214,10 @@ export default function VideosPage() {
             </div>
           </div>
         </div>
-          )}
-
-          {/* Export Modal */}
-          {showExportModal && (
-            <ExportModal
-              sessions={filteredSessions}
-              selectedSession={selectedSessionForExport}
-              onClose={() => {
-                setShowExportModal(false);
-                setSelectedSessionForExport(null);
-              }}
-            />
-          )}
-        </div>
-      );
-    }
+      )}
+    </div>
+  );
+}
 
 // Messenger Modal Component
 function MessengerModal({ onClose, onSend }: { onClose: () => void; onSend: (uid: string) => void }) {
@@ -242,10 +230,10 @@ function MessengerModal({ onClose, onSend }: { onClose: () => void; onSend: (uid
 
   const loadConversations = async () => {
     try {
-      const auth = getFirebaseAuth();
-      if (!auth?.currentUser) return;
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) return;
 
-      const token = await auth.currentUser.getIdToken();
       const response = await fetch('/api/conversations', {
         headers: {
           'Authorization': `Bearer ${token}`,

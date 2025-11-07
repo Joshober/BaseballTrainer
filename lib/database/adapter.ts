@@ -6,6 +6,7 @@ import type { Message, CreateMessageInput, Conversation } from '@/types/message'
 export interface DatabaseAdapter {
   getUser(uid: string): Promise<User | null>;
   createUser(input: CreateUserInput): Promise<User>;
+  updateUser(uid: string, updates: Partial<CreateUserInput>): Promise<User>;
   getUsersByTeam(teamId: string): Promise<User[]>;
   createSession(input: CreateSessionInput): Promise<Session>;
   getSession(sessionId: string): Promise<Session | null>;

@@ -13,14 +13,28 @@ export default function AuthCallbackPage() {
     
     if (token && userStr) {
       try {
+        // Decode the token and user from URL parameters
+        const decodedToken = decodeURIComponent(token);
         const user = JSON.parse(decodeURIComponent(userStr));
         
+        // Validate token format
+        // Auth0 can return either:
+        // - Regular JWT (3 parts: header.payload.signature)
+        // - Encrypted JWT/JWE (5 parts: header.encrypted_key.iv.ciphertext.tag)
+        const tokenParts = decodedToken.split('.');
+        if (tokenParts.length !== 3 && tokenParts.length !== 5) {
+          console.error('Invalid token format. Expected 3 or 5 parts, got:', tokenParts.length);
+          console.error('Token preview:', decodedToken.substring(0, 100));
+          router.push('/login?error=invalid_token');
+          return;
+        }
+        
         // Store token in localStorage (in production, use secure HTTP-only cookies)
-        localStorage.setItem('auth_token', token);
+        localStorage.setItem('auth_token', decodedToken);
         localStorage.setItem('auth_user', JSON.stringify(user));
         
         // Check if user has a profile
-        checkUserProfile(token, user);
+        checkUserProfile(decodedToken, user);
       } catch (error) {
         console.error('Failed to parse user data:', error);
         router.push('/login?error=parse_error');

@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Video, ArrowLeft, Save, TrendingUp } from 'lucide-react';
-import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { onAuthChange } from '@/lib/hooks/useAuth';
+import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import { useTeam } from '@/lib/hooks/useTeam';
 import RealTimeStream from '@/components/Streaming/RealTimeStream';
 import type { VideoAnalysis } from '@/types/session';
@@ -46,14 +47,13 @@ export default function StreamingPage() {
     if (!currentAnalysis || !user || saved) return;
 
     try {
-      const auth = getFirebaseAuth();
-      if (!auth?.currentUser) return;
-
-      const token = await auth.currentUser.getIdToken();
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) return;
 
       // Create session with real-time analysis
       const sessionData = {
-        uid: auth.currentUser.uid,
+        uid: authUser.sub,
         teamId: teamId || 'default',
         photoPath: '',
         photoURL: '',

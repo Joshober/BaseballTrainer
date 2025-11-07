@@ -32,23 +32,29 @@ const upload = multer({
 
 // Auth middleware
 async function authenticate(req: Request, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized', message: 'Missing or invalid Authorization header' });
-  }
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized', message: 'Missing or invalid Authorization header' });
+    }
 
-  const token = authHeader.substring(7);
-  const decodedToken = await verifyIdToken(token);
-  
-  if (!decodedToken) {
-    return res.status(401).json({ error: 'Unauthorized', message: 'Invalid token' });
-  }
+    const token = authHeader.substring(7);
+    const decodedToken = await verifyIdToken(token);
+    
+    if (!decodedToken) {
+      console.error('Token verification failed - decodedToken is null');
+      return res.status(401).json({ error: 'Unauthorized', message: 'Invalid token' });
+    }
 
-  (req as any).user = decodedToken;
-  // Auth0 uses 'sub' as the user ID
-  (req as any).userId = decodedToken.sub;
-  next();
+    (req as any).user = decodedToken;
+    // Auth0 uses 'sub' as the user ID
+    (req as any).userId = decodedToken.sub || decodedToken.user_id || 'anonymous';
+    next();
+  } catch (error: any) {
+    console.error('Authentication error:', error.message);
+    return res.status(401).json({ error: 'Unauthorized', message: error.message || 'Authentication failed' });
+  }
 }
 
 // Service URLs
@@ -140,9 +146,16 @@ app.get('/api/auth/callback', async (req, res) => {
     
     const user = userResponse.data;
     
+    // Use id_token if available (it's always a regular JWT), otherwise use access_token
+    // id_token is a regular JWT that can be verified, while access_token might be encrypted
+    const tokenToUse = id_token || access_token;
+    
     // Redirect to frontend with tokens
     // Note: In production, use secure HTTP-only cookies instead of query params
-    res.redirect(`${frontendUrl}/auth/callback?token=${access_token}&user=${encodeURIComponent(JSON.stringify(user))}`);
+    // URL encode the token to handle special characters
+    const encodedToken = encodeURIComponent(tokenToUse);
+    const encodedUser = encodeURIComponent(JSON.stringify(user));
+    res.redirect(`${frontendUrl}/auth/callback?token=${encodedToken}&user=${encodedUser}`);
   } catch (error: any) {
     console.error('Auth callback error:', error);
     res.redirect(`/?error=${encodeURIComponent(error.message || 'auth_failed')}`);
@@ -247,8 +260,12 @@ app.post('/api/auth/login-email', async (req, res) => {
       
       const user = userResponse.data;
       
+      // Use id_token if available (it's always a regular JWT), otherwise use access_token
+      // id_token is a regular JWT that can be verified, while access_token might be encrypted
+      const tokenToUse = id_token || access_token;
+      
       res.json({
-        access_token,
+        access_token: tokenToUse,
         id_token,
         user,
       });
@@ -488,9 +505,13 @@ app.get('/api/drills', authenticate, async (req, res) => {
     res.json(response.data);
   } catch (error: any) {
     console.error('Get drills error:', error.message);
-    res.status(error.response?.status || 500).json({
+    console.error('Error details:', error.response?.data || error.message);
+    const statusCode = error.response?.status || 500;
+    const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
+    res.status(statusCode).json({
       error: 'Internal server error',
-      message: error.message
+      message: errorMessage,
+      details: error.response?.data
     });
   }
 });

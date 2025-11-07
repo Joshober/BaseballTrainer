@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Loader2 } from 'lucide-react';
-import { onAuthChange, getFirebaseAuth } from '@/lib/firebase/auth';
+import { onAuthChange } from '@/lib/hooks/useAuth';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import ProfileForm from '@/components/Profile/ProfileForm';
 import ProfileStats from '@/components/Profile/ProfileStats';
@@ -58,12 +58,10 @@ export default function ProfilePage() {
       }
 
       // Load user sessions
-      const auth = getFirebaseAuth();
-      if (auth?.currentUser) {
-        const firebaseToken = await auth.currentUser.getIdToken();
-        const sessionsResponse = await fetch(`/api/sessions?uid=${auth.currentUser.uid}`, {
+      if (auth0User) {
+        const sessionsResponse = await fetch(`/api/sessions?uid=${auth0User.sub}`, {
           headers: {
-            'Authorization': `Bearer ${firebaseToken}`,
+            'Authorization': `Bearer ${token}`,
           },
         });
 

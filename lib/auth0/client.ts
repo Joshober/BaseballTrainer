@@ -13,11 +13,35 @@ export interface Auth0User {
 }
 
 /**
+ * Validate if a token is a valid JWT or JWE format
+ * JWT: 3 parts (header.payload.signature)
+ * JWE: 5 parts (header.encrypted_key.iv.ciphertext.tag)
+ */
+function isValidJWTFormat(token: string): boolean {
+  if (!token || typeof token !== 'string') {
+    return false;
+  }
+  const parts = token.split('.');
+  // Accept both JWT (3 parts) and JWE (5 parts) formats
+  return (parts.length === 3 || parts.length === 5) && parts.every(part => part.length > 0);
+}
+
+/**
  * Get stored auth token
  */
 export function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('auth_token');
+  const token = localStorage.getItem('auth_token');
+  
+  // Validate token format before returning
+  if (token && !isValidJWTFormat(token)) {
+    console.error('Invalid token format in localStorage. Clearing token.');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    return null;
+  }
+  
+  return token;
 }
 
 /**

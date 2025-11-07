@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { MessageCircle, ArrowLeft } from 'lucide-react';
-import { onAuthChange, getAuth, getIdToken } from '@/lib/auth0/client-auth';
+import { onAuthChange } from '@/lib/hooks/useAuth';
+import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import type { Message, Conversation } from '@/types/message';
 import type { Session } from '@/types/session';
 import MessageList from '@/components/Messaging/MessageList';
@@ -36,8 +37,8 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (selectedOtherUid && user) {
-      loadMessages(user.uid, selectedOtherUid);
-      markMessagesAsRead(user.uid, selectedOtherUid);
+      loadMessages(user.sub, selectedOtherUid);
+      markMessagesAsRead(user.sub, selectedOtherUid);
     }
   }, [selectedOtherUid, user]);
 
@@ -49,10 +50,10 @@ export default function MessagesPage() {
 
   const loadConversations = async () => {
     try {
-      const auth = getAuth();
-      if (!auth?.currentUser) return;
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) return;
       
-      const token = await getIdToken();
       const response = await fetch('/api/conversations', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -72,8 +73,8 @@ export default function MessagesPage() {
       if (!hasAIBotConversation) {
         // Create AI bot conversation entry
         const aiBotConversation: Conversation = {
-          id: `ai_bot_${auth.currentUser.uid}`,
-          participant1Uid: auth.currentUser.uid,
+          id: `ai_bot_${authUser.sub}`,
+          participant1Uid: authUser.sub,
           participant2Uid: aiBotUid,
           unreadCount: 0,
           updatedAt: new Date(),
@@ -91,10 +92,10 @@ export default function MessagesPage() {
 
   const loadMessages = async (uid1: string, uid2: string) => {
     try {
-      const auth = getAuth();
-      if (!auth?.currentUser) return;
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) return;
       
-      const token = await getIdToken();
       const response = await fetch(`/api/messages?uid1=${uid1}&uid2=${uid2}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -112,11 +113,11 @@ export default function MessagesPage() {
 
   const loadSessions = async () => {
     try {
-      const auth = getAuth();
-      if (!auth?.currentUser) return;
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) return;
       
-      const token = await getIdToken();
-      const response = await fetch(`/api/sessions?uid=${auth.currentUser.uid}`, {
+      const response = await fetch(`/api/sessions?uid=${authUser.sub}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -133,10 +134,10 @@ export default function MessagesPage() {
 
   const markMessagesAsRead = async (uid1: string, uid2: string) => {
     try {
-      const auth = getAuth();
-      if (!auth?.currentUser) return;
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) return;
       
-      const token = await getIdToken();
       await fetch('/api/messages/read', {
         method: 'POST',
         headers: {
@@ -154,10 +155,9 @@ export default function MessagesPage() {
     if (!user || !selectedOtherUid) return;
 
     try {
-      const auth = getAuth();
-      if (!auth?.currentUser) return;
-      
-      const token = await getIdToken();
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) return;
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: {
@@ -194,10 +194,9 @@ export default function MessagesPage() {
 
   const triggerAIBotResponse = async (messageId: string, videoURL?: string, sessionId?: string) => {
     try {
-      const auth = getFirebaseAuth();
-      if (!auth?.currentUser) return;
-      
-      const token = await auth.currentUser.getIdToken();
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) return;
       const response = await fetch('/api/messages/ai-bot', {
         method: 'POST',
         headers: {
@@ -232,10 +231,9 @@ export default function MessagesPage() {
     }
 
     try {
-      const auth = getAuth();
-      if (!auth?.currentUser) return 'Unknown User';
-      
-      const token = await getIdToken();
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) return 'Unknown User';
       const response = await fetch(`/api/users?uid=${uid}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -289,7 +287,7 @@ export default function MessagesPage() {
                 <div className="flex-1 overflow-hidden">
                   <ConversationList
                     conversations={conversations}
-                    currentUserId={user?.uid || ''}
+                    currentUserId={user?.sub || ''}
                     selectedConversationId={selectedConversationId}
                     onSelectConversation={handleSelectConversation}
                     getUserName={getUserName}
@@ -308,7 +306,7 @@ export default function MessagesPage() {
                     </div>
                     <MessageList
                       messages={messages}
-                      currentUserId={user?.uid || ''}
+                      currentUserId={user?.sub || ''}
                     />
                     <MessageInput
                       onSend={handleSendMessage}
