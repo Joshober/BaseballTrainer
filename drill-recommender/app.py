@@ -34,11 +34,13 @@ CORS(app)  # Enable CORS for all routes
 
 # Import routes
 from routes import drills, health, search
+from swagger import swagger_bp
 
 # Register blueprints
 app.register_blueprint(health.bp)
 app.register_blueprint(drills.bp)
 app.register_blueprint(search.bp)
+app.register_blueprint(swagger_bp)  # Swagger documentation
 
 @app.before_request
 def log_request():

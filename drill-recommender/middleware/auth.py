@@ -45,21 +45,35 @@ def is_internal_request():
 
 def require_auth(f):
     """
-    Decorator that trusts requests from backend gateway.
-    All authentication is handled by the gateway, so Flask services
-    just need to verify the request is from the gateway.
+    Decorator that trusts requests from backend gateway OR allows demo mode.
+    In demo mode, uses a demo user for independent testing.
     
     Usage:
         @bp.route('/api/endpoint')
         @require_auth
         def endpoint():
-            # request.user will contain user info from gateway (if forwarded)
-            # Extract user ID from X-User-Id header or use default
+            # request.user will contain user info from gateway or demo user
             pass
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Check if this is an internal request from backend gateway
+        # Check if demo mode is enabled
+        demo_mode = os.getenv('DEMO_MODE', 'False').lower() == 'true'
+        test_mode = os.getenv('TEST_MODE', 'False').lower() == 'true'
+        
+        if demo_mode or test_mode:
+            # Demo mode: use demo user for independent testing
+            demo_user_id = os.getenv('DEMO_USER_ID', 'demo_user')
+            request.user = {
+                'uid': demo_user_id,
+                'source': 'demo',
+                'email': f'{demo_user_id}@demo.local',
+                'name': 'Demo User'
+            }
+            logger.info(f'Demo mode enabled - using user: {demo_user_id}')
+            return f(*args, **kwargs)
+        
+        # Production mode: check if this is an internal request from backend gateway
         is_internal = is_internal_request()
         
         if not is_internal:
@@ -67,7 +81,7 @@ def require_auth(f):
             logger.warning(f'Rejected external request from {request.remote_addr}')
             return jsonify({
                 'error': 'Forbidden',
-                'message': 'This service only accepts requests from the backend gateway'
+                'message': 'This service only accepts requests from the backend gateway. Enable DEMO_MODE=true for independent testing.'
             }), 403
         
         # Trust internal requests from gateway

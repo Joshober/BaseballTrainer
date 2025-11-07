@@ -34,11 +34,13 @@ CORS(app)  # Enable CORS for all routes
 
 # Import routes
 from routes import blast, health, sync
+from swagger import swagger_bp
 
 # Register blueprints
 app.register_blueprint(health.bp)
 app.register_blueprint(blast.bp)
 app.register_blueprint(sync.bp)
+app.register_blueprint(swagger_bp)  # Swagger documentation
 
 @app.before_request
 def log_request():

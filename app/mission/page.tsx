@@ -57,23 +57,89 @@ export default function MissionPage() {
     setSelectedFile(file);
     // For video, extract a frame (simplified - you could add frame selection UI)
     const video = document.createElement('video');
-    video.src = URL.createObjectURL(file);
-    video.currentTime = video.duration / 2;
-    await new Promise((resolve) => {
-      video.addEventListener('seeked', resolve, { once: true });
-    });
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(video, 0, 0);
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const imageFile = new File([blob], 'frame.jpg', { type: 'image/jpeg' });
-          handleImageSelect(imageFile);
-        }
-      }, 'image/jpeg');
+    const objectUrl = URL.createObjectURL(file);
+    video.src = objectUrl;
+    video.muted = true; // Mute to allow autoplay in some browsers
+    
+    try {
+      // Wait for video metadata to load before accessing duration
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Video metadata loading timeout'));
+        }, 10000); // 10 second timeout
+        
+        video.addEventListener('loadedmetadata', () => {
+          clearTimeout(timeout);
+          resolve();
+        }, { once: true });
+        
+        video.addEventListener('error', () => {
+          clearTimeout(timeout);
+          reject(new Error('Video loading error'));
+        }, { once: true });
+      });
+      
+      // Now duration is available, seek to middle of video
+      if (video.duration && isFinite(video.duration) && video.duration > 0) {
+        video.currentTime = video.duration / 2;
+        
+        // Wait for seek to complete
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Video seek timeout'));
+          }, 5000); // 5 second timeout
+          
+          video.addEventListener('seeked', () => {
+            clearTimeout(timeout);
+            resolve();
+          }, { once: true });
+          
+          video.addEventListener('error', () => {
+            clearTimeout(timeout);
+            reject(new Error('Video seek error'));
+          }, { once: true });
+        });
+      } else {
+        // If duration is not available, use first frame (currentTime = 0)
+        video.currentTime = 0;
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Video seek timeout'));
+          }, 5000);
+          
+          video.addEventListener('seeked', () => {
+            clearTimeout(timeout);
+            resolve();
+          }, { once: true });
+          
+          video.addEventListener('error', () => {
+            clearTimeout(timeout);
+            reject(new Error('Video seek error'));
+          }, { once: true });
+        });
+      }
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx && canvas.width > 0 && canvas.height > 0) {
+        ctx.drawImage(video, 0, 0);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const imageFile = new File([blob], 'frame.jpg', { type: 'image/jpeg' });
+            handleImageSelect(imageFile);
+          }
+        }, 'image/jpeg');
+      } else {
+        throw new Error('Invalid video dimensions');
+      }
+    } catch (error) {
+      console.error('Error extracting frame from video:', error);
+      alert('Failed to extract frame from video. Please try again or use a different video file.');
+    } finally {
+      // Clean up the object URL
+      URL.revokeObjectURL(objectUrl);
     }
   };
 

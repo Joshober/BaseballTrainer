@@ -103,6 +103,10 @@ DRILL_RECOMMENDER_URL=http://localhost:5001
 BLAST_CONNECTOR_PORT=5002
 BLAST_CONNECTOR_URL=http://localhost:5002
 
+# Demo Mode (for Flask services - allows independent testing with demo user)
+DEMO_MODE=false
+DEMO_USER_ID=demo_user
+
 # Test Mode (for Flask services - bypasses authentication)
 TEST_MODE=false
 
