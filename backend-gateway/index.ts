@@ -2,6 +2,11 @@
  * Main Backend Gateway
  * Handles authentication and routes requests to Flask services
  */
+// Load environment variables from .env.local
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.join(__dirname, '../.env.local') });
+
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
