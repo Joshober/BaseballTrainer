@@ -115,6 +115,28 @@ export default function PosePreview({ imageUrl, onResult, useServer = false }: P
                 {result.attackAngleEst?.toFixed(1) ?? 'N/A'}°
               </span>
             </div>
+            {result.baseballMetrics && (
+              <>
+                <div>
+                  <span className="text-gray-600">Bat Path:</span>
+                  <span className="ml-2 font-semibold text-blue-900">
+                    {result.baseballMetrics.batPathAngle?.toFixed(1) ?? 'N/A'}°
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Hip Rotation:</span>
+                  <span className="ml-2 font-semibold text-blue-900">
+                    {result.baseballMetrics.hipRotation?.toFixed(1) ?? 'N/A'}°
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Swing Phase:</span>
+                  <span className="ml-2 font-semibold text-blue-900 capitalize">
+                    {result.baseballMetrics.phase.replace('-', ' ')}
+                  </span>
+                </div>
+              </>
+            )}
             <div className="col-span-2">
               <span className="text-gray-600">Confidence:</span>
               <span className="ml-2 font-semibold text-blue-900">

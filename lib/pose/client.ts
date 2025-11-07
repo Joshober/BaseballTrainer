@@ -11,15 +11,26 @@ import {
   calculateConfidence,
   type KeypointMap,
 } from './angles';
+import { calculateBaseballSwingMetrics } from './baseball-detector';
 
 let detector: posedetection.PoseDetector | null = null;
 
 async function getDetector(): Promise<posedetection.PoseDetector> {
   if (!detector) {
-    detector = await posedetection.createDetector(
-      posedetection.SupportedModels.MoveNet,
-      { modelType: posedetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
-    );
+    // Use MoveNet Thunder for better accuracy (slower but more precise)
+    // Can fallback to Lightning for faster performance
+    try {
+      detector = await posedetection.createDetector(
+        posedetection.SupportedModels.MoveNet,
+        { modelType: posedetection.movenet.modelType.SINGLEPOSE_THUNDER }
+      );
+    } catch (error) {
+      console.warn('Failed to load Thunder model, falling back to Lightning:', error);
+      detector = await posedetection.createDetector(
+        posedetection.SupportedModels.MoveNet,
+        { modelType: posedetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+      );
+    }
   }
   return detector;
 }
@@ -71,11 +82,18 @@ export async function estimateAnglesFromImage(
       );
     }
 
-    // Estimate launch angle
-    const launchAngleEst = estimateLaunchAngle(shoulderAngle, handLineAngle);
+    // Calculate baseball-specific metrics
+    const baseballMetrics = calculateBaseballSwingMetrics(keypoints.map((kp) => ({
+      name: kp.name || '',
+      x: kp.x,
+      y: kp.y,
+      score: kp.score || 0,
+    })));
 
-    // Calculate confidence
-    const confidence = calculateConfidence(keypoints.map((kp) => ({
+    // Use baseball metrics if available, otherwise fallback to generic
+    const launchAngleEst = baseballMetrics?.launchAngle || estimateLaunchAngle(shoulderAngle, handLineAngle);
+    const attackAngleEst = baseballMetrics?.attackAngle || handLineAngle;
+    const confidence = baseballMetrics?.confidence || calculateConfidence(keypoints.map((kp) => ({
       name: kp.name || '',
       x: kp.x,
       y: kp.y,
@@ -85,7 +103,7 @@ export async function estimateAnglesFromImage(
     return {
       ok: true,
       launchAngleEst,
-      attackAngleEst: handLineAngle,
+      attackAngleEst,
       confidence,
       keypoints: keypoints.map((kp) => ({
         name: kp.name || '',
@@ -93,6 +111,15 @@ export async function estimateAnglesFromImage(
         y: kp.y,
         score: kp.score || 0,
       })),
+      // Add baseball-specific data if available
+      ...(baseballMetrics && {
+        baseballMetrics: {
+          batPathAngle: baseballMetrics.batPathAngle,
+          hipRotation: baseballMetrics.hipRotation,
+          shoulderRotation: baseballMetrics.shoulderRotation,
+          phase: baseballMetrics.phase,
+        },
+      }),
     };
   } catch (error) {
     console.error('Pose detection error:', error);

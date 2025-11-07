@@ -9,6 +9,12 @@ export interface PoseResult {
     y: number;
     score: number;
   }>;
+  baseballMetrics?: {
+    batPathAngle: number | null;
+    hipRotation: number | null;
+    shoulderRotation: number | null;
+    phase: 'setup' | 'load' | 'stride' | 'contact' | 'follow-through';
+  };
 }
 
 export interface PoseKeypoint {
