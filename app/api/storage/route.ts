@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
 
     // Get storage server URL (prioritizes ngrok URL)
     const storageServerUrl = getStorageServerUrl();
+    console.log('[Storage API] Using storage server URL:', storageServerUrl);
     
     // Get form data from request
     const formData = await request.formData();
