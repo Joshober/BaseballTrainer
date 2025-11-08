@@ -186,7 +186,7 @@ export default function AnalyzePage() {
     if (!user || !sessionIdParam) return;
     if (analysis?.ok) return; // already loaded
 
-    let interval: NodeJS.Timer | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     const token = getAuthToken();
     if (!token) return;
 
@@ -202,7 +202,7 @@ export default function AnalyzePage() {
           if (data && data.ok) {
             setAnalysis(data);
             if (interval) {
-              clearInterval(interval);
+              clearInterval(interval as unknown as number);
               interval = null;
               setPolling(false);
             }
@@ -214,7 +214,7 @@ export default function AnalyzePage() {
     }, 5000);
 
     return () => {
-      if (interval) clearInterval(interval);
+      if (interval) clearInterval(interval as unknown as number);
     };
   }, [searchParams, user, analysis]);
 
@@ -323,6 +323,11 @@ export default function AnalyzePage() {
       const videoUrlParam = searchParams?.get('videoUrl');
       if (videoUrlParam) {
         formData.append('videoUrl', videoUrlParam);
+      }
+      // Include sessionId if present so backend associates analysis
+      const sessionIdParam = searchParams?.get('sessionId');
+      if (sessionIdParam) {
+        formData.append('sessionId', sessionIdParam);
       }
       
       // Optimize processing for faster analysis
@@ -851,10 +856,11 @@ export default function AnalyzePage() {
             {analysis && analysis.ok && analysis.trackingQuality && (() => {
               const tracking = analysis.trackingQuality;
               // Handle both field name formats (overallScore/score, personTrackingRatio/person_tracking_ratio)
-              const overallScore = tracking.overallScore ?? tracking.score ?? 0;
-              const personRatio = tracking.personTrackingRatio ?? tracking.person_tracking_ratio ?? 0;
-              const batRatio = tracking.batTrackingRatio ?? tracking.bat_tracking_ratio ?? 0;
-              const ballRatio = tracking.ballTrackingRatio ?? tracking.ball_tracking_ratio ?? 0;
+              const t: any = tracking as any;
+              const overallScore = t.overallScore ?? t.score ?? 0;
+              const personRatio = t.personTrackingRatio ?? t.person_tracking_ratio ?? 0;
+              const batRatio = t.batTrackingRatio ?? t.bat_tracking_ratio ?? 0;
+              const ballRatio = t.ballTrackingRatio ?? t.ball_tracking_ratio ?? 0;
               
               // Convert score to percentage if it's a decimal (0-1 range)
               const overallScorePercent = overallScore > 1 ? overallScore : overallScore * 100;
@@ -923,14 +929,14 @@ export default function AnalyzePage() {
                           </div>
                         )}
                       </div>
-                      {tracking.issues && Array.isArray(tracking.issues) && tracking.issues.length > 0 && (
+                      {t.issues && Array.isArray(t.issues) && t.issues.length > 0 && (
                         <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                           <div className="flex items-start gap-2 mb-1">
                             <AlertCircle className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
                             <p className="text-xs font-semibold text-yellow-800">Issues detected:</p>
                           </div>
                           <ul className="text-xs text-yellow-700 space-y-1 ml-6">
-                            {tracking.issues.slice(0, 3).map((issue: string, idx: number) => (
+                            {t.issues.slice(0, 3).map((issue: string, idx: number) => (
                               <li key={idx} className="flex items-start gap-1.5">
                                 <span className="text-yellow-600 mt-0.5">•</span>
                                 <span className="leading-relaxed">{issue}</span>

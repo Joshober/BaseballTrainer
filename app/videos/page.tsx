@@ -305,8 +305,6 @@ export default function VideosPage() {
       }
       const createdSession: Session = await sessionResponse.json();
 
-      const sessionData = await sessionResponse.json();
-
       // Reload sessions
       await loadSessions();
       
@@ -318,6 +316,9 @@ export default function VideosPage() {
         // Create FormData for video analysis
         const formData = new FormData();
         formData.append('video', file);
+        // Attach identifiers so backend can associate and persist
+        if (createdSession?.id) formData.append('sessionId', createdSession.id);
+        if (createdSession?.videoURL) formData.append('videoUrl', createdSession.videoURL || '');
         formData.append('processingMode', 'full');
         formData.append('sampleRate', '1');
         formData.append('enableYOLO', 'true');
@@ -339,7 +340,7 @@ export default function VideosPage() {
         } else {
           const analysisResult = await analysisResponse.json();
           // Optionally update the session with analysis results
-          if (analysisResult.ok && sessionData.id) {
+          if (analysisResult.ok && createdSession.id) {
             // Update session with analysis results if needed
             console.log('Video analysis completed:', analysisResult);
           }

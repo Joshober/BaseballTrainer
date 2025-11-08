@@ -82,7 +82,7 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
 
   // Gentle polling: refresh analysis status for pending sessions
   useEffect(() => {
-    let interval: NodeJS.Timer | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     const token = getAuthToken();
     if (!token) return;
 
@@ -299,7 +299,7 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                       Analyze
                     </button>
                   )}
-                  {session.videoAnalysisData?.ok ? (
+                  {(session as SessionWithAnalysis).videoAnalysisData?.ok ? (
                     <Link
                       href={`/analyze?sessionId=${encodeURIComponent(session.id)}`}
                       prefetch

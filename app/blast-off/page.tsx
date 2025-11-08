@@ -1,10 +1,11 @@
-'use client';
+﻿'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Rocket, Loader2, Video, ArrowLeft, Camera } from 'lucide-react';
+import { Rocket, Loader2, ArrowLeft, Play } from 'lucide-react';
 import { onAuthChange } from '@/lib/hooks/useAuth';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
+import { getStorageAdapter } from '@/lib/storage';
 import CaptureUpload from '@/components/Mission/CaptureUpload';
 import AnalysisAnimation from '@/components/Analysis/AnalysisAnimation';
 import type { VideoAnalysis } from '@/types/session';
@@ -17,8 +18,6 @@ export default function BlastOffPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoAnalysis, setVideoAnalysis] = useState<VideoAnalysis | null>(null);
   const [analyzingVideo, setAnalyzingVideo] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthChange((authUser) => {
@@ -29,12 +28,10 @@ export default function BlastOffPage() {
         setLoading(false);
       }
     });
-
     return () => unsubscribe();
   }, [router]);
 
   const handleImageSelect = (file: File) => {
-    // Not used in blast off mode, but required by CaptureUpload
     setSelectedFile(file);
   };
 
@@ -42,41 +39,84 @@ export default function BlastOffPage() {
     setSelectedFile(file);
     setVideoAnalysis(null);
     setAnalyzingVideo(true);
-    
     try {
       const authUser = getAuthUser();
       const token = getAuthToken();
-      if (!authUser || !token) {
-        throw new Error('User not authenticated');
-      }
+      if (!authUser || !token) throw new Error('User not authenticated');
 
-      // Create FormData for video upload
-      const formData = new FormData();
-      formData.append('video', file);
-      formData.append('processingMode', 'full');
-      formData.append('sampleRate', '1');
-      formData.append('enableYOLO', 'true');
-      formData.append('yoloConfidence', '0.5');
+      // 1) Upload to storage
+      const storage = getStorageAdapter();
+      const sessionId = crypto.randomUUID();
+      const uid = authUser.sub;
+      const ext = file.type.includes('mp4') ? 'mp4' : file.type.includes('webm') ? 'webm' : 'mp4';
+      const videoPath = `videos/${uid}/${sessionId}.${ext}`;
+      const videoURL = await storage.uploadFile(videoPath, file);
 
-      // Call video analysis API
-      const response = await fetch('/api/pose/analyze-video', {
+      // 2) Create session (server triggers background analysis)
+      const createResp = await fetch('/api/sessions', {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: formData,
+        body: JSON.stringify({
+          uid: authUser.sub,
+          teamId: 'default',
+          photoPath: '',
+          photoURL: '',
+          videoPath,
+          videoURL,
+          metrics: { launchAngleEst: 28, attackAngleEst: null, exitVelocity: 0, confidence: 0 },
+          game: { distanceFt: 0, zone: 'unknown', milestone: 'none', progressToNext: 0 },
+          label: 'needs_work' as const,
+        }),
       });
+      if (!createResp.ok) throw new Error('Failed to create session');
+      const createdSession = await createResp.json();
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to analyze video');
+      // 3) Trigger direct analysis with identifiers
+      try {
+        const fd = new FormData();
+        fd.append('video', file);
+        fd.append('sessionId', createdSession.id);
+        if (videoURL) fd.append('videoUrl', videoURL);
+        fd.append('processingMode', 'full');
+        fd.append('sampleRate', '1');
+        fd.append('enableYOLO', 'true');
+        fd.append('yoloConfidence', '0.5');
+        await fetch('/api/pose/analyze-video', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: fd,
+        });
+      } catch (e) {
+        // Non-fatal: polling below may still find results if analysis completes later
+        console.warn('Failed to trigger direct analysis', e);
       }
 
-      const analysis: VideoAnalysis = await response.json();
-      setVideoAnalysis(analysis);
+      // 4) Poll for analysis completion while showing space animation
+      const sid = createdSession.id as string;
+      const start = Date.now();
+      const timeoutMs = 5 * 60 * 1000; // 5 minutes
+      const pollInterval = 3000;
+      while (Date.now() - start < timeoutMs) {
+        try {
+          const resp = await fetch(`/api/video-analyses?sessionId=${encodeURIComponent(sid)}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data?.ok) {
+              setVideoAnalysis(data as VideoAnalysis);
+              break;
+            }
+          }
+        } catch {}
+        await new Promise((r) => setTimeout(r, pollInterval));
+      }
     } catch (error) {
-      console.error('Video analysis error:', error);
-      setVideoAnalysis({ ok: false, error: String(error) });
+      console.error('Video pipeline error:', error);
+      setVideoAnalysis({ ok: false, error: String(error) } as VideoAnalysis);
     } finally {
       setAnalyzingVideo(false);
     }
@@ -94,16 +134,13 @@ export default function BlastOffPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Fullscreen Analysis Animation Overlay */}
       <AnalysisAnimation isAnalyzing={analyzingVideo} />
-      
+
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.push('/')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
+              <button onClick={() => router.push('/')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <Rocket className="w-8 h-8 text-blue-600" />
@@ -116,15 +153,8 @@ export default function BlastOffPage() {
             {/* Video Recording Section */}
             <section className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-xl font-semibold mb-4">Record Your Swing</h2>
-              <p className="text-gray-600 mb-4">
-                Record a video of your baseball swing. Once recording is complete, the video will be automatically analyzed.
-              </p>
-              <CaptureUpload
-                onImageSelect={handleImageSelect}
-                onVideoSelect={handleVideoSelect}
-                mode={mode}
-                onModeChange={setMode}
-              />
+              <p className="text-gray-600 mb-4">Record or upload a swing. We’ll analyze it and save to your videos.</p>
+              <CaptureUpload onImageSelect={handleImageSelect} onVideoSelect={handleVideoSelect} mode={mode} onModeChange={setMode} />
             </section>
 
             {/* Analysis Results */}
@@ -154,11 +184,11 @@ export default function BlastOffPage() {
                   </div>
                 )}
 
-                {videoAnalysis.formAnalysis && videoAnalysis.formAnalysis.feedback && (
+                {videoAnalysis.formAnalysis && (videoAnalysis.formAnalysis as any).feedback && (
                   <div className="mt-4">
                     <h3 className="font-semibold mb-2">Form Analysis</h3>
                     <ul className="space-y-2">
-                      {videoAnalysis.formAnalysis.feedback.map((fb, idx) => (
+                      {(videoAnalysis.formAnalysis as any).feedback.map((fb: string, idx: number) => (
                         <li key={idx} className="flex items-start gap-2 text-sm">
                           <span className="text-blue-600">•</span>
                           <span>{fb}</span>
@@ -172,12 +202,8 @@ export default function BlastOffPage() {
 
             {videoAnalysis && !videoAnalysis.ok && (
               <section className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                <p className="text-yellow-800">
-                  Video analysis encountered an error. Please try recording again.
-                </p>
-                {videoAnalysis.error && (
-                  <p className="text-sm text-yellow-700 mt-2">{videoAnalysis.error}</p>
-                )}
+                <p className="text-yellow-800">Video analysis encountered an error. Please try recording again.</p>
+                {videoAnalysis.error && <p className="text-sm text-yellow-700 mt-2">{videoAnalysis.error}</p>}
               </section>
             )}
           </div>
@@ -186,4 +212,3 @@ export default function BlastOffPage() {
     </div>
   );
 }
-
