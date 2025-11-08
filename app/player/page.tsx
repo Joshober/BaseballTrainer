@@ -23,6 +23,11 @@ export default function PlayerDashboard() {
     bestDistance: 0,
     goodSwings: 0,
     needsWorkSwings: 0,
+    bestLaunchAngle: 0,
+    bestExitVelocity: 0,
+    totalVideosAnalyzed: 0,
+    averageTrackingQuality: 0,
+    formErrorsCount: 0,
   });
 
   const loadDashboardData = async (uid: string) => {
@@ -56,26 +61,116 @@ export default function PlayerDashboard() {
         const allSessions: Session[] = await sessionsResponse.json();
         setSessions(allSessions);
 
-        // Calculate stats
+        // Calculate stats - only use valid values (not NaN, not null, not undefined, not 0 for meaningful metrics)
         const goodSwings = allSessions.filter((s) => s.label === 'good').length;
         const needsWorkSwings = allSessions.filter((s) => s.label === 'needs_work').length;
-        const avgLaunchAngle = allSessions.length > 0
-          ? allSessions.reduce((sum, s) => sum + s.metrics.launchAngleEst, 0) / allSessions.length
-          : 0;
-        const avgExitVelocity = allSessions.length > 0
-          ? allSessions.reduce((sum, s) => sum + s.metrics.exitVelocity, 0) / allSessions.length
-          : 0;
-        const bestDistance = allSessions.length > 0
-          ? Math.max(...allSessions.map((s) => s.game.distanceFt))
-          : 0;
+        
+        // Helper function to check if a value is valid
+        const isValidValue = (value: any): boolean => {
+          return value != null && 
+                 !isNaN(value) && 
+                 isFinite(value) && 
+                 value !== 0; // Exclude 0 for metrics that should have meaningful values
+        };
+        
+        // Calculate average launch angle from valid values only
+        const validLaunchAngles = allSessions
+          .map((s) => {
+            // Prefer video analysis data if available
+            if (s.videoAnalysis?.ok && s.videoAnalysis.metrics?.launchAngle != null) {
+              return s.videoAnalysis.metrics.launchAngle;
+            }
+            return s.metrics.launchAngleEst;
+          })
+          .filter(isValidValue);
+        const avgLaunchAngle = validLaunchAngles.length > 0
+          ? validLaunchAngles.reduce((sum, val) => sum + val, 0) / validLaunchAngles.length
+          : null;
+        
+        // Calculate average exit velocity from valid values only
+        const validExitVelocities = allSessions
+          .map((s) => {
+            // Prefer video analysis data if available
+            if (s.videoAnalysis?.ok && s.videoAnalysis.metrics?.exitVelocityEstimateMph != null) {
+              return s.videoAnalysis.metrics.exitVelocityEstimateMph;
+            }
+            if (s.videoAnalysis?.ok && s.videoAnalysis.metrics?.batLinearSpeedMph != null) {
+              return s.videoAnalysis.metrics.batLinearSpeedMph;
+            }
+            return s.metrics.exitVelocity;
+          })
+          .filter(isValidValue);
+        const avgExitVelocity = validExitVelocities.length > 0
+          ? validExitVelocities.reduce((sum, val) => sum + val, 0) / validExitVelocities.length
+          : null;
+        
+        // Calculate best distance (allow 0 for distance as it's a valid value)
+        const validDistances = allSessions
+          .map((s) => {
+            // Try to calculate from exit velocity if available
+            if (s.videoAnalysis?.ok && s.videoAnalysis.metrics?.exitVelocityEstimateMph != null) {
+              const estimatedDistance = Math.round(s.videoAnalysis.metrics.exitVelocityEstimateMph * 0.15);
+              if (estimatedDistance > 0) return estimatedDistance;
+            }
+            return s.game.distanceFt;
+          })
+          .filter((d) => d != null && !isNaN(d) && isFinite(d));
+        const bestDistance = validDistances.length > 0
+          ? Math.max(...validDistances)
+          : null;
+        
+        // Calculate best launch angle
+        const bestLaunchAngle = validLaunchAngles.length > 0
+          ? Math.max(...validLaunchAngles)
+          : null;
+        
+        // Calculate best exit velocity
+        const bestExitVelocity = validExitVelocities.length > 0
+          ? Math.max(...validExitVelocities)
+          : null;
+        
+        // Count videos with analysis
+        const videosAnalyzed = allSessions.filter((s) => 
+          s.videoAnalysis?.ok || s.videoURL
+        ).length;
+        
+        // Calculate average tracking quality from video analyses
+        const trackingQualities = allSessions
+          .map((s) => {
+            if (s.videoAnalysis?.ok && s.videoAnalysis.trackingQuality?.overallScore != null) {
+              const score = s.videoAnalysis.trackingQuality.overallScore;
+              return score > 1 ? score : score * 100; // Convert to percentage if needed
+            }
+            return null;
+          })
+          .filter((q) => q != null && !isNaN(q) && isFinite(q) && q > 0) as number[];
+        const avgTrackingQuality = trackingQualities.length > 0
+          ? trackingQualities.reduce((sum, q) => sum + q, 0) / trackingQualities.length
+          : null;
+        
+        // Count form errors from video analyses
+        const totalFormErrors = allSessions.reduce((count, s) => {
+          if (s.videoAnalysis?.ok && s.videoAnalysis.formErrors) {
+            const errors = Array.isArray(s.videoAnalysis.formErrors)
+              ? s.videoAnalysis.formErrors
+              : s.videoAnalysis.formErrors.errors || [];
+            return count + errors.length;
+          }
+          return count;
+        }, 0);
 
         setStats({
           totalSessions: allSessions.length,
-          averageLaunchAngle: avgLaunchAngle,
-          averageExitVelocity: avgExitVelocity,
-          bestDistance,
+          averageLaunchAngle: avgLaunchAngle ?? 0,
+          averageExitVelocity: avgExitVelocity ?? 0,
+          bestDistance: bestDistance ?? 0,
           goodSwings,
           needsWorkSwings,
+          bestLaunchAngle: bestLaunchAngle ?? 0,
+          bestExitVelocity: bestExitVelocity ?? 0,
+          totalVideosAnalyzed: videosAnalyzed,
+          averageTrackingQuality: avgTrackingQuality ?? 0,
+          formErrorsCount: totalFormErrors,
         });
       }
     } catch (error) {
@@ -180,38 +275,92 @@ export default function PlayerDashboard() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid md:grid-cols-4 gap-6 mb-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center gap-3 mb-2">
                 <Target className="w-6 h-6 text-blue-600" />
                 <h3 className="text-sm font-medium text-gray-600">Total Sessions</h3>
               </div>
               <p className="text-3xl font-bold text-gray-900">{stats.totalSessions}</p>
+              {(stats.goodSwings > 0 || stats.needsWorkSwings > 0) && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {stats.goodSwings} good • {stats.needsWorkSwings} needs work
+                </p>
+              )}
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <TrendingUp className="w-6 h-6 text-green-600" />
-                <h3 className="text-sm font-medium text-gray-600">Best Distance</h3>
+            {stats.bestDistance > 0 && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <TrendingUp className="w-6 h-6 text-green-600" />
+                  <h3 className="text-sm font-medium text-gray-600">Best Distance</h3>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{stats.bestDistance.toFixed(0)} ft</p>
+                {stats.averageExitVelocity > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Avg: {stats.averageExitVelocity.toFixed(1)} mph
+                  </p>
+                )}
               </div>
-              <p className="text-3xl font-bold text-gray-900">{stats.bestDistance.toFixed(0)} ft</p>
-            </div>
+            )}
 
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <BarChart3 className="w-6 h-6 text-purple-600" />
-                <h3 className="text-sm font-medium text-gray-600">Avg Launch Angle</h3>
+            {stats.averageLaunchAngle > 0 && !isNaN(stats.averageLaunchAngle) && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <BarChart3 className="w-6 h-6 text-purple-600" />
+                  <h3 className="text-sm font-medium text-gray-600">Avg Launch Angle</h3>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{stats.averageLaunchAngle.toFixed(1)}°</p>
+                {stats.bestLaunchAngle > 0 && stats.bestLaunchAngle > stats.averageLaunchAngle && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Best: {stats.bestLaunchAngle.toFixed(1)}°
+                  </p>
+                )}
               </div>
-              <p className="text-3xl font-bold text-gray-900">{stats.averageLaunchAngle.toFixed(1)}°</p>
-            </div>
+            )}
 
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <TrendingUp className="w-6 h-6 text-orange-600" />
-                <h3 className="text-sm font-medium text-gray-600">Avg Exit Velocity</h3>
+            {stats.averageExitVelocity > 0 && !isNaN(stats.averageExitVelocity) && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <TrendingUp className="w-6 h-6 text-orange-600" />
+                  <h3 className="text-sm font-medium text-gray-600">Avg Exit Velocity</h3>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{stats.averageExitVelocity.toFixed(1)} mph</p>
+                {stats.bestExitVelocity > 0 && stats.bestExitVelocity > stats.averageExitVelocity && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Best: {stats.bestExitVelocity.toFixed(1)} mph
+                  </p>
+                )}
               </div>
-              <p className="text-3xl font-bold text-gray-900">{stats.averageExitVelocity.toFixed(1)} mph</p>
-            </div>
+            )}
+
+            {stats.totalVideosAnalyzed > 0 && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <Video className="w-6 h-6 text-indigo-600" />
+                  <h3 className="text-sm font-medium text-gray-600">Videos Analyzed</h3>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{stats.totalVideosAnalyzed}</p>
+                {stats.averageTrackingQuality > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Avg tracking: {stats.averageTrackingQuality.toFixed(0)}%
+                  </p>
+                )}
+              </div>
+            )}
+
+            {stats.formErrorsCount > 0 && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <Target className="w-6 h-6 text-red-600" />
+                  <h3 className="text-sm font-medium text-gray-600">Form Errors Found</h3>
+                </div>
+                <p className="text-3xl font-bold text-gray-900">{stats.formErrorsCount}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Areas to improve
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Quick Actions */}
