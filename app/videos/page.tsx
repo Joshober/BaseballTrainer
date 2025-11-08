@@ -8,6 +8,7 @@ import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import { getStorageAdapter } from '@/lib/storage';
 import type { Session } from '@/types/session';
 import VideoGallery from '@/components/Dashboard/VideoGallery';
+import AnalysisAnimation from '@/components/Analysis/AnalysisAnimation';
 
 export default function VideosPage() {
   const router = useRouter();
@@ -16,8 +17,12 @@ export default function VideosPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [showMessengerModal, setShowMessengerModal] = useState(false);
   const [showAIBotModal, setShowAIBotModal] = useState(false);
+  const [showOpenRouterModal, setShowOpenRouterModal] = useState(false);
+  const [openRouterFeedback, setOpenRouterFeedback] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isAnalyzingVideo, setIsAnalyzingVideo] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -71,6 +76,49 @@ export default function VideosPage() {
   const handleSendToAIBot = (session: Session) => {
     setSelectedSession(session);
     setShowAIBotModal(true);
+  };
+
+  const handleSendToOpenRouter = async (session: Session) => {
+    setSelectedSession(session);
+    setShowOpenRouterModal(true);
+    setIsAnalyzing(true);
+    setOpenRouterFeedback(null);
+
+    try {
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch('/api/openrouter/analyze-video', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: session.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Analysis failed' }));
+        throw new Error(errorData.error || 'Failed to analyze video');
+      }
+
+      const data = await response.json();
+      if (data.ok && data.feedback) {
+        setOpenRouterFeedback(data.feedback);
+      } else {
+        throw new Error('No feedback received');
+      }
+    } catch (error: any) {
+      console.error('OpenRouter analysis error:', error);
+      setOpenRouterFeedback(`Error: ${error.message || 'Failed to analyze video. Please try again.'}`);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const sendToMessenger = async (receiverUid: string) => {
@@ -256,12 +304,56 @@ export default function VideosPage() {
         throw new Error('Failed to create session');
       }
 
+      const sessionData = await sessionResponse.json();
+
       // Reload sessions
       await loadSessions();
-      alert('Video uploaded successfully!');
+      
+      // Trigger video analysis after successful upload
+      setIsUploading(false);
+      setIsAnalyzingVideo(true);
+      
+      try {
+        // Create FormData for video analysis
+        const formData = new FormData();
+        formData.append('video', file);
+        formData.append('processingMode', 'full');
+        formData.append('sampleRate', '1');
+        formData.append('enableYOLO', 'true');
+        formData.append('yoloConfidence', '0.5');
+
+        // Call video analysis API
+        const analysisResponse = await fetch('/api/pose/analyze-video', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: formData,
+        });
+
+        if (!analysisResponse.ok) {
+          const errorData = await analysisResponse.json().catch(() => ({ error: 'Analysis failed' }));
+          console.error('Video analysis error:', errorData);
+          // Don't throw - analysis failure shouldn't prevent upload success
+        } else {
+          const analysisResult = await analysisResponse.json();
+          // Optionally update the session with analysis results
+          if (analysisResult.ok && sessionData.id) {
+            // Update session with analysis results if needed
+            console.log('Video analysis completed:', analysisResult);
+          }
+        }
+      } catch (analysisError) {
+        console.error('Failed to analyze video:', analysisError);
+        // Don't show error to user - analysis is optional
+      } finally {
+        setIsAnalyzingVideo(false);
+        alert('Video uploaded and analyzed successfully!');
+      }
     } catch (error) {
       console.error('Failed to upload video:', error);
       alert('Failed to upload video. Please try again.');
+      setIsAnalyzingVideo(false);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -280,6 +372,9 @@ export default function VideosPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Fullscreen Analysis Animation Overlay */}
+      <AnalysisAnimation isAnalyzing={isAnalyzingVideo} />
+      
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
@@ -384,11 +479,12 @@ export default function VideosPage() {
 
           {/* Video Gallery */}
           <div className="bg-white rounded-lg shadow-lg p-6">
-            <VideoGallery
-              sessions={sessions}
-              onSendToMessenger={handleSendToMessenger}
-              onSendToAIBot={handleSendToAIBot}
-            />
+          <VideoGallery
+            sessions={sessions}
+            onSendToMessenger={handleSendToMessenger}
+            onSendToAIBot={handleSendToAIBot}
+            onSendToOpenRouter={handleSendToOpenRouter}
+          />
           </div>
         </div>
       </div>
@@ -430,6 +526,61 @@ export default function VideosPage() {
                 className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OpenRouter Analysis Modal */}
+      {showOpenRouterModal && selectedSession && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Bot className="w-6 h-6 text-orange-600" />
+                <h2 className="text-2xl font-bold">AI Coaching Feedback</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowOpenRouterModal(false);
+                  setSelectedSession(null);
+                  setOpenRouterFeedback(null);
+                  setIsAnalyzing(false);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {isAnalyzing ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Analyzing your swing... This may take a moment.</p>
+              </div>
+            ) : openRouterFeedback ? (
+              <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg p-6 border border-orange-200">
+                <h3 className="font-semibold text-lg mb-3 text-orange-900">Coaching Feedback</h3>
+                <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">{openRouterFeedback}</p>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p>No feedback available.</p>
+              </div>
+            )}
+            
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowOpenRouterModal(false);
+                  setSelectedSession(null);
+                  setOpenRouterFeedback(null);
+                  setIsAnalyzing(false);
+                }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

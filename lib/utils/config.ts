@@ -44,6 +44,11 @@ export const config = {
     frontendUrl: process.env.NEXT_PUBLIC_NGROK_FRONTEND_URL || process.env.NGROK_FRONTEND_URL || '',
     frontendEnabled: !!(process.env.NEXT_PUBLIC_NGROK_FRONTEND_URL || process.env.NGROK_FRONTEND_URL),
   },
+  // OpenRouter configuration
+  openRouter: {
+    apiKey: process.env.OPENROUTER_API_KEY || '',
+    apiUrl: 'https://openrouter.ai/api/v1/chat/completions',
+  },
 } as const;
 
 // Validation

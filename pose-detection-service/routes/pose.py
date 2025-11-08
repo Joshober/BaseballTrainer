@@ -7,6 +7,10 @@ import logging
 import numpy as np
 from PIL import Image
 import io
+import cv2
+import tempfile
+import os
+import base64
 
 from services.pose_detector import PoseDetector
 from services.video_analyzer import VideoAnalyzer
@@ -150,6 +154,102 @@ def analyze_live():
     
     except Exception as e:
         logger.error(f'Live stream analysis error: {str(e)}', exc_info=True)
+        return jsonify({
+            'error': 'Internal server error',
+            'ok': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/api/pose/extract-frames', methods=['POST'])
+@require_auth
+def extract_frames():
+    """
+    Extract frames from video (every 5th frame) and return as base64-encoded images
+    Returns array of base64 frame data with frame indices
+    """
+    try:
+        if 'video' not in request.files:
+            return jsonify({'error': 'No video provided', 'ok': False}), 400
+        
+        file = request.files['video']
+        if file.filename == '':
+            return jsonify({'error': 'No video selected', 'ok': False}), 400
+        
+        # Get frame interval (default: every 5th frame)
+        frame_interval = int(request.form.get('frameInterval', '5'))
+        
+        # Read video bytes
+        video_bytes = file.read()
+        
+        # Save video to temporary file
+        temp_file = None
+        try:
+            # Create temporary file
+            temp_fd, temp_path = tempfile.mkstemp(suffix='.mp4')
+            temp_file = temp_path
+            
+            # Write video bytes to temp file
+            with os.fdopen(temp_fd, 'wb') as f:
+                f.write(video_bytes)
+            
+            # Open video with OpenCV
+            cap = cv2.VideoCapture(temp_path)
+            
+            if not cap.isOpened():
+                return jsonify({
+                    'ok': False,
+                    'error': 'Could not open video file'
+                }), 400
+            
+            # Extract frames
+            frames = []
+            frame_idx = 0
+            
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                
+                # Extract every Nth frame (default: every 5th)
+                if frame_idx % frame_interval == 0:
+                    # Convert BGR to RGB
+                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    
+                    # Convert to PIL Image
+                    pil_image = Image.fromarray(frame_rgb)
+                    
+                    # Convert to base64
+                    buffer = io.BytesIO()
+                    pil_image.save(buffer, format='JPEG', quality=85)
+                    img_bytes = buffer.getvalue()
+                    img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+                    
+                    frames.append({
+                        'frameIndex': frame_idx,
+                        'image': f'data:image/jpeg;base64,{img_base64}'
+                    })
+                
+                frame_idx += 1
+            
+            cap.release()
+            
+            return jsonify({
+                'ok': True,
+                'frames': frames,
+                'totalFrames': frame_idx,
+                'extractedFrames': len(frames)
+            })
+        
+        finally:
+            # Clean up temporary file
+            if temp_file and os.path.exists(temp_file):
+                try:
+                    os.unlink(temp_file)
+                except Exception as e:
+                    logger.warning(f'Failed to delete temp file: {e}')
+    
+    except Exception as e:
+        logger.error(f'Frame extraction error: {str(e)}', exc_info=True)
         return jsonify({
             'error': 'Internal server error',
             'ok': False,

@@ -60,7 +60,7 @@ export default function Header() {
       icon: LayoutDashboard 
     },
     { href: '/videos', label: 'Videos', icon: Video },
-    { href: '/streaming', label: 'Real-Time', icon: Play },
+    { href: '/blast-off', label: 'Blast Off', icon: Rocket },
     { href: '/drills', label: 'Drills', icon: Target },
     { href: '/teams', label: 'Teams', icon: Users },
     { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
