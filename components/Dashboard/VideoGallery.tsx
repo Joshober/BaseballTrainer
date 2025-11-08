@@ -1,16 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Video, Send, Bot, Play, Calendar, TrendingUp } from 'lucide-react';
+import { Video, Send, Bot, Play, Calendar, TrendingUp, Sparkles } from 'lucide-react';
 import type { Session } from '@/types/session';
 
 interface VideoGalleryProps {
   sessions: Session[];
   onSendToMessenger: (session: Session) => void;
   onSendToAIBot: (session: Session) => void;
+  onSendToOpenRouter: (session: Session) => void;
 }
 
-export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot }: VideoGalleryProps) {
+export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot, onSendToOpenRouter }: VideoGalleryProps) {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [filter, setFilter] = useState<'all' | 'good' | 'needs_work'>('all');
 
@@ -131,6 +132,13 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                   >
                     <Bot className="w-4 h-4" />
                     AI Bot
+                  </button>
+                  <button
+                    onClick={() => onSendToOpenRouter(session)}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Analyze
                   </button>
                 </div>
               </div>

@@ -16,6 +16,7 @@ import PosePreview from '@/components/Mission/PosePreview';
 import VelocityInput from '@/components/Mission/VelocityInput';
 import LaunchAnimation from '@/components/Mission/LaunchAnimation';
 import DrillRecommendations from '@/components/Drills/DrillRecommendations';
+import AnalysisAnimation from '@/components/Analysis/AnalysisAnimation';
 import type { PoseResult } from '@/types/pose';
 import type { Auth0User } from '@/lib/auth0/client';
 import type { VideoAnalysis } from '@/types/session';
@@ -357,6 +358,9 @@ export default function MissionPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Fullscreen Analysis Animation Overlay */}
+      <AnalysisAnimation isAnalyzing={analyzingVideo} />
+      
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
@@ -366,11 +370,11 @@ export default function MissionPage() {
               <h1 className="text-3xl font-bold text-gray-900">Mission Control</h1>
             </div>
             <Link
-              href="/streaming"
+              href="/blast-off"
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg hover:from-purple-600 hover:to-blue-700 transition-colors font-medium"
             >
-              <Play className="w-5 h-5" />
-              Real-Time Mode
+              <Rocket className="w-5 h-5" />
+              Blast Off
             </Link>
           </div>
 
