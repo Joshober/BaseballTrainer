@@ -11,7 +11,7 @@ import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import { config } from '../lib/utils/config';
-import { verifyIdToken } from '../lib/auth0/admin';
+import { verifyIdToken } from './auth';
 import axios from 'axios';
 import type { Request, Response, NextFunction } from 'express';
 
@@ -40,12 +40,19 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
     }
 
     const token = authHeader.substring(7);
+    
+    // Log token info for debugging (first 20 chars only for security)
+    console.log('Verifying token:', token.substring(0, 20) + '...');
+    
     const decodedToken = await verifyIdToken(token);
     
     if (!decodedToken) {
       console.error('Token verification failed - decodedToken is null');
+      console.error('Token preview:', token.substring(0, 50) + '...');
       return res.status(401).json({ error: 'Unauthorized', message: 'Invalid token' });
     }
+    
+    console.log('Token verified successfully for user:', decodedToken.sub || decodedToken.user_id);
 
     (req as any).user = decodedToken;
     // Auth0 uses 'sub' as the user ID
@@ -385,6 +392,14 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
     });
 
     // Forward to Pose Detection Service
+    console.log('Forwarding video analysis request to:', `${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video`);
+    console.log('Video file info:', {
+      filename: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      bufferLength: req.file.buffer.length
+    });
+    
     const response = await axios.post(
       `${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video`,
       formData,
@@ -399,12 +414,27 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
         timeout: 300000, // 5 minute timeout for video processing
       }
     );
+    
+    console.log('Pose detection service response status:', response.status);
     res.json(response.data);
   } catch (error: any) {
     console.error('Video analysis error:', error.message);
-    res.status(error.response?.status || 500).json({
-      error: 'Internal server error',
+    console.error('Error details:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      code: error.code,
       message: error.message
+    });
+    
+    // Return more detailed error information
+    const statusCode = error.response?.status || 500;
+    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Internal server error';
+    
+    res.status(statusCode).json({
+      error: errorMessage,
+      message: error.message,
+      ok: false
     });
   }
 });

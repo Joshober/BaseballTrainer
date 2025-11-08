@@ -104,11 +104,15 @@ def analyze_video():
         return jsonify(result)
     
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
         logger.error(f'Video analysis error: {str(e)}', exc_info=True)
+        logger.error(f'Error traceback: {error_trace}')
         return jsonify({
             'error': 'Internal server error',
             'ok': False,
-            'message': str(e)
+            'message': str(e),
+            'error_type': type(e).__name__
         }), 500
 
 @bp.route('/api/pose/analyze-live', methods=['POST'])

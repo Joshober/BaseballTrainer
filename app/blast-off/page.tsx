@@ -68,8 +68,35 @@ export default function BlastOffPage() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to analyze video');
+        let errorMessage = `Failed to analyze video (HTTP ${response.status})`;
+        let errorDetails: any = null;
+        
+        try {
+          // Try to get error response as text first
+          const responseText = await response.text();
+          console.error('Error response text:', responseText);
+          
+          // Try to parse as JSON
+          try {
+            errorDetails = JSON.parse(responseText);
+            errorMessage = errorDetails.error || errorDetails.message || errorMessage;
+          } catch (parseError) {
+            // Not JSON, use the text as error message
+            errorMessage = responseText || errorMessage;
+          }
+          
+          console.error('Video analysis error details:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorDetails || responseText,
+            url: response.url
+          });
+        } catch (e) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText || 'Unknown error'}`;
+          console.error('Failed to parse error response:', e);
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const analysis: VideoAnalysis = await response.json();

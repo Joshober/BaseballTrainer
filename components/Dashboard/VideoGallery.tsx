@@ -1,9 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Video, Send, Bot, Play, Calendar, TrendingUp, Sparkles } from 'lucide-react';
 import type { Session } from '@/types/session';
 import type { VideoAnalysis } from '@/types/session';
+import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
+
+interface SessionWithAnalysis extends Session {
+  videoAnalysisData: VideoAnalysis | null;
+}
 
 interface VideoGalleryProps {
   sessions: Session[];
