@@ -250,15 +250,27 @@ class VideoAnalyzer:
             if self.tracking_coordinator:
                 try:
                     tracking_trajectories = self.tracking_coordinator.get_trajectories(num_frames=min(30, len(frames_data)))
-                    tracking_quality = self.tracking_coordinator._assess_tracking_quality()
+                    coordinator_quality = self.tracking_coordinator._assess_tracking_quality()
+                    # Normalize field names from coordinator
+                    if coordinator_quality:
+                        tracking_quality = {
+                            'overallScore': coordinator_quality.get('score', 0.0),
+                            'personTrackingRatio': coordinator_quality.get('person_tracking_ratio', 0.0),
+                            'batTrackingRatio': coordinator_quality.get('bat_tracking_ratio', 0.0),
+                            'ballTrackingRatio': coordinator_quality.get('ball_tracking_ratio', 0.0),
+                            'issues': coordinator_quality.get('issues', [])
+                        }
                 except Exception as e:
                     logger.debug(f"Error getting tracking trajectories: {e}")
             
-            # Calculate tracking quality from actual frame data if coordinator didn't provide it
-            if not tracking_quality or tracking_quality.get('score', 0) == 0:
-                tracking_quality = self._calculate_tracking_quality_from_frames(
+            # Calculate tracking quality from actual frame data if coordinator didn't provide it or score is 0
+            if not tracking_quality or tracking_quality.get('overallScore', 0) == 0:
+                frame_based_quality = self._calculate_tracking_quality_from_frames(
                     frames_data, len(pose_landmarks_list), len(bat_angles), len(ball_positions)
                 )
+                # Use frame-based quality if it's better or if coordinator didn't provide one
+                if not tracking_quality or frame_based_quality.get('overallScore', 0) > tracking_quality.get('overallScore', 0):
+                    tracking_quality = frame_based_quality
             
             # Convert numpy types to native Python types for JSON serialization
             def convert_to_native(obj):
@@ -693,14 +705,14 @@ class VideoAnalyzer:
         # Overall score (weighted: person is most important, bat is critical, ball is nice to have)
         overall_score = (person_ratio * 0.5 + bat_ratio * 0.4 + ball_ratio * 0.1)
         
-        # Identify issues
+        # Identify issues (in English for consistency)
         issues = []
         if person_ratio < 0.5:
-            issues.append(f"Persona detectada en solo {person_ratio*100:.1f}% de los frames")
+            issues.append(f"Person detected in only {person_ratio*100:.1f}% of frames")
         if bat_ratio < 0.3:
-            issues.append(f"Bate detectado en solo {bat_ratio*100:.1f}% de los frames - esto afecta las métricas")
+            issues.append(f"Bat detected in only {bat_ratio*100:.1f}% of frames - this affects metrics")
         if ball_ratio < 0.1:
-            issues.append(f"Pelota detectada en solo {ball_ratio*100:.1f}% de los frames (normal para videos rápidos)")
+            issues.append(f"Ball detected in only {ball_ratio*100:.1f}% of frames (normal for fast-moving videos)")
         
         return {
             'overallScore': float(overall_score),

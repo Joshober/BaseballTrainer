@@ -21,6 +21,9 @@ export async function POST(request: NextRequest) {
     if (!file) {
       return NextResponse.json({ error: 'No video provided' }, { status: 400 });
     }
+    
+    // Get videoUrl if provided (for videos from existing sessions)
+    const videoUrl = formData.get('videoUrl') as string | null;
 
     // Get configuration parameters
     const processingMode = formData.get('processingMode') as string || 'full';
@@ -46,6 +49,9 @@ export async function POST(request: NextRequest) {
     proxyFormData.append('yoloConfidence', yoloConfidence);
     if (calibration) {
       proxyFormData.append('calibration', calibration);
+    }
+    if (videoUrl) {
+      proxyFormData.append('videoUrl', videoUrl);
     }
 
     // Forward request to gateway (which will route to Python backend)
@@ -86,7 +92,7 @@ export async function POST(request: NextRequest) {
             userId,
             result,
             file.name,
-            undefined // videoUrl can be added later if video is uploaded to storage
+            videoUrl || undefined // Use provided videoUrl if available
           );
           // Add analysis ID to response
           result.analysisId = analysisId;

@@ -96,6 +96,97 @@ To enable AI coaching feedback via OpenRouter:
    ```
 
 3. **Usage**: The OpenRouter integration is used for AI-powered coaching feedback on video analysis. When users click "Analyze" on a video, frames are extracted and sent to OpenRouter's vision models for analysis.
+# Drill Recommender AI Integration (Optional)
+# These are optional - if not provided, recommendations will work without AI enhancement
+GOOGLE_GEMINI_API_KEY=your_gemini_api_key_here
+SERPAPI_KEY=your_serpapi_key_here
+
+# ElevenLabs Voice Narration (Optional but recommended for audio feedback)
+ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+ELEVENLABS_DOMINICAN_VOICE_ID=voice_id_for_dominican_slugger
+ELEVENLABS_JAPANESE_VOICE_ID=voice_id_for_japanese_ace
+ELEVENLABS_BLACK_AMERICAN_VOICE_ID=voice_id_for_black_american_all_star
+# Optional tuning overrides (sensible defaults applied if omitted)
+ELEVENLABS_MODEL_ID=eleven_turbo_v2
+ELEVENLABS_STABILITY=0.35
+ELEVENLABS_SIMILARITY_BOOST=0.75
+ELEVENLABS_STYLE=0.5
+ELEVENLABS_SPEAKER_BOOST=true
+```
+
+## Drill Recommender AI Integration (Optional)
+
+The drill recommender service can be enhanced with AI insights and YouTube video search. These features are optional and will gracefully fallback if API keys are not provided.
+
+### Google Gemini AI
+
+1. **Get API Key**:
+   - Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Sign in with your Google account
+   - Click "Create API Key"
+   - Copy the API key
+
+2. **Add to `.env.local`**:
+   ```env
+   GOOGLE_GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+
+3. **What it does**:
+   - Enhances drill recommendations with AI-generated insights
+   - Explains why each drill is recommended for specific corrections/metrics
+   - Provides personalized guidance for each drill
+
+### SerpAPI (YouTube Video Search)
+
+1. **Get API Key**:
+   - Go to [SerpAPI](https://serpapi.com/)
+   - Sign up for a free account (100 searches/month free)
+   - Go to Dashboard → API Key
+   - Copy your API key
+
+2. **Add to `.env.local`**:
+   ```env
+   SERPAPI_KEY=your_serpapi_key_here
+   ```
+
+3. **What it does**:
+   - Automatically finds relevant YouTube videos for each recommended drill
+   - Updates the `videoUrl` field in drill recommendations
+   - Searches using drill name + corrections for better relevance
+
+### Notes
+
+- Both API keys are **optional** - recommendations will work without them
+- If Gemini API fails, recommendations return without AI insights
+- If SerpAPI fails, recommendations return without video URLs
+- The service logs warnings if API keys are missing but continues to function
+
+## ElevenLabs Voice Narration
+
+Bring your drill recommendations to life with play-by-play style narration from voices inspired by iconic baseball personalities.
+
+### 1. Create an ElevenLabs Account & API Key
+- Visit [ElevenLabs](https://elevenlabs.io/) and create an account.
+- From the dashboard, generate an **API Key** and add it to `.env.local` as `ELEVENLABS_API_KEY`.
+
+### 2. Choose or Create Voices
+- ElevenLabs offers a **Voice Library** with community voices and the ability to train custom voices.
+- Pick voices that match the following personas:
+  - Dominican slugger with lively energy
+  - Japanese pitching ace with disciplined tone
+  - Black American clubhouse leader with warm authority
+- Copy each voice's **Voice ID** and set them in `.env.local` using:
+  - `ELEVENLABS_DOMINICAN_VOICE_ID`
+  - `ELEVENLABS_JAPANESE_VOICE_ID`
+  - `ELEVENLABS_BLACK_AMERICAN_VOICE_ID`
+
+### 3. Optional Fine Tuning
+- The defaults for stability, similarity boost, style, and speaker boost are tuned for an energetic clubhouse vibe.
+- Override them in `.env.local` if you want more mellow or more aggressive deliveries.
+
+### 4. Restart Servers
+- Restart the Next.js dev server (`npm run dev`) and the backend gateway (`npm run dev:gateway`) after adding the new environment variables.
+
 
 ## Important Notes
 

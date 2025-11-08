@@ -82,16 +82,10 @@ def upload_file():
         
         logger.info(f"File uploaded: {path} by user {request.user.get('sub')}")
         
-        # Get storage server base URL (prioritize ngrok URL)
-        base_url = os.getenv('NGROK_STORAGE_SERVER_URL')
-        if not base_url:
-            # Fallback to request host if ngrok URL not set
-            base_url = request.host_url.rstrip('/')
-        
-        # Return full URL (with ngrok domain if configured)
-        url = f"{base_url}/api/storage/{path}"
+        # Return relative URL to avoid coupling to ngrok or host
+        # The frontend will prefix using its configured storage server URL
         return jsonify({
-            'url': url,
+            'url': f"/api/storage/{path}",
             'path': path,
             'size': full_path.stat().st_size
         }), 200

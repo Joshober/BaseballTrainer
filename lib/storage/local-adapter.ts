@@ -31,20 +31,21 @@ export class LocalStorageAdapter implements StorageAdapter {
     }
 
     const data = await response.json();
-    // Storage server now returns full URL (with ngrok domain if configured)
-    // If it's a relative URL, prepend storage server URL
-    if (data.url.startsWith('http://') || data.url.startsWith('https://')) {
+    // For simplified local setup, accept and return relative URLs as-is
+    if (typeof data.url === 'string' && data.url.startsWith('/')) {
       return data.url;
     }
-    // If relative URL, get storage server URL for client-side access
-    const storageServerUrl = getStorageServerUrl();
-    return `${storageServerUrl}${data.url}`;
+    // If absolute, return directly
+    if (typeof data.url === 'string' && (data.url.startsWith('http://') || data.url.startsWith('https://'))) {
+      return data.url;
+    }
+    // Fallback to relative path
+    return `/api/storage/${path}`;
   }
 
   async getFileURL(path: string): Promise<string> {
-    // Return storage server URL for file access
-    const storageServerUrl = getStorageServerUrl();
-    return `${storageServerUrl}/api/storage/${path}`;
+    // Return relative URL handled by Next.js API routes
+    return `/api/storage/${path}`;
   }
 
   async deleteFile(path: string): Promise<void> {

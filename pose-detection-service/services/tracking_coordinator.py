@@ -167,32 +167,32 @@ class TrackingCoordinator:
         return ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
     
     def _assess_tracking_quality(self) -> Dict:
-        """Assess overall tracking quality"""
+        """Assess overall tracking quality using all available frames"""
         if len(self.frame_history) == 0:
             return {'score': 0.0, 'issues': []}
         
-        # Count how many objects are being tracked
-        recent_frames = self.frame_history[-10:] if len(self.frame_history) >= 10 else self.frame_history
+        # Use all frames for more accurate assessment
+        all_frames = self.frame_history
         
-        person_tracked = sum(1 for f in recent_frames if f.get('person'))
-        bat_tracked = sum(1 for f in recent_frames if f.get('bat'))
-        ball_tracked = sum(1 for f in recent_frames if f.get('ball'))
+        person_tracked = sum(1 for f in all_frames if f.get('person'))
+        bat_tracked = sum(1 for f in all_frames if f.get('bat'))
+        ball_tracked = sum(1 for f in all_frames if f.get('ball'))
         
-        total_frames = len(recent_frames)
+        total_frames = len(all_frames)
         person_ratio = person_tracked / total_frames if total_frames > 0 else 0
         bat_ratio = bat_tracked / total_frames if total_frames > 0 else 0
         ball_ratio = ball_tracked / total_frames if total_frames > 0 else 0
         
-        # Overall score (weighted)
-        score = (person_ratio * 0.4 + bat_ratio * 0.4 + ball_ratio * 0.2)
+        # Overall score (weighted: person is most important, bat is critical, ball is nice to have)
+        score = (person_ratio * 0.5 + bat_ratio * 0.4 + ball_ratio * 0.1)
         
         issues = []
-        if person_ratio < 0.7:
-            issues.append("Person tracking inconsistent")
-        if bat_ratio < 0.5:
-            issues.append("Bat tracking inconsistent")
-        if ball_ratio < 0.3:
-            issues.append("Ball tracking inconsistent (expected - ball moves fast)")
+        if person_ratio < 0.5:
+            issues.append(f"Person detected in only {person_ratio*100:.1f}% of frames")
+        if bat_ratio < 0.3:
+            issues.append(f"Bat detected in only {bat_ratio*100:.1f}% of frames - this affects metrics")
+        if ball_ratio < 0.1:
+            issues.append(f"Ball detected in only {ball_ratio*100:.1f}% of frames (normal for fast-moving videos)")
         
         return {
             'score': float(score),

@@ -392,18 +392,24 @@ export default function VideosPage() {
             
             {/* Upload Buttons */}
             <div className="flex gap-2">
-              <label className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
                 <Upload className="w-5 h-5" />
-                Upload Video
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="video/*"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  disabled={isUploading}
-                />
-              </label>
+                {isUploading ? 'Uploading...' : 'Upload Video'}
+              </button>
+              <input
+                id="video-upload"
+                ref={fileInputRef}
+                type="file"
+                accept="video/*"
+                onChange={handleFileSelect}
+                className="hidden"
+                disabled={isUploading}
+              />
               {!isRecording && !recordedBlob && (
                 <button
                   onClick={startVideoRecording}
