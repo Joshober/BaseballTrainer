@@ -4,6 +4,37 @@ import { useState } from 'react';
 import { Video, Send, Bot, Play, Calendar, TrendingUp, ExternalLink } from 'lucide-react';
 import type { Session } from '@/types/session';
 
+// Helper function to get video URL through Next.js proxy
+function getVideoProxyUrl(videoURL: string | undefined, videoPath: string | undefined): string {
+  if (!videoURL && !videoPath) {
+    return '';
+  }
+  
+  // If we have a videoPath, use it to construct proxy URL
+  // The storage server stores files with the exact path provided, so keep the full path
+  if (videoPath) {
+    return `/api/storage?path=${encodeURIComponent(videoPath)}`;
+  }
+  
+  // If we have videoURL, try to extract path from it
+  if (videoURL) {
+    try {
+      const url = new URL(videoURL);
+      // Extract path after /api/storage/
+      const urlPath = url.pathname;
+      if (urlPath.startsWith('/api/storage/')) {
+        const path = urlPath.substring('/api/storage/'.length);
+        return `/api/storage?path=${encodeURIComponent(path)}`;
+      }
+    } catch {
+      // If URL parsing fails, return original URL
+      return videoURL;
+    }
+  }
+  
+  return videoURL || '';
+}
+
 interface VideoGalleryProps {
   sessions: Session[];
   onSendToMessenger: (session: Session) => void;
@@ -76,10 +107,15 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
               <div className="relative aspect-video bg-black">
                 {session.videoURL ? (
                   <video
-                    src={session.videoURL}
+                    src={getVideoProxyUrl(session.videoURL, session.videoPath)}
                     className="w-full h-full object-cover"
                     controls
                     preload="metadata"
+                    onError={(e) => {
+                      console.error('Video load error:', e);
+                      console.error('Video URL:', session.videoURL);
+                      console.error('Video Path:', session.videoPath);
+                    }}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
@@ -181,9 +217,14 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
             </div>
             {selectedSession.videoURL && (
               <video
-                src={selectedSession.videoURL}
+                src={getVideoProxyUrl(selectedSession.videoURL, selectedSession.videoPath)}
                 controls
                 className="w-full rounded-lg mb-4"
+                onError={(e) => {
+                  console.error('Video load error in modal:', e);
+                  console.error('Video URL:', selectedSession.videoURL);
+                  console.error('Video Path:', selectedSession.videoPath);
+                }}
               />
             )}
             <div className="grid grid-cols-2 gap-4">

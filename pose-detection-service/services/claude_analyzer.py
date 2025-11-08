@@ -211,3 +211,4 @@ Provide a clear, specific recommendation focusing on the most important areas fo
             # Fallback: return first analysis
             return analyses[0] if analyses else "Analysis completed, but unable to generate recommendation."
 
+
