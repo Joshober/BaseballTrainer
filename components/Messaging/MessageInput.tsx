@@ -62,37 +62,20 @@ export default function MessageInput({ onSend, onAttachVideo, sessions }: Messag
 
     setIsSending(true);
     try {
-      // Get auth token
-      const { getAuth, getIdToken } = await import('@/lib/auth0/client-auth');
-      const auth = getAuth();
-      if (!auth?.currentUser) {
-        throw new Error('Not authenticated');
-      }
-      const token = await getIdToken();
+      // Use storage adapter to upload file (uses ngrok URL)
+      const { getStorageAdapter } = await import('@/lib/storage');
+      const storage = getStorageAdapter();
       
-      // Upload via API
+      // Generate path for the file
       const sessionId = crypto.randomUUID();
       const ext = file.type.includes('mp4') ? 'mp4' : 'webm';
       const path = `messages/${sessionId}.${ext}`;
       
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('path', path);
+      // Upload file using storage adapter (will use ngrok URL)
+      const videoURL = await storage.uploadFile(path, file);
       
-      const response = await fetch('/api/storage', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to upload video');
-      }
-      
-      const data = await response.json();
-      await onSend('', data.url, path);
+      // Extract path from URL if needed, or use the path we created
+      await onSend('', videoURL, path);
     } catch (error) {
       console.error('Failed to upload video:', error);
       alert('Failed to upload video. Please try again.');

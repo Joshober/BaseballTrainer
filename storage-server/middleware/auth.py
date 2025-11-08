@@ -69,10 +69,11 @@ def get_signing_key(token):
         return None
 
 def verify_auth0_token(token: str):
-    """Verify Auth0 access token and return decoded token"""
+    """Verify Auth0 token (accepts both ID tokens and access tokens) and return decoded token"""
     try:
         domain = os.getenv('AUTH0_DOMAIN')
         audience = os.getenv('AUTH0_AUDIENCE')
+        client_id = os.getenv('AUTH0_CLIENT_ID')
         
         if not domain:
             logger.warning("AUTH0_DOMAIN is not configured")
@@ -83,16 +84,49 @@ def verify_auth0_token(token: str):
         if not signing_key:
             return None
         
-        # Verify token
-        decoded = jwt.decode(
-            token,
-            signing_key,
-            algorithms=['RS256'],
-            audience=audience or f"https://{domain}/api/v2/",
-            issuer=f"https://{domain}/"
-        )
+        # Try to decode without audience first to see what audience it has
+        try:
+            decoded_unverified = jwt.decode(token, options={"verify_signature": False})
+            token_audience = decoded_unverified.get('aud')
+        except:
+            token_audience = None
         
-        return decoded
+        # Determine which audience to use for verification
+        # ID tokens have client_id as audience, access tokens have API audience
+        expected_audiences = []
+        if audience:
+            expected_audiences.append(audience)
+        if client_id:
+            expected_audiences.append(client_id)
+        if not expected_audiences:
+            expected_audiences.append(f"https://{domain}/api/v2/")
+        
+        # Try to verify with each possible audience
+        last_error = None
+        for expected_aud in expected_audiences:
+            try:
+                decoded = jwt.decode(
+                    token,
+                    signing_key,
+                    algorithms=['RS256'],
+                    audience=expected_aud,
+                    issuer=f"https://{domain}/"
+                )
+                return decoded
+            except jwt.InvalidAudienceError as e:
+                last_error = e
+                continue
+            except jwt.ExpiredSignatureError:
+                logger.warning("Token has expired")
+                return None
+            except jwt.InvalidTokenError as e:
+                last_error = e
+                continue
+        
+        # If all audiences failed, log the error
+        if last_error:
+            logger.warning(f"Invalid token audience: {last_error}")
+        return None
     except jwt.ExpiredSignatureError:
         logger.warning("Token has expired")
         return None
