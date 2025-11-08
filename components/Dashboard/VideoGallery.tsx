@@ -243,11 +243,7 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                     <Video className="w-12 h-12 text-gray-400" />
                   </div>
                 )}
-                {session.pendingAnalysis && (
-                  <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-yellow-500 text-white text-xs font-medium">
-                    Pending analysis
-                  </div>
-                )}
+                {/* Removed 'Pending analysis' overlay per request */}
                 <div className="absolute top-2 right-2">
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -284,24 +280,14 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                     <Bot className="w-4 h-4" />
                     AI Bot
                   </button>
-                  {session.videoAnalysisData?.ok ? (
-                    <Link
-                      href={`/analyze?sessionId=${encodeURIComponent(session.id)}`}
-                      prefetch
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-gray-100 text-gray-900 hover:bg-gray-200"
-                    >
-                      <Play className="w-4 h-4" />
-                      View
-                    </Link>
-                  ) : (
-                    <button
-                      disabled
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
-                    >
-                      <Play className="w-4 h-4" />
-                      Pending
-                    </button>
-                  )}
+                  <Link
+                    href={`/analyze?sessionId=${encodeURIComponent(session.id)}`}
+                    prefetch
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-gray-100 text-gray-900 hover:bg-gray-200"
+                  >
+                    <Play className="w-4 h-4" />
+                    View
+                  </Link>
                 </div>
               </div>
             </div>

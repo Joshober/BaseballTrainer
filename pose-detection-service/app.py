@@ -33,13 +33,14 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Import routes
-from routes import pose, storage, health
+from routes import pose, storage, health, queue
 from swagger import swagger_bp
 
 # Register blueprints
 app.register_blueprint(health.bp)
 app.register_blueprint(pose.bp)
 app.register_blueprint(storage.bp)
+app.register_blueprint(queue.bp)
 app.register_blueprint(swagger_bp)  # Swagger documentation
 
 @app.route('/', methods=['GET'])

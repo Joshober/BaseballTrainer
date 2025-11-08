@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyIdToken } from '@/lib/auth0/admin';
 import { getVideoAnalysisBySessionIds } from '@/lib/mongodb/operations';
+import { getDatabaseAdapter } from '@/lib/database';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,26 @@ export async function POST(request: NextRequest) {
     }
 
     const map = await getVideoAnalysisBySessionIds(sessionIds);
+
+    // Fallback: if no record yet, but the session embeds analysis, treat as completed
+    try {
+      const db = getDatabaseAdapter();
+      await Promise.all(sessionIds.map(async (sid) => {
+        if (!map[sid]) {
+          const session = await db.getSession(sid);
+          if (session?.videoAnalysis?.ok) {
+            map[sid] = {
+              id: `session-${sid}`,
+              sessionId: sid,
+              status: 'completed',
+              analysis: session.videoAnalysis,
+              createdAt: session.createdAt || new Date(),
+              updatedAt: new Date(),
+            } as any;
+          }
+        }
+      }));
+    } catch {}
 
     // Retrigger analysis in backend for pending/failed sessions (with backoff)
     const origin = request.nextUrl.origin;

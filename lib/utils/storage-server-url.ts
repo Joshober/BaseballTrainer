@@ -6,32 +6,29 @@ import { config } from './config';
  * Works in both server-side and client-side code
  */
 export function getStorageServerUrl(): string {
-  const defaultUrl = 'http://localhost:5003';
-  
-  // Check if we're on the client side (browser)
+  const normalize = (u: string | undefined): string => {
+    let s = (u || '').trim();
+    // Remove accidental annotations like "(line 5003)" and spaces
+    s = s.replace(/\s*\([^)]*\)\s*/g, '').replace(/\s+/g, '');
+    if (!s) return '';
+    // Ensure protocol
+    if (!/^https?:\/\//i.test(s)) s = `http://${s}`;
+    // Drop trailing slash
+    s = s.replace(/\/$/, '');
+    return s;
+  };
+
+  const def = 'http://localhost:5003';
+
   const isClient = typeof window !== 'undefined';
-  
   if (isClient) {
-    // On client side, use NEXT_PUBLIC_ prefixed env var or default
-    const clientUrl = process.env.NEXT_PUBLIC_STORAGE_SERVER_URL || defaultUrl;
-    // Ensure it's a valid non-empty string
-    if (clientUrl && typeof clientUrl === 'string' && clientUrl.trim()) {
-      console.log('[Storage URL] Client-side, using:', clientUrl);
-      return clientUrl.trim();
-    }
-    console.log('[Storage URL] Client-side, using default:', defaultUrl);
-    return defaultUrl;
-  }
-  
-  // Server-side: prefer explicit STORAGE_SERVER_URL (local-first, no ngrok)
-  const serverUrl = process.env.STORAGE_SERVER_URL;
-  if (serverUrl && typeof serverUrl === 'string' && serverUrl.trim()) {
-    console.log('[Storage URL] Using STORAGE_SERVER_URL:', serverUrl);
-    return serverUrl.trim();
+    const clientUrl = normalize(process.env.NEXT_PUBLIC_STORAGE_SERVER_URL) || normalize(def);
+    console.log('[Storage URL] Client-side:', clientUrl);
+    return clientUrl;
   }
 
-  // Fall back to plain localhost (no ngrok)
-  console.log('[Storage URL] Using default URL (localhost):', defaultUrl);
-  return defaultUrl;
+  const serverUrl = normalize(process.env.STORAGE_SERVER_URL);
+  const chosen = serverUrl || normalize(def);
+  console.log('[Storage URL] Server-side:', chosen);
+  return chosen;
 }
-

@@ -115,55 +115,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid video path' }, { status: 400 });
     }
 
-    // Mark as pending/in-progress in DB
-    try {
-      await upsertVideoAnalysisPending(decoded.sub, sessionId, videoUrl);
-    } catch (e) {
-      // non-fatal
-    }
+    // Mark as pending/in-progress in DB (best-effort)
+    try { await upsertVideoAnalysisPending(decoded.sub, sessionId, videoUrl); } catch {}
 
-    // Read file from local uploads
+    // Read file from local uploads and forward to gateway/pose analysis API
     let fileBuffer: Buffer;
     try {
       fileBuffer = await fs.readFile(safe.resolved);
-    } catch (e) {
+    } catch {
       return NextResponse.json({ error: 'Video file not found' }, { status: 404 });
     }
 
-    // Kick off background analysis via our own Next API route
-    // This route will proxy to the gateway and save to MongoDB
     const origin = request.nextUrl.origin;
-    const run = async () => {
-      try {
-        const fd = new FormData();
-        const filename = path.basename(safe.resolved);
-        // Guess content-type from extension
-        const ext = path.extname(filename).toLowerCase();
-        const mime = ext === '.webm' ? 'video/webm' : 'video/mp4';
-        fd.append('video', new Blob([fileBuffer], { type: mime }), filename);
-        if (videoUrl) fd.append('videoUrl', videoUrl);
-        if (sessionId) fd.append('sessionId', sessionId);
+    try {
+      const fd = new FormData();
+      const filename = path.basename(safe.resolved);
+      const ext = path.extname(filename).toLowerCase();
+      const mime = ext === '.webm' ? 'video/webm' : 'video/mp4';
+      fd.append('video', new Blob([fileBuffer], { type: mime }), filename);
+      if (videoUrl) fd.append('videoUrl', videoUrl);
+      if (sessionId) fd.append('sessionId', sessionId);
 
-        await fetch(`${origin}/api/pose/analyze-video`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: fd,
-          // Let it run; no timeout from here
-        });
-      } catch (e) {
-        console.error('Background analysis failed:', e);
-        try {
-          await markVideoAnalysisFailed(sessionId, videoUrl, (e as Error)?.message || 'analysis failed');
-        } catch {}
+      const resp = await fetch(`${origin}/api/pose/analyze-video`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: resp.statusText }));
+        throw new Error(err.error || err.message || 'Analysis failed');
       }
-    };
-
-    // Fire and forget
-    setTimeout(run, 10);
-
-    return NextResponse.json({ started: true, sessionId, videoUrl: videoUrl || `/api/storage/${safe.relative}` }, { status: 202 });
+      return NextResponse.json({ started: true, sessionId, videoUrl: videoUrl || `/api/storage/${safe.relative}` }, { status: 202 });
+    } catch (e: any) {
+      console.error('Background analysis failed:', e);
+      try { await markVideoAnalysisFailed(sessionId, videoUrl, e.message || 'analysis failed'); } catch {}
+      return NextResponse.json({ error: 'Failed to start analysis' }, { status: 500 });
+    }
   } catch (error) {
     console.error('Video analyses POST error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

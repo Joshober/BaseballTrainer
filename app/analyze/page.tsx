@@ -23,6 +23,7 @@ export default function AnalyzePage() {
   const [loadingVideoFromUrl, setLoadingVideoFromUrl] = useState(false);
   const [polling, setPolling] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
+  const [guarding, setGuarding] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -90,6 +91,43 @@ export default function AnalyzePage() {
       unsubscribe();
     };
   }, [router]);
+
+  // Guard: if sessionId is provided, only allow access when analysis exists
+  useEffect(() => {
+    const sessionIdParam = searchParams?.get('sessionId');
+    if (!sessionIdParam || !user) return;
+
+    const run = async () => {
+      setGuarding(true);
+      try {
+        const token = getAuthToken();
+        if (!token) { router.push('/login'); return; }
+        const resp = await fetch(`/api/video-analyses?sessionId=${encodeURIComponent(sessionIdParam)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data?.ok) {
+            setAnalysis(data);
+            // fall through; next effect will load session for video URL
+          } else {
+            // Pending/not available: redirect back to videos
+            router.replace(`/videos?analysis=pending&sessionId=${encodeURIComponent(sessionIdParam)}`);
+            return;
+          }
+        } else {
+          router.replace('/videos');
+          return;
+        }
+      } catch {
+        router.replace('/videos');
+        return;
+      } finally {
+        setGuarding(false);
+      }
+    };
+    run();
+  }, [searchParams, user, router]);
 
   // Check for videoUrl or sessionId query parameter and load video/analysis
   useEffect(() => {
@@ -400,14 +438,12 @@ export default function AnalyzePage() {
     return obj;
   };
 
-  if (loading || loadingVideoFromUrl) {
+  if (loading || loadingVideoFromUrl || guarding) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">
-            {loadingVideoFromUrl ? 'Loading video...' : 'Loading...'}
-          </p>
+          <p className="text-gray-600">{loadingVideoFromUrl ? 'Loading video...' : 'Loading...'}</p>
         </div>
       </div>
     );

@@ -476,6 +476,34 @@ export async function updateSessionVideoAnalysis(sessionId: string, analysis: an
   );
 }
 
+export async function updateSessionRecommendations(sessionId: string, recommendations: any): Promise<void> {
+  const db = await getMongoDb();
+  await db.collection('sessions').updateOne(
+    { id: sessionId },
+    {
+      $set: {
+        recommendations: recommendations || null,
+        updatedAt: new Date(),
+      },
+    }
+  );
+}
+
+export async function getSessionsMissingRecommendations(limit: number = 50): Promise<Session[]> {
+  const db = await getMongoDb();
+  const sessions = await db.collection('sessions')
+    .find({
+      videoURL: { $ne: null },
+      $or: [
+        { recommendations: { $exists: false } },
+        { recommendations: null },
+      ],
+    })
+    .limit(limit)
+    .toArray();
+  return sessions as Session[];
+}
+
 export async function getVideoAnalysisBySessionIds(sessionIds: string[]): Promise<Record<string, any | null>> {
   const db = await getMongoDb();
   const records = await db.collection('videoAnalyses')
