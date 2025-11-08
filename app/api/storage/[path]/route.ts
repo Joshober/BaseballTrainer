@@ -1,34 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { getStorageServerUrl } from '@/lib/utils/storage-server-url';
 
+/**
+ * Next.js API route that proxies GET requests to the Flask storage server
+ * Handles requests like /api/storage/user123/video.mp4
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string }> }
 ) {
-  const { path } = await params;
-  if (!path) {
-    return NextResponse.json({ error: 'Missing path' }, { status: 400 });
-  }
-
   try {
-    const fullPath = join(process.cwd(), 'server', 'uploads', path);
-    const file = await readFile(fullPath);
-    
-    // Determine content type
-    const ext = path.split('.').pop()?.toLowerCase();
-    const contentType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' :
-                        ext === 'png' ? 'image/png' :
-                        ext === 'mp4' ? 'video/mp4' : 'application/octet-stream';
+    const { path } = await params;
+    if (!path) {
+      return NextResponse.json({ error: 'Missing path' }, { status: 400 });
+    }
 
-    return new NextResponse(file, {
+    // Get storage server URL (prioritizes ngrok URL)
+    const storageServerUrl = getStorageServerUrl();
+    
+    // Proxy request to Flask storage server
+    const response = await fetch(`${storageServerUrl}/api/storage/${path}`, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      return NextResponse.json(
+        { error: error.error || error.message || 'File not found' },
+        { status: response.status }
+      );
+    }
+
+    // Get file content and content type
+    const fileBuffer = await response.arrayBuffer();
+    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+
+    return new NextResponse(fileBuffer, {
       headers: {
         'Content-Type': contentType,
       },
     });
   } catch (error) {
-    console.error('File read error:', error);
-    return NextResponse.json({ error: 'File not found' }, { status: 404 });
+    console.error('Storage file retrieval proxy error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', message: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
   }
 }
 

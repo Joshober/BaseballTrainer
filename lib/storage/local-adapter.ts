@@ -15,9 +15,9 @@ export class LocalStorageAdapter implements StorageAdapter {
       throw new Error('User not authenticated. Please sign in first.');
     }
 
-    // Upload to Flask storage server
-    const storageServerUrl = getStorageServerUrl();
-    const response = await fetch(`${storageServerUrl}/api/storage/upload`, {
+    // Upload via Next.js API route (which proxies to storage server)
+    // This avoids CORS issues and allows server-side env vars to be used
+    const response = await fetch('/api/storage', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -31,7 +31,13 @@ export class LocalStorageAdapter implements StorageAdapter {
     }
 
     const data = await response.json();
-    // Return full URL to storage server
+    // Storage server now returns full URL (with ngrok domain if configured)
+    // If it's a relative URL, prepend storage server URL
+    if (data.url.startsWith('http://') || data.url.startsWith('https://')) {
+      return data.url;
+    }
+    // If relative URL, get storage server URL for client-side access
+    const storageServerUrl = getStorageServerUrl();
     return `${storageServerUrl}${data.url}`;
   }
 
@@ -49,9 +55,8 @@ export class LocalStorageAdapter implements StorageAdapter {
       throw new Error('User not authenticated. Please sign in first.');
     }
 
-    // Delete from Flask storage server
-    const storageServerUrl = getStorageServerUrl();
-    const response = await fetch(`${storageServerUrl}/api/storage?path=${encodeURIComponent(path)}`, {
+    // Delete via Next.js API route (which proxies to storage server)
+    const response = await fetch(`/api/storage?path=${encodeURIComponent(path)}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,

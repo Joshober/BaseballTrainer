@@ -1,109 +1,135 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { verifyIdToken } from '@/lib/auth0/admin';
+import { getStorageServerUrl } from '@/lib/utils/storage-server-url';
 
-const UPLOAD_DIR = join(process.cwd(), 'server', 'uploads');
-
+/**
+ * Next.js API route that proxies requests to the Flask storage server
+ * All storage operations are routed through the storage server via ngrok URL
+ */
 export async function POST(request: NextRequest) {
   try {
-    // Verify auth token
+    // Get auth header to forward to storage server
     const authHeader = request.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const decodedToken = await verifyIdToken(token);
-    if (!decodedToken) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
+    // Get storage server URL (prioritizes ngrok URL)
+    const storageServerUrl = getStorageServerUrl();
+    
+    // Get form data from request
     const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const path = formData.get('path') as string;
+    
+    // Proxy request to Flask storage server
+    const response = await fetch(`${storageServerUrl}/api/storage/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader,
+      },
+      body: formData,
+    });
 
-    if (!file || !path) {
-      return NextResponse.json({ error: 'Missing file or path' }, { status: 400 });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      return NextResponse.json(
+        { error: error.error || error.message || 'Upload failed' },
+        { status: response.status }
+      );
     }
 
-    // Create directory structure
-    const fullPath = join(UPLOAD_DIR, path);
-    const dir = fullPath.substring(0, fullPath.lastIndexOf('/'));
-    await mkdir(dir, { recursive: true });
-
-    // Save file
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    await writeFile(fullPath, buffer);
-
-    // Return URL
-    const url = `/api/storage/${path}`;
-    return NextResponse.json({ url, path });
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Storage upload error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Storage upload proxy error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', message: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
   }
 }
 
 export async function GET(request: NextRequest) {
-  const path = request.nextUrl.searchParams.get('path');
-  if (!path) {
-    return NextResponse.json({ error: 'Missing path' }, { status: 400 });
-  }
-
   try {
-    const { readFile } = await import('fs/promises');
-    const { join } = await import('path');
-    const fullPath = join(process.cwd(), 'server', 'uploads', path);
-    const file = await readFile(fullPath);
-    
-    // Determine content type
-    const ext = path.split('.').pop()?.toLowerCase();
-    const contentType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' :
-                        ext === 'png' ? 'image/png' :
-                        ext === 'mp4' ? 'video/mp4' : 'application/octet-stream';
-
-    return new NextResponse(file, {
-      headers: {
-        'Content-Type': contentType,
-      },
-    });
-  } catch (error) {
-    console.error('File read error:', error);
-    return NextResponse.json({ error: 'File not found' }, { status: 404 });
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    // Verify auth token
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const decodedToken = await verifyIdToken(token);
-    if (!decodedToken) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
+    // Get file path from query params
     const path = request.nextUrl.searchParams.get('path');
     if (!path) {
       return NextResponse.json({ error: 'Missing path' }, { status: 400 });
     }
 
-    const { unlink } = await import('fs/promises');
-    const { join } = await import('path');
-    const fullPath = join(process.cwd(), 'server', 'uploads', path);
+    // Get storage server URL (prioritizes ngrok URL)
+    const storageServerUrl = getStorageServerUrl();
     
-    await unlink(fullPath);
-    
-    return NextResponse.json({ message: 'File deleted' });
+    // Proxy request to Flask storage server
+    const response = await fetch(`${storageServerUrl}/api/storage/${path}`, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      return NextResponse.json(
+        { error: error.error || error.message || 'File not found' },
+        { status: response.status }
+      );
+    }
+
+    // Get file content and content type
+    const fileBuffer = await response.arrayBuffer();
+    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+
+    return new NextResponse(fileBuffer, {
+      headers: {
+        'Content-Type': contentType,
+      },
+    });
   } catch (error) {
-    console.error('File delete error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Storage file retrieval proxy error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', message: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    // Get auth header to forward to storage server
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get file path from query params
+    const path = request.nextUrl.searchParams.get('path');
+    if (!path) {
+      return NextResponse.json({ error: 'Missing path' }, { status: 400 });
+    }
+
+    // Get storage server URL (prioritizes ngrok URL)
+    const storageServerUrl = getStorageServerUrl();
+    
+    // Proxy request to Flask storage server
+    const response = await fetch(`${storageServerUrl}/api/storage?path=${encodeURIComponent(path)}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': authHeader,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      return NextResponse.json(
+        { error: error.error || error.message || 'Delete failed' },
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Storage delete proxy error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', message: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
   }
 }
 
