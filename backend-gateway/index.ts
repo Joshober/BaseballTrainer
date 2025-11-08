@@ -36,23 +36,28 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers.authorization;
     
     if (!authHeader?.startsWith('Bearer ')) {
+      console.error('Authentication failed: Missing or invalid Authorization header');
       return res.status(401).json({ error: 'Unauthorized', message: 'Missing or invalid Authorization header' });
     }
 
     const token = authHeader.substring(7);
+    console.log('Verifying Auth0 token...');
+    
     const decodedToken = await verifyIdToken(token);
     
     if (!decodedToken) {
       console.error('Token verification failed - decodedToken is null');
-      return res.status(401).json({ error: 'Unauthorized', message: 'Invalid token' });
+      return res.status(401).json({ error: 'Unauthorized', message: 'Invalid or expired token' });
     }
 
     (req as any).user = decodedToken;
     // Auth0 uses 'sub' as the user ID
     (req as any).userId = decodedToken.sub || decodedToken.user_id || 'anonymous';
+    console.log(`Authentication successful for user: ${(req as any).userId}`);
     next();
   } catch (error: any) {
     console.error('Authentication error:', error.message);
+    console.error('Auth error details:', error);
     return res.status(401).json({ error: 'Unauthorized', message: error.message || 'Authentication failed' });
   }
 }
@@ -462,6 +467,61 @@ app.post('/api/pose/analyze-live', authenticate, upload.single('video'), async (
     res.status(error.response?.status || 500).json({
       error: 'Internal server error',
       message: error.message
+    });
+  }
+});
+
+// Proxy to Python Backend (Claude Video Analysis)
+app.post('/api/pose/analyze-video-claude', authenticate, async (req, res) => {
+  try {
+    const { session_id, video_id } = req.body;
+    const userId = (req as any).userId || 'anonymous';
+    
+    if (!session_id && !video_id) {
+      return res.status(400).json({ 
+        error: 'session_id or video_id is required',
+        message: 'Please provide either session_id or video_id'
+      });
+    }
+
+    console.log(`Forwarding OpenRouter request to Pose Detection Service: session_id=${session_id}, video_id=${video_id}, userId=${userId}`);
+
+    // Forward to Pose Detection Service - it will handle session lookup
+    const response = await axios.post(
+      `${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video-claude`,
+      { session_id, video_id },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Request': 'true',
+          'X-User-Id': userId,
+        },
+        timeout: 300000, // 5 minute timeout for video processing and Claude analysis
+      }
+    );
+    
+    console.log(`Pose Detection Service responded with status: ${response.status}`);
+    
+    // Return response from Flask service
+    res.json(response.data);
+  } catch (error: any) {
+    console.error('Claude video analysis error:', error.message);
+    console.error('Error response:', error.response?.data);
+    console.error('Error status:', error.response?.status);
+    
+    // Return the actual error from Pose Detection Service if available
+    if (error.response) {
+      return res.status(error.response.status).json({
+        ok: false,
+        error: error.response.data?.error || 'Internal server error',
+        message: error.response.data?.message || error.message
+      });
+    }
+    
+    res.status(500).json({
+      ok: false,
+      error: 'Internal server error',
+      message: 'Failed to process video analysis. Please try again.'
     });
   }
 });

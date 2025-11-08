@@ -10,4 +10,5 @@ pymongo==4.6.0
 gunicorn==21.2.0
 ultralytics==8.0.196
 scipy==1.11.4
+requests==2.31.0
 

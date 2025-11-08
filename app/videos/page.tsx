@@ -20,6 +20,7 @@ export default function VideosPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [isSendingToOpenRouter, setIsSendingToOpenRouter] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -144,6 +145,61 @@ export default function VideosPage() {
     } catch (error) {
       console.error('Failed to send to AI bot:', error);
       alert('Failed to send to AI bot. Please try again.');
+    }
+  };
+
+  const sendToOpenRouter = async (session: Session) => {
+    if (!session || !user) return;
+
+    setIsSendingToOpenRouter(session.id);
+    try {
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) {
+        alert('Please log in to send videos to OpenRouter');
+        return;
+      }
+
+      // Simply send session_id - backend will handle video ID extraction
+      const response = await fetch('/api/pose/analyze-video-claude', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: session.id,
+        }),
+      });
+
+      // Parse response - backend handles all error formatting
+      let result: any;
+      try {
+        result = await response.json();
+      } catch (jsonError) {
+        // If response is not JSON, get text
+        const text = await response.text();
+        throw new Error(`Server error (${response.status}): ${text || response.statusText}`);
+      }
+      
+      if (!response.ok || !result.ok) {
+        // Backend already formatted the error message
+        const errorMsg = result.message || result.error || `HTTP ${response.status}: Failed to analyze video`;
+        throw new Error(errorMsg);
+      }
+
+      // Success - show recommendation
+      if (result.recommendation) {
+        alert(`Video analyzed successfully!\n\nRecommendation:\n${result.recommendation}`);
+      } else {
+        alert('Video analysis completed, but no recommendation was generated.');
+      }
+    } catch (error: any) {
+      console.error('Failed to send to OpenRouter:', error);
+      // Backend already provides user-friendly error messages
+      alert(`Failed to analyze video: ${error.message || 'Please try again.'}`);
+    } finally {
+      setIsSendingToOpenRouter(null);
     }
   };
 
@@ -400,6 +456,8 @@ export default function VideosPage() {
               sessions={sessions}
               onSendToMessenger={handleSendToMessenger}
               onSendToAIBot={handleSendToAIBot}
+              onSendToOpenRouter={sendToOpenRouter}
+              isSendingToOpenRouter={isSendingToOpenRouter}
             />
           </div>
         </div>

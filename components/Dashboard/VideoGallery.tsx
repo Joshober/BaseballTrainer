@@ -1,16 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { Video, Send, Bot, Play, Calendar, TrendingUp } from 'lucide-react';
+import { Video, Send, Bot, Play, Calendar, TrendingUp, ExternalLink } from 'lucide-react';
 import type { Session } from '@/types/session';
 
 interface VideoGalleryProps {
   sessions: Session[];
   onSendToMessenger: (session: Session) => void;
   onSendToAIBot: (session: Session) => void;
+  onSendToOpenRouter?: (session: Session) => void;
+  isSendingToOpenRouter?: string | null;
 }
 
-export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot }: VideoGalleryProps) {
+export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot, onSendToOpenRouter, isSendingToOpenRouter }: VideoGalleryProps) {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [filter, setFilter] = useState<'all' | 'good' | 'needs_work'>('all');
 
@@ -117,7 +119,7 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={() => onSendToMessenger(session)}
                     className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
@@ -132,6 +134,25 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                     <Bot className="w-4 h-4" />
                     AI Bot
                   </button>
+                  {onSendToOpenRouter && (
+                    <button
+                      onClick={() => onSendToOpenRouter(session)}
+                      disabled={isSendingToOpenRouter === session.id}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSendingToOpenRouter === session.id ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <ExternalLink className="w-4 h-4" />
+                          OpenRouter
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
