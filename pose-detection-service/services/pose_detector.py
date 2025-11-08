@@ -2,10 +2,18 @@
 Pose detection service using MediaPipe Pose
 Provides baseball swing analysis metrics
 """
-import mediapipe as mp
 import numpy as np
 import logging
 from typing import Dict, List, Optional, Tuple
+
+# Try to import mediapipe, but make it optional
+try:
+    import mediapipe as mp
+    MEDIAPIPE_AVAILABLE = True
+except ImportError:
+    MEDIAPIPE_AVAILABLE = False
+    mp = None
+    logging.warning("MediaPipe not available. Pose detection will be disabled. Install mediapipe or use Python 3.11 or 3.12.")
 
 # Try to import cv2, but make it optional
 try:
@@ -22,6 +30,13 @@ class PoseDetector:
     
     def __init__(self):
         """Initialize MediaPipe Pose detector"""
+        if not MEDIAPIPE_AVAILABLE:
+            self.mp_pose = None
+            self.mp_drawing = None
+            self.pose = None
+            logger.warning("MediaPipe not available. Pose detection disabled.")
+            return
+        
         self.mp_pose = mp.solutions.pose
         self.mp_drawing = mp.solutions.drawing_utils
         self.pose = self.mp_pose.Pose(
@@ -43,6 +58,13 @@ class PoseDetector:
         Returns:
             Dictionary with pose detection results and swing metrics
         """
+        if not MEDIAPIPE_AVAILABLE or self.pose is None:
+            return {
+                'ok': False,
+                'error': 'MediaPipe not available',
+                'message': 'MediaPipe is not installed. Please install mediapipe or use Python 3.11 or 3.12. Pose detection is disabled.'
+            }
+        
         try:
             # Convert BGR to RGB if needed (MediaPipe expects RGB)
             if len(image.shape) == 3 and image.shape[2] == 3:
@@ -103,6 +125,9 @@ class PoseDetector:
         
         # Helper function to get landmark coordinates
         def get_landmark(name: str) -> Optional[Tuple[float, float]]:
+            if not MEDIAPIPE_AVAILABLE or self.mp_pose is None:
+                return None
+            
             landmark_map = {
                 'left_shoulder': self.mp_pose.PoseLandmark.LEFT_SHOULDER,
                 'right_shoulder': self.mp_pose.PoseLandmark.RIGHT_SHOULDER,
