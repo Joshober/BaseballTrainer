@@ -1,0 +1,761 @@
+{
+  "ok": true,
+  "videoInfo": {
+    "fps": 30.0,
+    "frameCount": 90,
+    "duration": 3.0,
+    "width": 1920,
+    "height": 1080
+  },
+  "contactFrame": 45,
+  "contact": {
+    "frame": 45,
+    "confidence": 0.85,
+    "angular_velocity": 120.5,
+    "proximity": 0.15,
+    "velocity_change": 5.2,
+    "timestamp": 1.5
+  },
+  "metrics": {
+    "batAngularVelocity": 120.5,
+    "batLinearSpeed": 45.2,
+    "batLinearSpeedMph": 101.2,
+    "exitVelocityEstimate": 48.5,
+    "exitVelocityEstimateMph": 108.5,
+    "exitVelocityErrorMargin": 5.0,
+    "launchAngle": 28.5
+  },
+  "formAnalysis": {
+    "hip_rotation": {
+      "value": 42.0,
+      "ideal": [
+        45,
+        55
+      ],
+      "deviation": 3.0
+    },
+    "shoulder_separation": {
+      "value": 28.0,
+      "ideal": [
+        30,
+        40
+      ],
+      "deviation": 2.0
+    },
+    "front_knee_flex": {
+      "value": 115.0,
+      "ideal": [
+        120,
+        150
+      ],
+      "deviation": 5.0
+    },
+    "stride_length": {
+      "value": 0.28,
+      "ideal": [
+        0.3,
+        0.5
+      ],
+      "deviation": 0.02
+    },
+    "spine_tilt": {
+      "value": 12.0,
+      "ideal": [
+        -10,
+        10
+      ],
+      "deviation": 2.0
+    },
+    "elbow_extension": {
+      "value": 145.0,
+      "ideal": [
+        150,
+        180
+      ],
+      "deviation": 5.0
+    },
+    "feedback": [
+      "Hip rotation delayed - try closed-hip drills",
+      "Shoulder separation could improve - focus on loading phase",
+      "Front knee could be more flexed - improve weight transfer",
+      "Excessive spine tilt - maintain upright posture"
+    ]
+  },
+  "frames": [
+    {
+      "frameIndex": 0,
+      "timestamp": 0.0,
+      "batAngle": 45.0,
+      "batPosition": [
+        960,
+        540
+      ]
+    },
+    {
+      "frameIndex": 1,
+      "timestamp": 0.03333333333333333,
+      "batAngle": 47.0,
+      "batPosition": [
+        970,
+        545
+      ]
+    },
+    {
+      "frameIndex": 2,
+      "timestamp": 0.06666666666666667,
+      "batAngle": 49.0,
+      "batPosition": [
+        980,
+        550
+      ]
+    },
+    {
+      "frameIndex": 3,
+      "timestamp": 0.1,
+      "batAngle": 51.0,
+      "batPosition": [
+        990,
+        555
+      ]
+    },
+    {
+      "frameIndex": 4,
+      "timestamp": 0.13333333333333333,
+      "batAngle": 53.0,
+      "batPosition": [
+        1000,
+        560
+      ]
+    },
+    {
+      "frameIndex": 5,
+      "timestamp": 0.16666666666666666,
+      "batAngle": 55.0,
+      "batPosition": [
+        1010,
+        565
+      ]
+    },
+    {
+      "frameIndex": 6,
+      "timestamp": 0.2,
+      "batAngle": 57.0,
+      "batPosition": [
+        1020,
+        570
+      ]
+    },
+    {
+      "frameIndex": 7,
+      "timestamp": 0.23333333333333334,
+      "batAngle": 59.0,
+      "batPosition": [
+        1030,
+        575
+      ]
+    },
+    {
+      "frameIndex": 8,
+      "timestamp": 0.26666666666666666,
+      "batAngle": 61.0,
+      "batPosition": [
+        1040,
+        580
+      ]
+    },
+    {
+      "frameIndex": 9,
+      "timestamp": 0.3,
+      "batAngle": 63.0,
+      "batPosition": [
+        1050,
+        585
+      ]
+    },
+    {
+      "frameIndex": 10,
+      "timestamp": 0.3333333333333333,
+      "batAngle": 65.0,
+      "batPosition": [
+        1060,
+        590
+      ]
+    },
+    {
+      "frameIndex": 11,
+      "timestamp": 0.36666666666666664,
+      "batAngle": 67.0,
+      "batPosition": [
+        1070,
+        595
+      ]
+    },
+    {
+      "frameIndex": 12,
+      "timestamp": 0.4,
+      "batAngle": 69.0,
+      "batPosition": [
+        1080,
+        600
+      ]
+    },
+    {
+      "frameIndex": 13,
+      "timestamp": 0.43333333333333335,
+      "batAngle": 71.0,
+      "batPosition": [
+        1090,
+        605
+      ]
+    },
+    {
+      "frameIndex": 14,
+      "timestamp": 0.4666666666666667,
+      "batAngle": 73.0,
+      "batPosition": [
+        1100,
+        610
+      ]
+    },
+    {
+      "frameIndex": 15,
+      "timestamp": 0.5,
+      "batAngle": 75.0,
+      "batPosition": [
+        1110,
+        615
+      ]
+    },
+    {
+      "frameIndex": 16,
+      "timestamp": 0.5333333333333333,
+      "batAngle": 77.0,
+      "batPosition": [
+        1120,
+        620
+      ]
+    },
+    {
+      "frameIndex": 17,
+      "timestamp": 0.5666666666666667,
+      "batAngle": 79.0,
+      "batPosition": [
+        1130,
+        625
+      ]
+    },
+    {
+      "frameIndex": 18,
+      "timestamp": 0.6,
+      "batAngle": 81.0,
+      "batPosition": [
+        1140,
+        630
+      ]
+    },
+    {
+      "frameIndex": 19,
+      "timestamp": 0.6333333333333333,
+      "batAngle": 83.0,
+      "batPosition": [
+        1150,
+        635
+      ]
+    },
+    {
+      "frameIndex": 20,
+      "timestamp": 0.6666666666666666,
+      "batAngle": 85.0,
+      "batPosition": [
+        1160,
+        640
+      ]
+    },
+    {
+      "frameIndex": 21,
+      "timestamp": 0.7,
+      "batAngle": 87.0,
+      "batPosition": [
+        1170,
+        645
+      ]
+    },
+    {
+      "frameIndex": 22,
+      "timestamp": 0.7333333333333333,
+      "batAngle": 89.0,
+      "batPosition": [
+        1180,
+        650
+      ]
+    },
+    {
+      "frameIndex": 23,
+      "timestamp": 0.7666666666666667,
+      "batAngle": 91.0,
+      "batPosition": [
+        1190,
+        655
+      ]
+    },
+    {
+      "frameIndex": 24,
+      "timestamp": 0.8,
+      "batAngle": 93.0,
+      "batPosition": [
+        1200,
+        660
+      ]
+    },
+    {
+      "frameIndex": 25,
+      "timestamp": 0.8333333333333334,
+      "batAngle": 95.0,
+      "batPosition": [
+        1210,
+        665
+      ]
+    },
+    {
+      "frameIndex": 26,
+      "timestamp": 0.8666666666666667,
+      "batAngle": 97.0,
+      "batPosition": [
+        1220,
+        670
+      ]
+    },
+    {
+      "frameIndex": 27,
+      "timestamp": 0.9,
+      "batAngle": 99.0,
+      "batPosition": [
+        1230,
+        675
+      ]
+    },
+    {
+      "frameIndex": 28,
+      "timestamp": 0.9333333333333333,
+      "batAngle": 101.0,
+      "batPosition": [
+        1240,
+        680
+      ]
+    },
+    {
+      "frameIndex": 29,
+      "timestamp": 0.9666666666666667,
+      "batAngle": 103.0,
+      "batPosition": [
+        1250,
+        685
+      ]
+    },
+    {
+      "frameIndex": 30,
+      "timestamp": 1.0,
+      "batAngle": 105.0,
+      "batPosition": [
+        1260,
+        690
+      ]
+    },
+    {
+      "frameIndex": 31,
+      "timestamp": 1.0333333333333334,
+      "batAngle": 107.0,
+      "batPosition": [
+        1270,
+        695
+      ]
+    },
+    {
+      "frameIndex": 32,
+      "timestamp": 1.0666666666666667,
+      "batAngle": 109.0,
+      "batPosition": [
+        1280,
+        700
+      ]
+    },
+    {
+      "frameIndex": 33,
+      "timestamp": 1.1,
+      "batAngle": 111.0,
+      "batPosition": [
+        1290,
+        705
+      ]
+    },
+    {
+      "frameIndex": 34,
+      "timestamp": 1.1333333333333333,
+      "batAngle": 113.0,
+      "batPosition": [
+        1300,
+        710
+      ]
+    },
+    {
+      "frameIndex": 35,
+      "timestamp": 1.1666666666666667,
+      "batAngle": 115.0,
+      "batPosition": [
+        1310,
+        715
+      ]
+    },
+    {
+      "frameIndex": 36,
+      "timestamp": 1.2,
+      "batAngle": 117.0,
+      "batPosition": [
+        1320,
+        720
+      ]
+    },
+    {
+      "frameIndex": 37,
+      "timestamp": 1.2333333333333334,
+      "batAngle": 119.0,
+      "batPosition": [
+        1330,
+        725
+      ]
+    },
+    {
+      "frameIndex": 38,
+      "timestamp": 1.2666666666666666,
+      "batAngle": 121.0,
+      "batPosition": [
+        1340,
+        730
+      ]
+    },
+    {
+      "frameIndex": 39,
+      "timestamp": 1.3,
+      "batAngle": 123.0,
+      "batPosition": [
+        1350,
+        735
+      ]
+    },
+    {
+      "frameIndex": 40,
+      "timestamp": 1.3333333333333333,
+      "batAngle": 125.0,
+      "batPosition": [
+        1360,
+        740
+      ]
+    },
+    {
+      "frameIndex": 41,
+      "timestamp": 1.3666666666666667,
+      "batAngle": 127.0,
+      "batPosition": [
+        1370,
+        745
+      ]
+    },
+    {
+      "frameIndex": 42,
+      "timestamp": 1.4,
+      "batAngle": 129.0,
+      "batPosition": [
+        1380,
+        750
+      ]
+    },
+    {
+      "frameIndex": 43,
+      "timestamp": 1.4333333333333333,
+      "batAngle": 131.0,
+      "batPosition": [
+        1390,
+        755
+      ]
+    },
+    {
+      "frameIndex": 44,
+      "timestamp": 1.4666666666666666,
+      "batAngle": 133.0,
+      "batPosition": [
+        1400,
+        760
+      ]
+    },
+    {
+      "frameIndex": 45,
+      "timestamp": 1.5,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 46,
+      "timestamp": 1.5333333333333334,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 47,
+      "timestamp": 1.5666666666666667,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 48,
+      "timestamp": 1.6,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 49,
+      "timestamp": 1.6333333333333333,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 50,
+      "timestamp": 1.6666666666666667,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 51,
+      "timestamp": 1.7,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 52,
+      "timestamp": 1.7333333333333334,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 53,
+      "timestamp": 1.7666666666666666,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 54,
+      "timestamp": 1.8,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 55,
+      "timestamp": 1.8333333333333333,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 56,
+      "timestamp": 1.8666666666666667,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 57,
+      "timestamp": 1.9,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 58,
+      "timestamp": 1.9333333333333333,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 59,
+      "timestamp": 1.9666666666666666,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 60,
+      "timestamp": 2.0,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 61,
+      "timestamp": 2.033333333333333,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 62,
+      "timestamp": 2.066666666666667,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 63,
+      "timestamp": 2.1,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 64,
+      "timestamp": 2.1333333333333333,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 65,
+      "timestamp": 2.1666666666666665,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 66,
+      "timestamp": 2.2,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 67,
+      "timestamp": 2.2333333333333334,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 68,
+      "timestamp": 2.2666666666666666,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 69,
+      "timestamp": 2.3,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 70,
+      "timestamp": 2.3333333333333335,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 71,
+      "timestamp": 2.3666666666666667,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 72,
+      "timestamp": 2.4,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 73,
+      "timestamp": 2.433333333333333,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 74,
+      "timestamp": 2.466666666666667,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 75,
+      "timestamp": 2.5,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 76,
+      "timestamp": 2.533333333333333,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 77,
+      "timestamp": 2.566666666666667,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 78,
+      "timestamp": 2.6,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 79,
+      "timestamp": 2.6333333333333333,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 80,
+      "timestamp": 2.6666666666666665,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 81,
+      "timestamp": 2.7,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 82,
+      "timestamp": 2.7333333333333334,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 83,
+      "timestamp": 2.7666666666666666,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 84,
+      "timestamp": 2.8,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 85,
+      "timestamp": 2.8333333333333335,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 86,
+      "timestamp": 2.8666666666666667,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 87,
+      "timestamp": 2.9,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 88,
+      "timestamp": 2.933333333333333,
+      "batAngle": null,
+      "batPosition": null
+    },
+    {
+      "frameIndex": 89,
+      "timestamp": 2.966666666666667,
+      "batAngle": null,
+      "batPosition": null
+    }
+  ]
+}
