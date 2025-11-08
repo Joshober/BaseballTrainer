@@ -42,6 +42,28 @@ app.register_blueprint(pose.bp)
 app.register_blueprint(storage.bp)
 app.register_blueprint(swagger_bp)  # Swagger documentation
 
+@app.route('/', methods=['GET'])
+def index():
+    """Root endpoint with service information"""
+    return jsonify({
+        'service': 'Baseball Swing Analysis - Pose Detection Service',
+        'version': '1.0.0',
+        'status': 'running',
+        'endpoints': {
+            'health': '/health or /api/health',
+            'pose_detection': 'POST /api/pose/detect',
+            'video_analysis': 'POST /api/pose/analyze-video',
+            'live_analysis': 'POST /api/pose/analyze-live',
+            'swagger_docs': '/swagger/',
+            'storage': {
+                'upload': 'POST /api/storage/upload',
+                'get': 'GET /api/storage/<filename>',
+                'delete': 'DELETE /api/storage/<filename>'
+            }
+        },
+        'documentation': 'Visit /swagger/ for API documentation'
+    })
+
 @app.before_request
 def log_request():
     """Log incoming requests"""

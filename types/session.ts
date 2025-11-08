@@ -77,6 +77,56 @@ export interface VideoAnalysis {
     batLine: boolean;
     contactHighlight: boolean;
   };
+  swingPhases?: Array<{
+    phase: string;
+    startFrame: number;
+    endFrame: number;
+  }> | {
+    phases: Array<{
+      phase: string;
+      startFrame: number;
+      endFrame: number;
+    }>;
+    key_frames?: any;
+    phase_duration?: any;
+    phase_transitions?: any;
+    swing_quality?: any;
+  };
+  biomechanics?: {
+    maxHipRotation?: number;
+    maxShoulderRotation?: number;
+    weightTransfer?: number;
+    [key: string]: any;
+  };
+  formErrors?: Array<{
+    type?: string;
+    error?: string;
+    description?: string;
+    impact?: string;
+    recommendation?: string;
+    severity?: number | string;
+    frame?: number;
+  }> | {
+    errors: Array<{
+      type?: string;
+      error?: string;
+      description?: string;
+      impact?: string;
+      recommendation?: string;
+      severity?: number | string;
+      frame?: number;
+    }>;
+    recommendations?: string[];
+    error_count?: number;
+    severity_score?: number;
+  };
+  trackingQuality?: {
+    overallScore: number;
+    personTrackingRatio: number;
+    batTrackingRatio: number;
+    ballTrackingRatio: number;
+  };
+  trackingTrajectories?: any;
   error?: string;
 }
 

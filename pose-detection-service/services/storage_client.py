@@ -34,29 +34,31 @@ class StorageClient:
         self.base_url = self.base_url.rstrip('/')
         logger.info(f"Storage client initialized with base URL: {self.base_url}")
     
-    def fetch_video(self, user_id: str, video_id: str) -> Optional[bytes]:
+    def fetch_video(self, storage_path: str) -> Optional[bytes]:
         """
-        Fetch video from storage server
+        Fetch video from storage server using full storage path
         
         Args:
-            user_id: User ID (from authenticated session)
-            video_id: Video ID (filename)
+            storage_path: Full storage path (e.g., "videos/{uid}/{filename}.mp4")
             
         Returns:
             Video bytes if successful, None if error
         """
         try:
-            # Construct path: {user_id}/{video_id}
-            path = f"{user_id}/{video_id}"
-            url = f"{self.base_url}/api/storage/{path}"
+            # URL encode the path to handle special characters like | in user IDs
+            from urllib.parse import quote
+            # Encode the path but keep slashes unencoded
+            encoded_path = quote(storage_path, safe='/')
+            url = f"{self.base_url}/api/storage/{encoded_path}"
             
             logger.info(f"Fetching video from: {url}")
+            logger.debug(f"Original path: {storage_path}, Encoded path: {encoded_path}")
             
             # Make GET request (no auth needed, GET endpoint is public)
             response = requests.get(url, timeout=30)
             
             if response.status_code == 404:
-                logger.error(f"Video not found: {path}")
+                logger.error(f"Video not found: {storage_path} (encoded: {encoded_path})")
                 return None
             
             response.raise_for_status()

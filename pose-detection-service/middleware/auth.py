@@ -31,38 +31,27 @@ def is_internal_request():
     - TEST_MODE is enabled
     """
     # Check for internal request header (set by backend gateway)
-    # Flask headers are case-insensitive, but we need to check the exact key
     internal_header = request.headers.get('X-Internal-Request') or request.headers.get('x-internal-request')
-    logger.info(f"Checking internal request - X-Internal-Request header: {internal_header}")
-    logger.info(f"All request headers: {list(request.headers.keys())}")
     if internal_header and str(internal_header).lower() == 'true':
-        logger.info("Request identified as internal via X-Internal-Request header")
         return True
     
     # Check if request is from localhost (backend gateway)
     remote_addr = request.remote_addr
-    forwarded_for = request.headers.get('X-Forwarded-For')
-    logger.info(f"Request remote address: {remote_addr}, X-Forwarded-For: {forwarded_for}")
-    
-    # Check remote address - Flask might set this differently
     if remote_addr in ('127.0.0.1', 'localhost', '::1', None):
-        logger.info("Request identified as internal via localhost address")
         return True
     
     # Also check X-Forwarded-For header
+    forwarded_for = request.headers.get('X-Forwarded-For')
     if forwarded_for:
         forwarded_ips = [ip.strip() for ip in forwarded_for.split(',')]
         if any('127.0.0.1' in ip or 'localhost' in ip for ip in forwarded_ips):
-            logger.info("Request identified as internal via X-Forwarded-For header")
             return True
     
     # Check if test mode is enabled
     test_mode = os.getenv('TEST_MODE', 'False').lower() == 'true'
     if test_mode:
-        logger.debug("Request identified as internal via TEST_MODE")
         return True
     
-    logger.warning(f"Request not identified as internal - header: {internal_header}, remote_addr: {remote_addr}")
     return False
 
 def require_auth(f):
@@ -101,18 +90,9 @@ def require_auth(f):
         if not is_internal:
             # Reject requests not from gateway
             logger.warning(f'Rejected external request from {request.remote_addr}')
-            logger.warning(f'Request headers: X-Internal-Request={request.headers.get("X-Internal-Request")}, X-User-Id={request.headers.get("X-User-Id")}')
-            logger.warning(f'All headers: {dict(request.headers)}')
-            logger.warning(f'Remote addr: {request.remote_addr}, X-Forwarded-For: {request.headers.get("X-Forwarded-For")}')
             return jsonify({
                 'error': 'Forbidden',
-                'message': 'This service only accepts requests from the backend gateway. Enable DEMO_MODE=true for independent testing.',
-                'debug': {
-                    'remote_addr': request.remote_addr,
-                    'x_internal_request': request.headers.get('X-Internal-Request'),
-                    'x_user_id': request.headers.get('X-User-Id'),
-                    'headers': list(request.headers.keys())
-                }
+                'message': 'This service only accepts requests from the backend gateway. Enable DEMO_MODE=true for independent testing.'
             }), 403
         
         # Trust internal requests from gateway

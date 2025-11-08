@@ -117,31 +117,13 @@ export default function VideosPage() {
       const token = getAuthToken();
       if (!authUser || !token) return;
       
-      // Create or get AI bot conversation
-      // For now, we'll use a special "ai_bot" user ID
-      const aiBotUid = 'ai_bot';
-      
-      const response = await fetch('/api/messages', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          receiverUid: aiBotUid,
-          content: 'Please analyze this swing video',
-          videoURL: selectedSession.videoURL,
-          videoPath: selectedSession.videoPath,
-          sessionId: selectedSession.id,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to send to AI bot');
-
+      // Redirect to analyze page with video URL
       setShowAIBotModal(false);
+      const session = selectedSession;
       setSelectedSession(null);
-      alert('Video sent to AI bot for analysis!');
-      router.push('/messages');
+      
+      // Redirect to analyze page with video URL as query parameter
+      router.push(`/analyze?videoUrl=${encodeURIComponent(session.videoURL || '')}&sessionId=${session.id}`);
     } catch (error) {
       console.error('Failed to send to AI bot:', error);
       alert('Failed to send to AI bot. Please try again.');
@@ -173,13 +155,20 @@ export default function VideosPage() {
       });
 
       // Parse response - backend handles all error formatting
+      // Clone response first so we can read it multiple times if needed
+      const responseClone = response.clone();
       let result: any;
+      
       try {
         result = await response.json();
       } catch (jsonError) {
-        // If response is not JSON, get text
-        const text = await response.text();
-        throw new Error(`Server error (${response.status}): ${text || response.statusText}`);
+        // If response is not JSON, get text from clone
+        try {
+          const text = await responseClone.text();
+          throw new Error(`Server error (${response.status}): ${text || response.statusText}`);
+        } catch (textError: any) {
+          throw new Error(`Server error (${response.status}): ${response.statusText || 'Invalid response format'}`);
+        }
       }
       
       if (!response.ok || !result.ok) {
@@ -196,8 +185,21 @@ export default function VideosPage() {
       }
     } catch (error: any) {
       console.error('Failed to send to OpenRouter:', error);
-      // Backend already provides user-friendly error messages
-      alert(`Failed to analyze video: ${error.message || 'Please try again.'}`);
+      
+      // Provide more specific error messages based on error type
+      let errorMessage = error.message || 'Please try again.';
+      
+      if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+        errorMessage = 'Please log in to analyze videos.';
+      } else if (error.message?.includes('404') || error.message?.includes('not found')) {
+        errorMessage = 'Video not found. Please verify the video exists.';
+      } else if (error.message?.includes('503') || error.message?.includes('unavailable')) {
+        errorMessage = 'Service is temporarily unavailable. Please try again in a moment.';
+      } else if (error.message?.includes('Failed to fetch') || error.message?.includes('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      }
+      
+      alert(`Failed to analyze video: ${errorMessage}`);
     } finally {
       setIsSendingToOpenRouter(null);
     }

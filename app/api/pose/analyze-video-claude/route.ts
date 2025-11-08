@@ -63,21 +63,36 @@ export async function POST(request: NextRequest) {
       throw fetchError;
     }
 
+    // Clone response first so we can read it multiple times if needed
+    const responseClone = response.clone();
     let result: any;
+    
     try {
       result = await response.json();
     } catch (jsonError) {
-      // If response is not JSON, get text
-      const text = await response.text();
-      console.error('Gateway returned non-JSON response:', text);
-      return NextResponse.json(
-        { 
-          error: 'Invalid response from gateway', 
-          message: `Gateway returned: ${text.substring(0, 200)}`,
-          ok: false 
-        },
-        { status: response.status || 500 }
-      );
+      // If response is not JSON, get text from clone
+      try {
+        const text = await responseClone.text();
+        console.error('Gateway returned non-JSON response:', text);
+        return NextResponse.json(
+          { 
+            error: 'Invalid response from gateway', 
+            message: `Gateway returned: ${text.substring(0, 200)}`,
+            ok: false 
+          },
+          { status: response.status || 500 }
+        );
+      } catch (textError: any) {
+        console.error('Failed to read response as text:', textError);
+        return NextResponse.json(
+          { 
+            error: 'Invalid response from gateway', 
+            message: `Gateway returned status ${response.status}: ${response.statusText}`,
+            ok: false 
+          },
+          { status: response.status || 500 }
+        );
+      }
     }
     
     // If the gateway returned an error, include it in the response
@@ -105,6 +120,28 @@ export async function POST(request: NextRequest) {
             ok: false 
           },
           { status: 403 }
+        );
+      }
+      
+      if (response.status === 404) {
+        return NextResponse.json(
+          { 
+            error: 'Not found', 
+            message: result.message || 'Video or session not found. Please verify the video exists.',
+            ok: false 
+          },
+          { status: 404 }
+        );
+      }
+      
+      if (response.status === 503) {
+        return NextResponse.json(
+          { 
+            error: 'Service unavailable', 
+            message: result.message || 'Backend service is not available. Please try again later.',
+            ok: false 
+          },
+          { status: 503 }
         );
       }
       

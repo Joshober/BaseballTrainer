@@ -511,10 +511,33 @@ app.post('/api/pose/analyze-video-claude', authenticate, async (req, res) => {
     
     // Return the actual error from Pose Detection Service if available
     if (error.response) {
-      return res.status(error.response.status).json({
+      const status = error.response.status;
+      const errorData = error.response.data || {};
+      
+      // Provide user-friendly error messages based on status code
+      let userMessage = errorData.message || errorData.error || error.message;
+      
+      if (status === 404) {
+        userMessage = errorData.message || 'Video or session not found. Please verify the video exists.';
+      } else if (status === 401) {
+        userMessage = 'Authentication failed. Please log in again.';
+      } else if (status === 500) {
+        userMessage = errorData.message || 'Server error during video analysis. Please try again.';
+      }
+      
+      return res.status(status).json({
         ok: false,
-        error: error.response.data?.error || 'Internal server error',
-        message: error.response.data?.message || error.message
+        error: errorData.error || 'Internal server error',
+        message: userMessage
+      });
+    }
+    
+    // Network or connection errors
+    if (error.code === 'ECONNREFUSED' || error.message?.includes('connect')) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Service unavailable',
+        message: 'Pose Detection Service is not available. Please ensure it is running on port 5003.'
       });
     }
     
