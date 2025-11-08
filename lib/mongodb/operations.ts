@@ -314,4 +314,100 @@ export async function markMessagesAsRead(uid1: string, uid2: string, readerUid: 
   );
 }
 
+// Video Analysis
+export async function saveVideoAnalysis(
+  userId: string,
+  videoAnalysis: any,
+  videoFileName?: string,
+  videoUrl?: string
+): Promise<string> {
+  const db = await getMongoDb();
+  
+  // Remove null/undefined values before saving
+  const cleanedAnalysis = removeNullValues(videoAnalysis);
+  
+  const analysisRecord = {
+    id: crypto.randomUUID(),
+    userId,
+    videoFileName: videoFileName || null,
+    videoUrl: videoUrl || null,
+    analysis: cleanedAnalysis,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  
+  await db.collection('videoAnalyses').insertOne(analysisRecord);
+  
+  // Create index if it doesn't exist
+  try {
+    await db.collection('videoAnalyses').createIndex({ userId: 1, createdAt: -1 });
+  } catch (error) {
+    // Index might already exist
+  }
+  
+  return analysisRecord.id;
+}
+
+export async function getVideoAnalysesByUser(userId: string, limit: number = 50): Promise<any[]> {
+  const db = await getMongoDb();
+  const analyses = await db.collection('videoAnalyses')
+    .find({ userId })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .toArray();
+  
+  return analyses.map(analysis => ({
+    id: analysis.id,
+    userId: analysis.userId,
+    videoFileName: analysis.videoFileName,
+    videoUrl: analysis.videoUrl,
+    analysis: removeNullValues(analysis.analysis), // Clean on retrieval too
+    createdAt: analysis.createdAt,
+    updatedAt: analysis.updatedAt,
+  }));
+}
+
+export async function getVideoAnalysis(analysisId: string): Promise<any | null> {
+  const db = await getMongoDb();
+  const analysis = await db.collection('videoAnalyses').findOne({ id: analysisId });
+  if (!analysis) return null;
+  
+  return {
+    id: analysis.id,
+    userId: analysis.userId,
+    videoFileName: analysis.videoFileName,
+    videoUrl: analysis.videoUrl,
+    analysis: removeNullValues(analysis.analysis),
+    createdAt: analysis.createdAt,
+    updatedAt: analysis.updatedAt,
+  };
+}
+
+/**
+ * Recursively remove null and undefined values from an object
+ */
+function removeNullValues(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return undefined; // Will be filtered out
+  }
+  
+  if (Array.isArray(obj)) {
+    const filtered = obj.map(item => removeNullValues(item)).filter(item => item !== undefined);
+    return filtered.length > 0 ? filtered : undefined;
+  }
+  
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      const cleanedValue = removeNullValues(value);
+      if (cleanedValue !== undefined && cleanedValue !== null) {
+        cleaned[key] = cleanedValue;
+      }
+    }
+    return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+  }
+  
+  return obj;
+}
+
 

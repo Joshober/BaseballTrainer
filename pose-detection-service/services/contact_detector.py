@@ -94,6 +94,11 @@ class ContactDetector:
         dt = 1.0 / fps if fps > 0 else 1.0
         
         for i in range(1, len(angles)):
+            # Skip if either angle is None
+            if angles[i] is None or angles[i-1] is None:
+                velocities.append(0.0)
+                continue
+            
             # Handle angle wrapping (e.g., -179 to 179)
             angle_diff = angles[i] - angles[i-1]
             

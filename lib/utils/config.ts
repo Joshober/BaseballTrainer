@@ -18,8 +18,8 @@ export const config = {
   databaseType: 'mongodb' as const, // Only MongoDB supported
   // Pose Detection Service
   poseDetectionService: {
-    url: process.env.POSE_DETECTION_SERVICE_URL || process.env.NGROK_POSE_DETECTION_URL || 'http://localhost:5000',
-    port: parseInt(process.env.POSE_DETECTION_SERVICE_PORT || '5000', 10),
+    url: process.env.POSE_DETECTION_SERVICE_URL || process.env.NGROK_POSE_DETECTION_URL || 'http://localhost:5003',
+    port: parseInt(process.env.POSE_DETECTION_SERVICE_PORT || '5003', 10),
   },
   drillRecommender: {
     url: process.env.DRILL_RECOMMENDER_URL || process.env.NGROK_DRILL_RECOMMENDER_URL || 'http://localhost:5001',

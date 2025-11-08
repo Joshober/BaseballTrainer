@@ -116,31 +116,13 @@ export default function VideosPage() {
       const token = getAuthToken();
       if (!authUser || !token) return;
       
-      // Create or get AI bot conversation
-      // For now, we'll use a special "ai_bot" user ID
-      const aiBotUid = 'ai_bot';
-      
-      const response = await fetch('/api/messages', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          receiverUid: aiBotUid,
-          content: 'Please analyze this swing video',
-          videoURL: selectedSession.videoURL,
-          videoPath: selectedSession.videoPath,
-          sessionId: selectedSession.id,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to send to AI bot');
-
+      // Redirect to analyze page with video URL
       setShowAIBotModal(false);
+      const session = selectedSession;
       setSelectedSession(null);
-      alert('Video sent to AI bot for analysis!');
-      router.push('/messages');
+      
+      // Redirect to analyze page with video URL as query parameter
+      router.push(`/analyze?videoUrl=${encodeURIComponent(session.videoURL || '')}&sessionId=${session.id}`);
     } catch (error) {
       console.error('Failed to send to AI bot:', error);
       alert('Failed to send to AI bot. Please try again.');

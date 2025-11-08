@@ -30,7 +30,7 @@ class MetricsCalculator:
         }
     
     def calculate_bat_speed(self,
-                           bat_angles: List[float],
+                           bat_angles: List[Optional[float]],
                            contact_frame: int,
                            fps: float,
                            shoulder_to_impact_distance: Optional[float] = None) -> Dict:
@@ -38,7 +38,7 @@ class MetricsCalculator:
         Calculate bat speed at contact
         
         Args:
-            bat_angles: List of bat angles per frame
+            bat_angles: List of bat angles per frame (may contain None values)
             contact_frame: Frame index of contact
             fps: Frames per second
             shoulder_to_impact_distance: Distance from shoulder to impact point (meters)
@@ -53,10 +53,19 @@ class MetricsCalculator:
                 'units': 'm/s'
             }
         
+        # Validate contact frame has valid angle
+        if bat_angles[contact_frame] is None:
+            return {
+                'angular_velocity': 0.0,
+                'linear_speed': 0.0,
+                'units': 'm/s'
+            }
+        
         # Calculate angular velocity at contact
         dt = 1.0 / fps if fps > 0 else 1.0
         
-        if contact_frame > 0:
+        angular_velocity = 0.0
+        if contact_frame > 0 and bat_angles[contact_frame - 1] is not None:
             angle_diff = bat_angles[contact_frame] - bat_angles[contact_frame - 1]
             # Normalize angle difference
             if angle_diff > 180:
@@ -65,8 +74,14 @@ class MetricsCalculator:
                 angle_diff += 360
             
             angular_velocity = abs(angle_diff) / dt  # degrees per second
-        else:
-            angular_velocity = 0.0
+        elif contact_frame < len(bat_angles) - 1 and bat_angles[contact_frame + 1] is not None:
+            # Use next frame if previous is not available
+            angle_diff = bat_angles[contact_frame + 1] - bat_angles[contact_frame]
+            if angle_diff > 180:
+                angle_diff -= 360
+            elif angle_diff < -180:
+                angle_diff += 360
+            angular_velocity = abs(angle_diff) / dt
         
         # Convert to radians per second
         angular_velocity_rad = np.radians(angular_velocity)

@@ -27,9 +27,9 @@ const services: Service[] = [
   },
   {
     name: 'Pose Detection Service',
-    port: 5000,
-    command: 'npm run dev:pose',
-    healthCheck: 'http://localhost:5000/health',
+    port: 5003,
+    command: 'cd pose-detection-service && DEMO_MODE=true PYTHON_BACKEND_PORT=5003 /usr/local/bin/python3.10 app.py',
+    healthCheck: 'http://localhost:5003/health',
   },
   {
     name: 'Drill Recommender',
