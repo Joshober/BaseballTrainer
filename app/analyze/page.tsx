@@ -107,8 +107,31 @@ export default function AnalyzePage() {
         throw new Error('Not authenticated');
       }
 
-      // Fetch the video from the URL
-      const response = await fetch(url, {
+      // Extract path from URL if it's a full storage server URL
+      // URLs can be: https://ngrok-url.com/api/storage/path or /api/storage/path
+      let videoPath = url;
+      
+      // If it's a full URL, extract the path part
+      try {
+        const urlObj = new URL(url);
+        // Extract path after /api/storage/
+        const pathMatch = urlObj.pathname.match(/\/api\/storage\/(.+)/);
+        if (pathMatch) {
+          videoPath = pathMatch[1];
+        } else {
+          // If no /api/storage/ in path, use the full pathname
+          videoPath = urlObj.pathname.substring(1); // Remove leading /
+        }
+      } catch {
+        // If URL parsing fails, try to extract path from string
+        const pathMatch = url.match(/\/api\/storage\/(.+)/);
+        if (pathMatch) {
+          videoPath = pathMatch[1];
+        }
+      }
+
+      // Fetch the video through Next.js API route (which handles ngrok/local URLs)
+      const response = await fetch(`/api/storage?path=${encodeURIComponent(videoPath)}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -120,9 +143,9 @@ export default function AnalyzePage() {
 
       const blob = await response.blob();
       
-      // Get filename from URL or use default
-      const urlParts = url.split('/');
-      const filename = urlParts[urlParts.length - 1] || `video-${Date.now()}.mp4`;
+      // Get filename from path or use default
+      const pathParts = videoPath.split('/');
+      const filename = pathParts[pathParts.length - 1] || `video-${Date.now()}.mp4`;
       
       // Create a File object from the blob
       const file = new File([blob], filename, { type: blob.type || 'video/mp4' });
