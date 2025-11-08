@@ -2,24 +2,36 @@ import { config } from './config';
 
 /**
  * Get the storage server URL
- * Supports ngrok URLs for external access
+ * Prioritizes localhost/STORAGE_SERVER_URL over ngrok URLs
  * Works in both server-side and client-side code
  */
 export function getStorageServerUrl(): string {
-  // Check for client-side ngrok URL first (NEXT_PUBLIC_ prefix)
-  if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_NGROK_STORAGE_SERVER_URL) {
-    return process.env.NEXT_PUBLIC_NGROK_STORAGE_SERVER_URL;
+  const defaultUrl = 'http://localhost:5003';
+  
+  // Check if we're on the client side (browser)
+  const isClient = typeof window !== 'undefined';
+  
+  if (isClient) {
+    // On client side, use NEXT_PUBLIC_ prefixed env var or default
+    const clientUrl = process.env.NEXT_PUBLIC_STORAGE_SERVER_URL || defaultUrl;
+    // Ensure it's a valid non-empty string
+    if (clientUrl && typeof clientUrl === 'string' && clientUrl.trim()) {
+      console.log('[Storage URL] Client-side, using:', clientUrl);
+      return clientUrl.trim();
+    }
+    console.log('[Storage URL] Client-side, using default:', defaultUrl);
+    return defaultUrl;
   }
   
-  // Check for server-side ngrok URL (this is what Next.js API routes use)
-  if (process.env.NGROK_STORAGE_SERVER_URL) {
-    console.log('[Storage URL] Using NGROK_STORAGE_SERVER_URL:', process.env.NGROK_STORAGE_SERVER_URL);
-    return process.env.NGROK_STORAGE_SERVER_URL;
+  // Server-side: prefer explicit STORAGE_SERVER_URL (local-first, no ngrok)
+  const serverUrl = process.env.STORAGE_SERVER_URL;
+  if (serverUrl && typeof serverUrl === 'string' && serverUrl.trim()) {
+    console.log('[Storage URL] Using STORAGE_SERVER_URL:', serverUrl);
+    return serverUrl.trim();
   }
-  
-  // Use configured URL or default
-  const defaultUrl = config.storageServer.url;
-  console.log('[Storage URL] Using default URL (ngrok not configured):', defaultUrl);
+
+  // Fall back to plain localhost (no ngrok)
+  console.log('[Storage URL] Using default URL (localhost):', defaultUrl);
   return defaultUrl;
 }
 
