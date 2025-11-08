@@ -6,6 +6,7 @@ import { Upload, Play, Pause, Loader2, AlertCircle, CheckCircle, TrendingUp, Act
 import { onAuthChange } from '@/lib/hooks/useAuth';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import type { VideoAnalysis } from '@/types/session';
+import AnalysisAnimation from '@/components/Analysis/AnalysisAnimation';
 
 export default function AnalyzePage() {
   const router = useRouter();
@@ -451,6 +452,9 @@ export default function AnalyzePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Fullscreen Analysis Animation Overlay */}
+      <AnalysisAnimation isAnalyzing={analyzing} progress={progress} />
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">

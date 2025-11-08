@@ -1,9 +1,9 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Video, Send, Bot, Play, Calendar, TrendingUp } from 'lucide-react';
+import { Video, Send, Bot, Play, Calendar, TrendingUp, Sparkles } from 'lucide-react';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import type { Session } from '@/types/session';
 import type { VideoAnalysis } from '@/types/session';
@@ -12,6 +12,7 @@ interface VideoGalleryProps {
   sessions: Session[];
   onSendToMessenger: (session: Session) => void;
   onSendToAIBot: (session: Session) => void;
+  onSendToOpenRouter?: (session: Session) => void;
 }
 
 interface SessionWithAnalysis extends Session {
@@ -19,7 +20,7 @@ interface SessionWithAnalysis extends Session {
   pendingAnalysis?: boolean;
 }
 
-export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot }: VideoGalleryProps) {
+export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot, onSendToOpenRouter }: VideoGalleryProps) {
   const router = useRouter();
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [filter, setFilter] = useState<'all' | 'good' | 'needs_work'>('all');
@@ -149,7 +150,7 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
     
     if (analysis && analysis.ok && analysis.metrics) {
       // Use analysis metrics if available
-      // Calculate distance from exit velocity (rough estimate: 1 mph ≈ 0.15 ft)
+      // Calculate distance from exit velocity (rough estimate: 1 mph â‰ˆ 0.15 ft)
       const distance = analysis.metrics.exitVelocityEstimateMph 
         ? Math.max(0, Math.round(analysis.metrics.exitVelocityEstimateMph * 0.15))
         : session.game.distanceFt;
@@ -281,13 +282,43 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                     AI Bot
                   </button>
                   <Link
-                    href={`/analyze?sessionId=${encodeURIComponent(session.id)}`}
+                    href={`/drills?sessionId=${encodeURIComponent(session.id)}`}
                     prefetch
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-gray-100 text-gray-900 hover:bg-gray-200"
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700"
+                    title="View recommended drills for this session"
                   >
-                    <Play className="w-4 h-4" />
-                    View
+                    <TrendingUp className="w-4 h-4" />
+                    Drills
                   </Link>
+                  {onSendToOpenRouter && (
+                    <button
+                      onClick={() => onSendToOpenRouter(session)}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Analyze
+                    </button>
+                  )}
+                  {session.videoAnalysisData?.ok ? (
+                    <Link
+                      href={`/analyze?sessionId=${encodeURIComponent(session.id)}`}
+                      prefetch
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-gray-100 text-gray-900 hover:bg-gray-200"
+                    >
+                      <Play className="w-4 h-4" />
+                      View
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
+                      title="Analysis pending"
+                    >
+                      <Play className="w-4 h-4" />
+                      Pending
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -311,7 +342,7 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                 onClick={() => setSelectedSession(null)}
                 className="text-gray-500 hover:text-gray-700"
               >
-                ✕
+                âœ•
               </button>
             </div>
             {selectedSession.videoURL && (

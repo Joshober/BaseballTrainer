@@ -76,6 +76,26 @@ STORAGE_SERVER_PORT=5003
 MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net/db?retryWrites=true&w=majority"
 DATABASE_TYPE=mongodb
 
+# OpenRouter API (for AI coaching feedback)
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+```
+
+## OpenRouter API Key Setup
+
+To enable AI coaching feedback via OpenRouter:
+
+1. **Get an API Key**:
+   - Go to https://openrouter.ai/
+   - Sign up or log in
+   - Navigate to your API keys section
+   - Create a new API key
+
+2. **Add to `.env.local`**:
+   ```env
+   OPENROUTER_API_KEY=sk-or-v1-...
+   ```
+
+3. **Usage**: The OpenRouter integration is used for AI-powered coaching feedback on video analysis. When users click "Analyze" on a video, frames are extracted and sent to OpenRouter's vision models for analysis.
 # Drill Recommender AI Integration (Optional)
 # These are optional - if not provided, recommendations will work without AI enhancement
 GOOGLE_GEMINI_API_KEY=your_gemini_api_key_here
@@ -175,7 +195,7 @@ Bring your drill recommendations to life with play-by-play style narration from 
    - Development: `http://localhost:3001` (Backend gateway port)
    - Production: `https://your-backend-domain.com`
    
-4. **NEXT_PUBLIC_FRONTEND_URL** should match your **frontend** URL:
+3. **NEXT_PUBLIC_FRONTEND_URL** should match your **frontend** URL:
    - Development: `http://localhost:3000`
    - Production: `https://yourdomain.com`
 4. **Restart your dev server** after updating `.env.local`:
