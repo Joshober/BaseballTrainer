@@ -43,9 +43,10 @@ function sanitizeAndResolve(p: string): { relative: string; resolved: string } |
  * Next.js API route that proxies GET requests to the Flask storage server
  * Handles requests like /api/storage/user123/video.mp4
  */
-export async function GET(request: NextRequest, ctx: { params: Promise<{ path: string }> }) {
+export async function GET(request: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   try {
-    const { path: rel } = await ctx.params;
+    const { path: segments } = await ctx.params;
+    const rel = Array.isArray(segments) ? segments.join('/') : (segments as unknown as string);
     if (!rel) {
       return NextResponse.json({ error: 'Missing path' }, { status: 400 });
     }
