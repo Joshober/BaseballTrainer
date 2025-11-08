@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Video, Send, Bot, Play, Calendar, TrendingUp } from 'lucide-react';
+import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import type { Session } from '@/types/session';
+import type { VideoAnalysis } from '@/types/session';
 
 interface VideoGalleryProps {
   sessions: Session[];
@@ -10,16 +12,98 @@ interface VideoGalleryProps {
   onSendToAIBot: (session: Session) => void;
 }
 
+interface SessionWithAnalysis extends Session {
+  videoAnalysisData?: VideoAnalysis | null;
+}
+
 export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot }: VideoGalleryProps) {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [filter, setFilter] = useState<'all' | 'good' | 'needs_work'>('all');
+  const [sessionsWithAnalysis, setSessionsWithAnalysis] = useState<SessionWithAnalysis[]>([]);
 
-  const filteredSessions = sessions.filter((session) => {
+  // Load video analyses for sessions that don't have them
+  useEffect(() => {
+    const loadVideoAnalyses = async () => {
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) return;
+
+      const sessionsToUpdate: SessionWithAnalysis[] = await Promise.all(
+        sessions.map(async (session) => {
+          // If session already has videoAnalysis, use it
+          if (session.videoAnalysis) {
+            return { ...session, videoAnalysisData: session.videoAnalysis };
+          }
+
+          // Otherwise, try to fetch analysis by video URL
+          if (session.videoURL) {
+            try {
+              const response = await fetch(`/api/video-analyses?videoUrl=${encodeURIComponent(session.videoURL)}`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+              });
+              if (response.ok) {
+                const analysis = await response.json();
+                if (analysis && analysis.ok) {
+                  return { ...session, videoAnalysisData: analysis };
+                }
+              }
+            } catch (error) {
+              console.error(`Failed to load analysis for session ${session.id}:`, error);
+            }
+          }
+
+          return { ...session, videoAnalysisData: null };
+        })
+      );
+
+      setSessionsWithAnalysis(sessionsToUpdate);
+    };
+
+    if (sessions.length > 0) {
+      loadVideoAnalyses();
+    } else {
+      setSessionsWithAnalysis([]);
+    }
+  }, [sessions]);
+
+  // Helper function to get display metrics for a session
+  const getDisplayMetrics = (session: SessionWithAnalysis) => {
+    const analysis = session.videoAnalysisData || session.videoAnalysis;
+    
+    if (analysis && analysis.ok && analysis.metrics) {
+      // Use analysis metrics if available
+      // Calculate distance from exit velocity (rough estimate: 1 mph ≈ 0.15 ft)
+      const distance = analysis.metrics.exitVelocityEstimateMph 
+        ? Math.max(0, Math.round(analysis.metrics.exitVelocityEstimateMph * 0.15))
+        : session.game.distanceFt;
+      
+      const launchAngle = analysis.metrics.launchAngle ?? session.metrics.launchAngleEst;
+      const velocity = analysis.metrics.exitVelocityEstimateMph ?? analysis.metrics.batLinearSpeedMph ?? session.metrics.exitVelocity;
+      
+      return {
+        distance: typeof distance === 'number' ? distance : parseFloat(String(distance)) || 0,
+        launchAngle: typeof launchAngle === 'number' ? launchAngle : parseFloat(String(launchAngle)) || 0,
+        velocity: typeof velocity === 'number' ? velocity : parseFloat(String(velocity)) || 0,
+      };
+    }
+    
+    // Fallback to session defaults
+    return {
+      distance: session.game.distanceFt,
+      launchAngle: session.metrics.launchAngleEst,
+      velocity: session.metrics.exitVelocity,
+    };
+  };
+
+  const filteredSessions = sessionsWithAnalysis.length > 0 ? sessionsWithAnalysis : sessions;
+  const filteredByLabel = filteredSessions.filter((session) => {
     if (filter === 'all') return true;
     return session.label === filter;
   });
 
-  const videosWithURLs = filteredSessions.filter((s) => s.videoURL);
+  const videosWithURLs = filteredByLabel.filter((s) => s.videoURL);
 
   return (
     <div className="space-y-6">
@@ -99,21 +183,9 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
 
               {/* Session Info */}
               <div className="p-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
                   <Calendar className="w-4 h-4" />
                   <span>{new Date(session.createdAt).toLocaleDateString()}</span>
-                </div>
-                <div className="space-y-1 mb-4">
-                  <div className="flex items-center gap-2 text-sm">
-                    <TrendingUp className="w-4 h-4 text-blue-600" />
-                    <span className="text-gray-700">
-                      Distance: <strong>{session.game.distanceFt.toFixed(0)} ft</strong>
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Launch: {session.metrics.launchAngleEst.toFixed(1)}° | 
-                    Velocity: {session.metrics.exitVelocity} mph
-                  </div>
                 </div>
 
                 {/* Action Buttons */}
@@ -169,10 +241,17 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
               <div>
                 <h3 className="font-semibold mb-2">Metrics</h3>
                 <div className="space-y-1 text-sm">
-                  <p>Launch Angle: {selectedSession.metrics.launchAngleEst.toFixed(1)}°</p>
-                  <p>Exit Velocity: {selectedSession.metrics.exitVelocity} mph</p>
-                  <p>Distance: {selectedSession.game.distanceFt.toFixed(0)} ft</p>
-                  <p>Zone: {selectedSession.game.zone}</p>
+                  {(() => {
+                    const metrics = getDisplayMetrics(selectedSession as SessionWithAnalysis);
+                    return (
+                      <>
+                        <p>Launch Angle: {metrics.launchAngle.toFixed(1)}°</p>
+                        <p>Exit Velocity: {metrics.velocity.toFixed(0)} mph</p>
+                        <p>Distance: {metrics.distance.toFixed(0)} ft</p>
+                        <p>Zone: {selectedSession.game.zone}</p>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
               <div>
