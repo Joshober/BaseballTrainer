@@ -11,6 +11,7 @@ interface LaunchAnimationProps {
   zone: string;
   milestone: string;
   progress: number;
+  onComplete?: () => void;
 }
 
 export default function LaunchAnimation({
@@ -19,6 +20,7 @@ export default function LaunchAnimation({
   zone,
   milestone,
   progress,
+  onComplete,
 }: LaunchAnimationProps) {
   const [showAnimation, setShowAnimation] = useState(true);
   const velocityFeedback = getVelocityFeedback(exitVelocity);
@@ -26,6 +28,13 @@ export default function LaunchAnimation({
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowAnimation(false);
+      if (onComplete) {
+        try {
+          onComplete();
+        } catch {
+          // no-op
+        }
+      }
     }, 5000);
     return () => clearTimeout(timer);
   }, []);

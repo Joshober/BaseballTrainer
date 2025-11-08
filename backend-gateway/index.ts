@@ -367,7 +367,7 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
     }
 
     // Get configuration parameters from request body or query
-    const config = {
+    const analysisConfig = {
       processingMode: req.body.processingMode || 'full',
       sampleRate: parseInt(req.body.sampleRate || '1', 10),
       maxFrames: req.body.maxFrames ? parseInt(req.body.maxFrames, 10) : undefined,
@@ -385,13 +385,14 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
     });
     
     // Append configuration parameters
-    Object.entries(config).forEach(([key, value]) => {
+    Object.entries(analysisConfig).forEach(([key, value]) => {
       if (value !== undefined) {
         formData.append(key, String(value));
       }
     });
 
     // Forward to Pose Detection Service
+<<<<<<< Updated upstream
     console.log('Forwarding video analysis request to:', `${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video`);
     console.log('Video file info:', {
       filename: req.file.originalname,
@@ -399,6 +400,11 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
       size: req.file.size,
       bufferLength: req.file.buffer.length
     });
+=======
+    console.log(`Forwarding video analysis request to: ${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video`);
+    console.log(`Video file: ${req.file.originalname}, size: ${req.file.size} bytes, mimetype: ${req.file.mimetype}`);
+    console.log(`Config: processingMode=${analysisConfig.processingMode}, sampleRate=${analysisConfig.sampleRate}, enableYOLO=${analysisConfig.enableYOLO}`);
+>>>>>>> Stashed changes
     
     const response = await axios.post(
       `${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video`,
@@ -411,20 +417,54 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
         },
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
-        timeout: 300000, // 5 minute timeout for video processing
+        timeout: 600000, // 10 minute timeout for video processing
       }
     );
     
+<<<<<<< Updated upstream
     console.log('Pose detection service response status:', response.status);
+=======
+    console.log(`Pose detection service responded with status: ${response.status}`);
+    if (response.data) {
+      console.log(`Response data keys: ${Object.keys(response.data).join(', ')}`);
+      console.log(`Response ok: ${response.data?.ok}`);
+      
+      if (!response.data.ok) {
+        console.error('Pose detection service returned error:', JSON.stringify(response.data, null, 2));
+      } else {
+        console.log('Analysis completed successfully');
+      }
+    } else {
+      console.warn('Pose detection service returned empty response');
+    }
+    
+>>>>>>> Stashed changes
     res.json(response.data);
   } catch (error: any) {
     console.error('Video analysis error:', error.message);
     console.error('Error details:', {
+<<<<<<< Updated upstream
       status: error.response?.status,
       statusText: error.response?.statusText,
       data: error.response?.data,
       code: error.code,
       message: error.message
+=======
+      code: error.code,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      stack: error.stack,
+    });
+    
+    const statusCode = error.response?.status || 500;
+    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Internal server error';
+    
+    res.status(statusCode).json({
+      error: errorMessage,
+      message: error.message,
+      ok: false
+>>>>>>> Stashed changes
     });
     
     // Return more detailed error information
