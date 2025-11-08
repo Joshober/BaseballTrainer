@@ -21,6 +21,8 @@ export default function AnalyzePage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [loadingVideoFromUrl, setLoadingVideoFromUrl] = useState(false);
+  const [polling, setPolling] = useState(false);
+  const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -89,13 +91,93 @@ export default function AnalyzePage() {
     };
   }, [router]);
 
-  // Check for videoUrl query parameter and load video
+  // Check for videoUrl or sessionId query parameter and load video/analysis
   useEffect(() => {
     const videoUrlParam = searchParams?.get('videoUrl');
+    const sessionIdParam = searchParams?.get('sessionId');
+    
+    // If sessionId is provided, try to load session and any stored analysis
+    const loadFromSession = async (sessionId: string) => {
+      try {
+        const token = getAuthToken();
+        if (!token) return;
+        // Fetch session + analysis in parallel
+        const [sessionRes, analysisRes] = await Promise.all([
+          fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`/api/video-analyses?sessionId=${encodeURIComponent(sessionId)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        if (sessionRes.ok) {
+          const session = await sessionRes.json();
+          if (session?.videoURL && !videoUrl) {
+            setVideoUrl(session.videoURL);
+          }
+          if (session?.videoAnalysis?.ok && !analysis) {
+            setAnalysis(session.videoAnalysis);
+          }
+        }
+
+        if (analysisRes.ok) {
+          const stored = await analysisRes.json();
+          if (stored?.ok) {
+            setAnalysis(stored);
+          }
+        }
+      } catch (e) {
+        // Ignore; page can still analyze manually
+      }
+    };
+
+    if (sessionIdParam && user) {
+      loadFromSession(sessionIdParam);
+    }
+
     if (videoUrlParam && user && !selectedFile && !loadingVideoFromUrl) {
       loadVideoFromUrl(videoUrlParam);
     }
-  }, [searchParams, user, selectedFile, loadingVideoFromUrl]);
+  }, [searchParams, user, selectedFile, loadingVideoFromUrl, videoUrl]);
+
+  // Gentle polling for stored analysis when a sessionId is provided
+  useEffect(() => {
+    const sessionIdParam = searchParams?.get('sessionId');
+    if (!user || !sessionIdParam) return;
+    if (analysis?.ok) return; // already loaded
+
+    let interval: NodeJS.Timer | null = null;
+    const token = getAuthToken();
+    if (!token) return;
+
+    setPolling(true);
+    interval = setInterval(async () => {
+      try {
+        const resp = await fetch(`/api/video-analyses?sessionId=${encodeURIComponent(sessionIdParam)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setLastCheckedAt(new Date());
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.ok) {
+            setAnalysis(data);
+            if (interval) {
+              clearInterval(interval);
+              interval = null;
+              setPolling(false);
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }, 5000);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [searchParams, user, analysis]);
 
   const loadVideoFromUrl = async (url: string) => {
     setLoadingVideoFromUrl(true);
@@ -342,6 +424,15 @@ export default function AnalyzePage() {
           <p className="text-gray-600">
             Upload a video of your swing and get a complete analysis with pose, bat, ball detection and biomechanical metrics
           </p>
+          {(polling || (!analysis && videoUrl)) && (
+            <div className="mt-3 inline-flex items-center gap-2 text-sm text-gray-600">
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              <span>Analyzing in background…</span>
+              {lastCheckedAt && (
+                <span className="text-gray-500">(last checked {lastCheckedAt.toLocaleTimeString()})</span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -374,6 +465,8 @@ export default function AnalyzePage() {
                       ref={videoRef}
                       src={videoUrl}
                       controls
+                      preload="metadata"
+                      playsInline
                       className="w-full rounded-lg"
                       onTimeUpdate={(e) => {
                         const video = e.currentTarget;

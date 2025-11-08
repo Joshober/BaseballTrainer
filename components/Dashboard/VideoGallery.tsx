@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Video, Send, Bot, Play, Calendar, TrendingUp } from 'lucide-react';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import type { Session } from '@/types/session';
@@ -14,59 +16,132 @@ interface VideoGalleryProps {
 
 interface SessionWithAnalysis extends Session {
   videoAnalysisData?: VideoAnalysis | null;
+  pendingAnalysis?: boolean;
 }
 
 export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot }: VideoGalleryProps) {
+  const router = useRouter();
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [filter, setFilter] = useState<'all' | 'good' | 'needs_work'>('all');
   const [sessionsWithAnalysis, setSessionsWithAnalysis] = useState<SessionWithAnalysis[]>([]);
+  const [polling, setPolling] = useState(false);
 
-  // Load video analyses for sessions that don't have them
+  // Initialize list and batch check analysis statuses
   useEffect(() => {
-    const loadVideoAnalyses = async () => {
+    const init = async () => {
       const authUser = getAuthUser();
       const token = getAuthToken();
-      if (!authUser || !token) return;
+      if (!authUser || !token) {
+        setSessionsWithAnalysis(sessions);
+        return;
+      }
 
-      const sessionsToUpdate: SessionWithAnalysis[] = await Promise.all(
-        sessions.map(async (session) => {
-          // If session already has videoAnalysis, use it
-          if (session.videoAnalysis) {
-            return { ...session, videoAnalysisData: session.videoAnalysis };
-          }
+      // Start with optimistic pending state (unless embedded analysis exists)
+      const base = sessions.map((s) => ({
+        ...s,
+        videoAnalysisData: s.videoAnalysis || null,
+        pendingAnalysis: !s.videoAnalysis,
+      }));
+      setSessionsWithAnalysis(base);
 
-          // Otherwise, try to fetch analysis by video URL
-          if (session.videoURL) {
-            try {
-              const response = await fetch(`/api/video-analyses?videoUrl=${encodeURIComponent(session.videoURL)}`, {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                },
-              });
-              if (response.ok) {
-                const analysis = await response.json();
-                if (analysis && analysis.ok) {
-                  return { ...session, videoAnalysisData: analysis };
-                }
-              }
-            } catch (error) {
-              console.error(`Failed to load analysis for session ${session.id}:`, error);
+      // Batch query analysis by sessionIds
+      const ids = sessions.map((s) => s.id);
+      if (ids.length === 0) return;
+      try {
+        const resp = await fetch('/api/video-analyses/status', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ sessionIds: ids }),
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          const map: Record<string, { analysis?: VideoAnalysis } | null> = data.map || {};
+          setSessionsWithAnalysis((prev) => prev.map((item) => {
+            const rec = map[item.id];
+            if (rec && (rec as any).analysis?.ok) {
+              return { ...item, videoAnalysisData: (rec as any).analysis, pendingAnalysis: false };
             }
-          }
-
-          return { ...session, videoAnalysisData: null };
-        })
-      );
-
-      setSessionsWithAnalysis(sessionsToUpdate);
+            return item;
+          }));
+        }
+      } catch (e) {
+        // ignore
+      }
     };
 
     if (sessions.length > 0) {
-      loadVideoAnalyses();
+      init();
     } else {
       setSessionsWithAnalysis([]);
     }
   }, [sessions]);
+
+  // Gentle polling: refresh analysis status for pending sessions
+  useEffect(() => {
+    let interval: NodeJS.Timer | null = null;
+    const token = getAuthToken();
+    if (!token) return;
+
+    const startPolling = () => {
+      if (interval) return;
+      setPolling(true);
+      interval = setInterval(async () => {
+        try {
+          const pending = sessionsWithAnalysis.filter(
+            (s) => s.videoURL && (!s.videoAnalysisData || !s.videoAnalysisData.ok)
+          );
+          if (pending.length === 0) {
+            if (interval) {
+              clearInterval(interval);
+              interval = null;
+              setPolling(false);
+            }
+            return;
+          }
+
+          // Batch status check
+          const ids = pending.map((s) => s.id);
+          try {
+            const resp = await fetch('/api/video-analyses/status', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ sessionIds: ids }),
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              const map: Record<string, { analysis?: VideoAnalysis } | null> = data.map || {};
+              setSessionsWithAnalysis((prev) => prev.map((item) => {
+                const rec = map[item.id];
+                if (rec && (rec as any).analysis?.ok) {
+                  return { ...item, videoAnalysisData: (rec as any).analysis, pendingAnalysis: false };
+                }
+                return item;
+              }));
+            }
+          } catch {
+            // ignore
+          }
+        } catch {
+          // ignore
+        }
+      }, 5000);
+    };
+
+    const hasPending = sessionsWithAnalysis.some(
+      (s) => s.videoURL && (!s.videoAnalysisData || !s.videoAnalysisData.ok)
+    );
+    if (hasPending) startPolling();
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [sessionsWithAnalysis]);
 
   // Helper function to get display metrics for a session
   const getDisplayMetrics = (session: SessionWithAnalysis) => {
@@ -168,6 +243,11 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                     <Video className="w-12 h-12 text-gray-400" />
                   </div>
                 )}
+                {session.pendingAnalysis && (
+                  <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-yellow-500 text-white text-xs font-medium">
+                    Pending analysis
+                  </div>
+                )}
                 <div className="absolute top-2 right-2">
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -204,6 +284,24 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                     <Bot className="w-4 h-4" />
                     AI Bot
                   </button>
+                  {session.videoAnalysisData?.ok ? (
+                    <Link
+                      href={`/analyze?sessionId=${encodeURIComponent(session.id)}`}
+                      prefetch
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-gray-100 text-gray-900 hover:bg-gray-200"
+                    >
+                      <Play className="w-4 h-4" />
+                      View
+                    </Link>
+                  ) : (
+                    <button
+                      disabled
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
+                    >
+                      <Play className="w-4 h-4" />
+                      Pending
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getBackendUrl } from '@/lib/utils/backend-url';
 import { verifyIdToken } from '@/lib/auth0/admin';
-import { saveVideoAnalysis } from '@/lib/mongodb/operations';
+import { saveVideoAnalysis, updateSessionVideoAnalysis } from '@/lib/mongodb/operations';
 
 /**
  * Next.js API route for video analysis
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
     
     // Get videoUrl if provided (for videos from existing sessions)
     const videoUrl = formData.get('videoUrl') as string | null;
+    const sessionId = formData.get('sessionId') as string | null;
 
     // Get configuration parameters
     const processingMode = formData.get('processingMode') as string || 'full';
@@ -52,6 +54,9 @@ export async function POST(request: NextRequest) {
     }
     if (videoUrl) {
       proxyFormData.append('videoUrl', videoUrl);
+    }
+    if (sessionId) {
+      proxyFormData.append('sessionId', sessionId);
     }
 
     // Forward request to gateway (which will route to Python backend)
@@ -92,10 +97,23 @@ export async function POST(request: NextRequest) {
             userId,
             result,
             file.name,
-            videoUrl || undefined // Use provided videoUrl if available
+            videoUrl || undefined, // Use provided videoUrl if available
+            sessionId || undefined
           );
           // Add analysis ID to response
           result.analysisId = analysisId;
+          // Optionally update session with embedded analysis
+          if (sessionId) {
+            try {
+              await updateSessionVideoAnalysis(sessionId, result);
+              // Revalidate pages that show sessions/videos
+              try {
+                revalidatePath('/videos');
+              } catch {}
+            } catch (e) {
+              console.error('Failed to update session with analysis:', e);
+            }
+          }
         }
       } catch (error) {
         // Log error but don't fail the request

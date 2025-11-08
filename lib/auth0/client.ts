@@ -26,6 +26,20 @@ function isValidJWTFormat(token: string): boolean {
   return (parts.length === 3 || parts.length === 5) && parts.every(part => part.length > 0);
 }
 
+function decodeJwtPayload(token: string): any | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = parts[1]
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+    const decoded = JSON.parse(decodeURIComponent(escape(atob(payload))));
+    return decoded || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Get stored auth token
  */
@@ -39,6 +53,18 @@ export function getAuthToken(): string | null {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
     return null;
+  }
+  // If it's a JWT, check expiration and clear if expired (with small skew)
+  if (token) {
+    const payload = decodeJwtPayload(token);
+    const now = Math.floor(Date.now() / 1000);
+    const skew = 30; // seconds of clock skew
+    if (payload?.exp && now >= (payload.exp - skew)) {
+      console.warn('Auth token expired or about to expire. Clearing token.');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+      return null;
+    }
   }
   
   return token;

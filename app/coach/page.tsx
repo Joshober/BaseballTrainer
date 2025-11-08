@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users, TrendingUp, BarChart3, Plus, UserPlus, Eye, Target, ArrowRight } from 'lucide-react';
-import { onAuthChange, getAuth, getIdToken } from '@/lib/auth0/client-auth';
+import { onAuthChange, getAuth, getIdToken, ensureSignedIn } from '@/lib/auth0/client-auth';
 import type { Team } from '@/types/team';
 import type { User } from '@/types/user';
 import type { Session } from '@/types/session';
@@ -40,6 +40,8 @@ export default function CoachDashboard() {
   });
 
   useEffect(() => {
+    // Guard: ensure signed in, preserve return path
+    ensureSignedIn('/coach');
     const unsubscribe = onAuthChange(async (authUser) => {
       if (!authUser) {
         router.push('/login');

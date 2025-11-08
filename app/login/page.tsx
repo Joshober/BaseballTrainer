@@ -39,11 +39,12 @@ export default function LoginPage() {
       
       if (response.ok) {
         const userData = await response.json();
-        if (userData.role === 'coach') {
-          router.push('/coach');
-        } else {
-          router.push('/player');
+        const returnTo = searchParams.get('returnTo');
+        if (returnTo) {
+          router.push(returnTo);
+          return;
         }
+        router.push(userData.role === 'coach' ? '/coach' : '/player');
       } else {
         // If user doesn't exist yet, redirect to signup
         router.push('/signup');
@@ -57,6 +58,9 @@ export default function LoginPage() {
   const handleGoogleSignIn = () => {
     setLoading(true);
     setError(null);
+    // Persist returnTo across redirect
+    const rt = searchParams.get('returnTo');
+    if (rt) localStorage.setItem('auth_return_to', rt);
     signInWithGoogle();
   };
 

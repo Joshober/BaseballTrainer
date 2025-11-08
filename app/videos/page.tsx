@@ -255,6 +255,7 @@ export default function VideosPage() {
       if (!sessionResponse.ok) {
         throw new Error('Failed to create session');
       }
+      const createdSession: Session = await sessionResponse.json();
 
       // Reload sessions
       await loadSessions();

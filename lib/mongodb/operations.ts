@@ -319,33 +319,68 @@ export async function saveVideoAnalysis(
   userId: string,
   videoAnalysis: any,
   videoFileName?: string,
-  videoUrl?: string
+  videoUrl?: string,
+  sessionId?: string
 ): Promise<string> {
   const db = await getMongoDb();
-  
+
   // Remove null/undefined values before saving
   const cleanedAnalysis = removeNullValues(videoAnalysis);
-  
-  const analysisRecord = {
+
+  const now = new Date();
+  const filter: any = sessionId ? { sessionId } : (videoUrl ? { videoUrl } : { id: '__none__' });
+  const existing = await db.collection('videoAnalyses').findOne(filter);
+
+  if (existing) {
+    await db.collection('videoAnalyses').updateOne(
+      { id: existing.id },
+      {
+        $set: {
+          userId,
+          videoFileName: videoFileName || existing.videoFileName || null,
+          videoUrl: videoUrl || existing.videoUrl || null,
+          sessionId: sessionId || existing.sessionId || null,
+          analysis: cleanedAnalysis,
+          status: 'completed',
+          updatedAt: now,
+          completedAt: now,
+          error: null,
+        },
+        $inc: { attempts: 1 },
+      }
+    );
+    return existing.id as string;
+  }
+
+  const analysisRecord: any = {
     id: crypto.randomUUID(),
     userId,
     videoFileName: videoFileName || null,
     videoUrl: videoUrl || null,
+    sessionId: sessionId || null,
     analysis: cleanedAnalysis,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    status: 'completed',
+    attempts: 1,
+    createdAt: now,
+    updatedAt: now,
+    completedAt: now,
+    lastAttemptAt: now,
+    error: null,
   };
-  
+
   await db.collection('videoAnalyses').insertOne(analysisRecord);
-  
-  // Create index if it doesn't exist
+
+  // Create indexes if they don't exist
   try {
     await db.collection('videoAnalyses').createIndex({ userId: 1, createdAt: -1 });
+    await db.collection('videoAnalyses').createIndex({ sessionId: 1, createdAt: -1 });
+    await db.collection('videoAnalyses').createIndex({ videoUrl: 1, createdAt: -1 });
+    await db.collection('videoAnalyses').createIndex({ status: 1, lastAttemptAt: -1 });
   } catch (error) {
     // Index might already exist
   }
-  
-  return analysisRecord.id;
+
+  return analysisRecord.id as string;
 }
 
 export async function getVideoAnalysesByUser(userId: string, limit: number = 50): Promise<any[]> {
@@ -361,6 +396,8 @@ export async function getVideoAnalysesByUser(userId: string, limit: number = 50)
     userId: analysis.userId,
     videoFileName: analysis.videoFileName,
     videoUrl: analysis.videoUrl,
+    sessionId: analysis.sessionId,
+    status: analysis.status,
     analysis: removeNullValues(analysis.analysis), // Clean on retrieval too
     createdAt: analysis.createdAt,
     updatedAt: analysis.updatedAt,
@@ -377,11 +414,158 @@ export async function getVideoAnalysis(analysisId: string): Promise<any | null> 
     userId: analysis.userId,
     videoFileName: analysis.videoFileName,
     videoUrl: analysis.videoUrl,
+    sessionId: analysis.sessionId,
+    status: analysis.status,
     analysis: removeNullValues(analysis.analysis),
     createdAt: analysis.createdAt,
     updatedAt: analysis.updatedAt,
   };
 }
+
+export async function getVideoAnalysisBySessionId(sessionId: string): Promise<any | null> {
+  const db = await getMongoDb();
+  const analysis = await db.collection('videoAnalyses')
+    .find({ sessionId })
+    .sort({ createdAt: -1 })
+    .limit(1)
+    .next();
+  if (!analysis) return null;
+  return {
+    id: analysis.id,
+    userId: analysis.userId,
+    videoFileName: analysis.videoFileName,
+    videoUrl: analysis.videoUrl,
+    sessionId: analysis.sessionId,
+    status: analysis.status,
+    analysis: removeNullValues(analysis.analysis),
+    createdAt: analysis.createdAt,
+    updatedAt: analysis.updatedAt,
+  };
+}
+
+export async function getVideoAnalysisByVideoUrl(videoUrl: string): Promise<any | null> {
+  const db = await getMongoDb();
+  const analysis = await db.collection('videoAnalyses')
+    .find({ videoUrl })
+    .sort({ createdAt: -1 })
+    .limit(1)
+    .next();
+  if (!analysis) return null;
+  return {
+    id: analysis.id,
+    userId: analysis.userId,
+    videoFileName: analysis.videoFileName,
+    videoUrl: analysis.videoUrl,
+    sessionId: analysis.sessionId,
+    analysis: removeNullValues(analysis.analysis),
+    createdAt: analysis.createdAt,
+    updatedAt: analysis.updatedAt,
+  };
+}
+
+export async function updateSessionVideoAnalysis(sessionId: string, analysis: any): Promise<void> {
+  const db = await getMongoDb();
+  await db.collection('sessions').updateOne(
+    { id: sessionId },
+    {
+      $set: {
+        videoAnalysis: removeNullValues(analysis),
+        updatedAt: new Date(),
+      },
+    }
+  );
+}
+
+export async function getVideoAnalysisBySessionIds(sessionIds: string[]): Promise<Record<string, any | null>> {
+  const db = await getMongoDb();
+  const records = await db.collection('videoAnalyses')
+    .find({ sessionId: { $in: sessionIds } })
+    .sort({ createdAt: -1 })
+    .toArray();
+  const map: Record<string, any | null> = {};
+  for (const id of sessionIds) {
+    map[id] = null;
+  }
+  for (const rec of records) {
+    if (rec.sessionId && map[rec.sessionId] === null) {
+      map[rec.sessionId] = {
+        id: rec.id,
+        userId: rec.userId,
+        videoFileName: rec.videoFileName,
+        videoUrl: rec.videoUrl,
+        sessionId: rec.sessionId,
+        status: rec.status,
+        analysis: removeNullValues(rec.analysis),
+        createdAt: rec.createdAt,
+        updatedAt: rec.updatedAt,
+        lastAttemptAt: rec.lastAttemptAt,
+      };
+    }
+  }
+  return map;
+}
+
+export async function upsertVideoAnalysisPending(
+  userId: string,
+  sessionId?: string,
+  videoUrl?: string
+): Promise<void> {
+  const db = await getMongoDb();
+  const now = new Date();
+  const filter: any = sessionId ? { sessionId } : (videoUrl ? { videoUrl } : { id: '__none__' });
+  const existing = await db.collection('videoAnalyses').findOne(filter);
+  if (existing) {
+    await db.collection('videoAnalyses').updateOne(
+      { id: existing.id },
+      {
+        $set: {
+          userId,
+          status: 'in_progress',
+          updatedAt: now,
+          lastAttemptAt: now,
+          error: null,
+        },
+        $inc: { attempts: 1 },
+      }
+    );
+    return;
+  }
+  await db.collection('videoAnalyses').insertOne({
+    id: crypto.randomUUID(),
+    userId,
+    sessionId: sessionId || null,
+    videoUrl: videoUrl || null,
+    status: 'in_progress',
+    attempts: 1,
+    analysis: null,
+    createdAt: now,
+    updatedAt: now,
+    lastAttemptAt: now,
+    error: null,
+  });
+}
+
+export async function markVideoAnalysisFailed(
+  sessionId: string | undefined,
+  videoUrl: string | undefined,
+  error: string
+): Promise<void> {
+  const db = await getMongoDb();
+  const filter: any = sessionId ? { sessionId } : (videoUrl ? { videoUrl } : { id: '__none__' });
+  const now = new Date();
+  await db.collection('videoAnalyses').updateOne(
+    filter,
+    {
+      $set: {
+        status: 'failed',
+        error,
+        updatedAt: now,
+        lastAttemptAt: now,
+      },
+    }
+  );
+}
+
 
 /**
  * Recursively remove null and undefined values from an object
