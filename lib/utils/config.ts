@@ -47,7 +47,7 @@ export const config = {
   // OpenRouter configuration
   openRouter: {
     apiKey: process.env.OPENROUTER_API_KEY || '',
-    apiUrl: process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1/chat/completions',
+    apiUrl: 'https://openrouter.ai/api/v1/chat/completions',
     model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet',
     maxFrames: parseInt(process.env.OPENROUTER_MAX_FRAMES || '10', 10),
   },
