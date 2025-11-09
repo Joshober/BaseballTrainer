@@ -65,7 +65,7 @@ export default function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
             <Rocket className="w-8 h-8 text-blue-600" />
-            <span className="text-xl font-bold text-gray-900 hidden sm:block">Home Run to Mars</span>
+            <span className="text-xl font-bold text-gray-900 hidden sm:block">Baseball Swing MVP</span>
           </Link>
 
           {/* Desktop Navigation */}

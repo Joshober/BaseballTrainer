@@ -11,7 +11,7 @@ export default function Home() {
           <header className="flex justify-between items-center mb-16">
             <div className="flex items-center gap-3">
               <Rocket className="w-8 h-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Home Run to Mars</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Baseball Swing MVP</h1>
             </div>
             <AuthButton />
           </header>
@@ -22,7 +22,7 @@ export default function Home() {
               Training Doesn't Have to Feel Like Work
             </h2>
             <p className="text-2xl font-semibold text-blue-600 mb-4">
-              We Make It Feel Like a Mission to Mars
+              Master Your Swing with AI-Powered Coaching
             </p>
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
               Transform your baseball training into an adventure. Upload your swings, get AI-powered feedback, and explore the world through gamified training.

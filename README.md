@@ -1,14 +1,14 @@
-# Baseball Swing MVP - Home Run to Mars
+# Baseball Swing MVP
 
-A Next.js application that analyzes baseball swings using AI pose detection and tracks progress through space zones from Atmosphere to Mars.
+A Next.js application that analyzes baseball swings using AI pose detection and provides personalized coaching feedback to improve your swing.
 
 ## Features
 
 - **AI Pose Detection**: Client-side (TensorFlow.js) and server-side (MediaPipe) pose detection
 - **Storage**: Local PC server storage
 - **Database**: MongoDB Atlas
-- **Space Game**: Calculate distance based on exit velocity and launch angle, track progress through space zones
-- **Leaderboard**: Compete with your team and see who can launch their swing the farthest
+- **AI Coaching**: Get instant feedback from AI coaches on your swing mechanics
+- **Drill Recommendations**: Receive personalized drill suggestions based on your analysis
 - **Photo & Video Support**: Capture or upload photos/videos, extract best frame from videos
 
 ## Tech Stack
@@ -206,34 +206,30 @@ DATABASE_TYPE=mongodb
 
 ## Usage
 
-1. **Sign In**: Use Google or Email/Password authentication
-2. **Start Mission**: Navigate to the Mission page
-3. **Capture Swing**: Take a photo, upload a photo/video, or use manual mode
-4. **Analyze Pose**: AI will detect your swing pose and estimate launch angle
-5. **Enter Exit Velocity**: Input your exit velocity (mph)
-6. **Launch**: Calculate distance and see your progress through space zones
-7. **View Leaderboard**: See how you rank against your team
+1. **Sign In**: Use Google OAuth authentication via Auth0
+2. **Upload Video**: Upload a video of your swing from the Analyze or Blast Off page
+3. **Get Analysis**: AI will analyze your swing using pose detection and object tracking
+4. **Review Metrics**: See detailed metrics including bat speed, exit velocity, launch angle, and biomechanics
+5. **Get Coaching**: Receive AI-powered coaching feedback with specific recommendations
+6. **View Drills**: Get personalized drill recommendations to improve your swing
+7. **Track Progress**: View all your videos and analyses in your video library
 
-## Game Logic
+## Analysis Features
 
-### Distance Calculation
+### Video Analysis
 
-```
-distanceFt = (exitVelocity^2 / 32.174) * sin(2 * launchAngleRadians)
-```
+- **Pose Detection**: MediaPipe-based pose detection with 33 body landmarks
+- **Object Detection**: YOLOv8-based detection of person, bat, and ball
+- **Metrics Calculation**: Bat speed, exit velocity, launch angle, and more
+- **Swing Phases**: Automatic detection of load, stride, contact, and follow-through phases
+- **Biomechanics**: Analysis of hip rotation, shoulder separation, weight transfer, and more
+- **Form Errors**: Identification of common swing flaws with recommendations
 
-### Space Zones
+### AI Coaching
 
-- **Atmosphere**: 0-300 ft
-- **Low Earth Orbit**: 300-1,000 ft
-- **Moon**: 1,000-6,000 ft
-- **Mars**: 6,000-35,000 ft
-- **Beyond**: 35,000+ ft
-
-### Swing Classification
-
-- **Good**: Launch angle 25°-35° AND exit velocity ≥ 90 mph
-- **Needs Work**: Otherwise
+- **OpenRouter Integration**: Get instant coaching feedback from Claude 3.5 Sonnet
+- **Gemini Integration**: Receive personalized drill recommendations based on your analysis
+- **Voice Over**: Listen to coaching feedback with ElevenLabs text-to-speech
 
 ## API Routes
 

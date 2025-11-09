@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Baseball Swing MVP - Home Run to Mars",
-  description: "Analyze your baseball swing with AI pose detection and track your progress to Mars!",
+  title: "Baseball Swing MVP",
+  description: "Analyze your baseball swing with AI pose detection and get personalized coaching feedback.",
 };
 
 export default function RootLayout({
