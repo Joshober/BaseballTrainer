@@ -20,12 +20,18 @@ function formatBlurb(analysis: VideoAnalysis): string {
       ? metrics.batLinearSpeedMph
       : undefined;
   const contactFrame = (analysis as any).contact?.frame ?? (analysis as any).contactFrame ?? null;
+  const hasOpenRouterFeedback = !!(analysis as any)?.openRouterFeedback;
 
   const parts: string[] = [];
   if (typeof launchAngle === 'number') parts.push(`Launch angle ${launchAngle.toFixed(1)}°`);
   if (typeof exitVelocity === 'number') parts.push(`Exit velocity ${exitVelocity.toFixed(0)} mph`);
   if (contactFrame !== null && contactFrame !== undefined) parts.push(`Contact detected at frame ${contactFrame}`);
 
+  // If we only have OpenRouter feedback (fast coaching), show a different message
+  if (parts.length === 0 && hasOpenRouterFeedback) {
+    return 'AI coaching feedback ready! Full analysis is running in the background and will be available shortly.';
+  }
+  
   if (parts.length === 0) {
     return 'Analysis completed. Review the recommendations below to keep refining your swing.';
   }
@@ -184,75 +190,79 @@ export default function BlastOffPage() {
       }
       const createdSession = await createResp.json();
 
-      // 3a) Kick off analysis directly (best-effort) with timeout
-      let analysisFound = false;
+      // 3) Get fast OpenRouter coaching feedback (uses video from storage)
+      // This is much faster - only extracts 3 frames and sends to OpenRouter
+      let feedbackReceived = false;
       try {
-        const fd = new FormData();
-        fd.append('video', file);
-        fd.append('sessionId', createdSession.id);
-        if (videoURL) fd.append('videoUrl', videoURL);
-        fd.append('processingMode', 'full');
-        fd.append('sampleRate', '1');
-        fd.append('enableYOLO', 'true');
-        fd.append('yoloConfidence', '0.5');
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10 min
-
-        const analysisResp = await fetch('/api/pose/analyze-video', {
+        console.log('[Blast Off] Requesting OpenRouter feedback for session:', createdSession.id);
+        
+        const openRouterResp = await fetch('/api/openrouter/analyze-video', {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: fd,
-          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            sessionId: createdSession.id,
+          }),
         });
 
-        clearTimeout(timeoutId);
-
-        let analysisResult: any;
-        const contentType = analysisResp.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          analysisResult = await analysisResp.json();
-        } else {
-          const text = await analysisResp.text();
-          try {
-            analysisResult = JSON.parse(text);
-          } catch {
-            analysisResult = {
-              ok: false,
-              error:
-                text || analysisResp.statusText || `Analysis failed with status ${analysisResp.status}`,
-            };
+        if (openRouterResp.ok) {
+          const openRouterResult = await openRouterResp.json();
+          
+          if (openRouterResult.ok && openRouterResult.feedback) {
+            // Create a minimal analysis result with just OpenRouter feedback
+            // This allows the UI to show coaching feedback immediately
+            setVideoAnalysis({
+              ok: true,
+              openRouterFeedback: openRouterResult.feedback,
+              framesAnalyzed: openRouterResult.framesAnalyzed || 0,
+              totalFrames: openRouterResult.totalFrames || 0,
+            } as VideoAnalysis);
+            feedbackReceived = true;
+            console.log('[Blast Off] OpenRouter feedback received:', openRouterResult.feedback.substring(0, 100));
+          } else {
+            console.warn('[Blast Off] OpenRouter returned no feedback:', openRouterResult);
           }
-        }
-
-        if (!analysisResp.ok) {
-          const errorMsg =
-            analysisResult?.error ||
-            analysisResult?.message ||
-            analysisResp.statusText ||
-            `Analysis failed with status ${analysisResp.status}`;
-          throw new Error(errorMsg);
-        }
-
-        if (analysisResult?.ok) {
-          setVideoAnalysis(analysisResult as VideoAnalysis);
-          analysisFound = true;
         } else {
-          const errorMsg = analysisResult?.error || analysisResult?.message || 'Analysis error';
-          throw new Error(errorMsg);
+          const errorData = await openRouterResp.json().catch(() => ({}));
+          console.warn('[Blast Off] OpenRouter request failed:', errorData);
+          // Don't throw - we'll run full analysis in background
         }
       } catch (err: any) {
-        // Fall back to polling if direct analysis fails or times out
-        let errorMessage =
-          err?.name === 'AbortError'
-            ? 'Analysis timed out. Please check back later.'
-            : err?.message || 'Unknown analysis error';
-        console.warn('Direct analysis failed, session created but analysis will continue in background:', errorMessage);
-        // Don't show error to user - analysis will continue in background
-        // The session was created successfully, so the user can check back later
-      } finally {
-        setIsAnalyzing(false);
+        console.warn('[Blast Off] OpenRouter feedback failed (non-fatal):', err.message);
+        // Don't throw - continue with background analysis
       }
+
+      // Only stop analyzing spinner after feedback is set and rendered
+      // This ensures the spinner continues until the message is ready to display
+      if (feedbackReceived) {
+        // Wait for React to process the state update and render the feedback
+        // Give enough time for the state update, re-render, and DOM update to complete
+        // This ensures the spinner continues until the message is actually visible
+        await new Promise(resolve => setTimeout(resolve, 400));
+      }
+      setIsAnalyzing(false);
+
+      // 4) Kick off full analysis in background (non-blocking)
+      // This will update the session with full analysis results later
+      fetch('/api/pose/analyze-video', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: (() => {
+          const fd = new FormData();
+          fd.append('video', file);
+          fd.append('sessionId', createdSession.id);
+          if (videoURL) fd.append('videoUrl', videoURL);
+          fd.append('processingMode', 'full');
+          fd.append('sampleRate', '1');
+          fd.append('enableYOLO', 'true');
+          fd.append('yoloConfidence', '0.5');
+          return fd;
+        })(),
+      }).catch((err) => {
+        console.warn('[Blast Off] Background analysis failed (non-fatal):', err.message);
+      });
     } catch (err: any) {
       console.error('Video upload/analysis error:', err);
       setError(err?.message || 'Failed to process video. Please try again.');
@@ -277,7 +287,7 @@ export default function BlastOffPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="rounded-xl bg-white px-6 py-4 shadow-lg flex items-center gap-3">
             <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-            <span className="text-sm font-medium text-gray-700">Analyzing your swing…</span>
+            <span className="text-sm font-medium text-gray-700">Getting coaching feedback…</span>
           </div>
         </div>
       )}
@@ -323,7 +333,7 @@ export default function BlastOffPage() {
             {selectedFile && isAnalyzing && (
               <section className="bg-white rounded-lg shadow-md p-6">
                 <div className="text-center text-sm text-gray-600">
-                  Analyzing your swing footage… This may take up to a minute for longer videos.
+                  Getting AI coaching feedback from your swing footage… This should only take a few seconds.
                 </div>
               </section>
             )}

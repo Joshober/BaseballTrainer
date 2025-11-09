@@ -334,142 +334,198 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Session does not have a video' }, { status: 400 });
   }
 
-  const storageServerUrl = getStorageServerUrl();
-  const videoUrl = `${storageServerUrl}/api/storage/${session.videoPath}`;
-
-  const videoResponse = await fetch(videoUrl);
-  if (!videoResponse.ok) {
-    return NextResponse.json(
-      { error: 'Failed to download video from storage' },
-      { status: 500 }
-    );
-  }
-
-  const videoArrayBuffer = await videoResponse.arrayBuffer();
-  const videoBuffer = Buffer.from(videoArrayBuffer);
-
-  const gatewayUrl = getBackendUrl();
-  const extractFramesUrl = `${gatewayUrl}/api/pose/extract-frames`;
-
-  const formData = new FormData();
-  const videoBlob = new Blob([videoBuffer], { type: 'video/mp4' });
-  formData.append('video', videoBlob, 'video.mp4');
-  formData.append('frameInterval', '5');
-
-  const framesResponse = await fetch(extractFramesUrl, {
-    method: 'POST',
-    headers: {
-      Authorization: authHeader,
-    },
-    body: formData,
-  });
-
-  if (!framesResponse.ok) {
-    const errorText = await framesResponse.text().catch(() => '');
-    let errorData;
-    try {
-      errorData = JSON.parse(errorText);
-    } catch {
-      errorData = { error: errorText || 'Frame extraction failed' };
-    }
-    console.error('Frame extraction failed:', {
-      status: framesResponse.status,
-      statusText: framesResponse.statusText,
-      error: errorData,
+  try {
+    // Use Next.js API route for storage (handles paths correctly)
+    // The Next.js route uses ?path= query parameter and handles full paths with subdirectories
+    const videoUrl = `${request.nextUrl.origin}/api/storage?path=${encodeURIComponent(session.videoPath)}`;
+    
+    console.log('[OpenRouter] Fetching video from storage:', {
+      videoPath: session.videoPath,
+      videoUrl,
     });
-    throw new Error(
-      `Frame extraction failed with status ${framesResponse.status}: ${
-        errorData.error || errorData.message || 'Unknown error'
-      }`
+
+    const videoResponse = await fetch(videoUrl, {
+      headers: {
+        Authorization: authHeader,
+      },
+    });
+    
+    if (!videoResponse.ok) {
+      const errorText = await videoResponse.text().catch(() => '');
+      console.error('[OpenRouter] Failed to download video from storage:', {
+        status: videoResponse.status,
+        statusText: videoResponse.statusText,
+        videoUrl,
+        errorText: errorText.substring(0, 200),
+      });
+      return NextResponse.json(
+      { 
+        error: 'Failed to download video from storage',
+        details: `Status: ${videoResponse.status} ${videoResponse.statusText}`,
+        videoUrl,
+      },
+      { status: 500 }
     );
-  }
+    }
 
-  const framesData = await framesResponse.json();
+    console.log('[OpenRouter] Video downloaded successfully, size:', videoResponse.headers.get('content-length'));
 
-  if (!framesData.ok || !framesData.frames || framesData.frames.length === 0) {
-    return NextResponse.json(
-      { error: 'No frames extracted from video' },
-      { status: 400 }
+    const videoArrayBuffer = await videoResponse.arrayBuffer();
+    const videoBuffer = Buffer.from(videoArrayBuffer);
+    
+    console.log('[OpenRouter] Video buffer created, size:', videoBuffer.length);
+
+    const gatewayUrl = getBackendUrl();
+    const extractFramesUrl = `${gatewayUrl}/api/pose/extract-frames`;
+    
+    console.log('[OpenRouter] Extracting frames from video:', {
+      gatewayUrl,
+      extractFramesUrl,
+      videoSize: videoBuffer.length,
+    });
+
+    const formData = new FormData();
+    const videoBlob = new Blob([videoBuffer], { type: 'video/mp4' });
+    formData.append('video', videoBlob, 'video.mp4');
+    formData.append('frameInterval', '10'); // Increased from 5 to 10 to extract fewer frames (faster)
+
+    const framesResponse = await fetch(extractFramesUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: authHeader,
+      },
+      body: formData,
+    });
+
+    if (!framesResponse.ok) {
+      const errorText = await framesResponse.text().catch(() => '');
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { error: errorText || 'Frame extraction failed' };
+      }
+      console.error('[OpenRouter] Frame extraction failed:', {
+        status: framesResponse.status,
+        statusText: framesResponse.statusText,
+        error: errorData,
+        extractFramesUrl,
+      });
+      throw new Error(
+        `Frame extraction failed with status ${framesResponse.status}: ${
+          errorData.error || errorData.message || 'Unknown error'
+        }`
+      );
+    }
+
+    const framesData = await framesResponse.json();
+    
+    console.log('[OpenRouter] Frames extracted:', {
+      ok: framesData.ok,
+      framesCount: framesData.frames?.length || 0,
+      totalFrames: framesData.totalFrames,
+    });
+
+    if (!framesData.ok || !framesData.frames || framesData.frames.length === 0) {
+      console.error('[OpenRouter] No frames extracted from video:', framesData);
+      return NextResponse.json(
+        { error: 'No frames extracted from video', details: framesData },
+        { status: 400 }
+      );
+    }
+
+    if (!config.openRouter.apiKey) {
+      console.error('OpenRouter: API key not configured');
+      return NextResponse.json(
+        { error: 'OpenRouter API key not configured. Please set OPENROUTER_API_KEY in .env.local' },
+        { status: 500 }
+      );
+    }
+
+    const configuredMaxFrames = Math.max(1, config.openRouter.maxFrames || 3); // Reduced from 5 to 3 for faster requests
+    const framesToSend = selectFramesForAnalysis(
+      framesData.frames,
+      Math.min(configuredMaxFrames, framesData.frames.length)
     );
-  }
 
-  if (!config.openRouter.apiKey) {
-    console.error('OpenRouter: API key not configured');
+    console.log('[OpenRouter] Frame sampling details', {
+      extractedFrames: framesData.frames.length,
+      configuredMaxFrames,
+      framesSelected: framesToSend.length,
+    });
+
+    const frames = framesToSend.map((frame: any, index: number) => {
+      const base64Data = frame.image.replace(/^data:image\/jpeg;base64,/, '');
+      return {
+        type: 'image_url',
+        image_url: {
+          url: `data:image/jpeg;base64,${base64Data}`,
+          detail: index === 0 ? 'high' : 'low',
+        },
+      };
+    });
+
+    if (frames.length === 0) {
+      return NextResponse.json(
+        { error: 'No frames to send to OpenRouter' },
+        { status: 400 }
+      );
+    }
+
+    console.log('[OpenRouter] Starting analysis with retry logic', {
+      totalFrames: framesData.frames.length,
+      framesToSend: framesToSend.length,
+      maxAttempts: 3,
+    });
+
+    let feedback: string | null = null;
+    const maxAttempts = 3;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      console.log(`[OpenRouter] Attempt ${attempt}/${maxAttempts}`);
+
+      feedback = await queryOpenRouter(frames, attempt);
+
+      if (feedback && !isGenericResponse(feedback)) {
+        console.log(`[OpenRouter] Received valid feedback on attempt ${attempt}`);
+        break;
+      }
+
+      if (attempt < maxAttempts) {
+        console.log(`[OpenRouter] Attempt ${attempt} returned generic/invalid feedback, retrying...`);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+
+    if (!feedback || isGenericResponse(feedback)) {
+      console.warn('[OpenRouter] All attempts returned generic feedback, using fallback');
+      feedback = generateFallbackFeedback();
+    }
+
+    console.log('[OpenRouter] Final feedback', {
+      feedbackLength: feedback.length,
+      feedbackPreview: feedback.substring(0, 100) + '...',
+    });
+
+    return NextResponse.json({
+      ok: true,
+      feedback,
+      framesAnalyzed: framesToSend.length,
+      totalFrames: framesData.extractedFrames || framesData.frames.length,
+    });
+  } catch (error: any) {
+    console.error('[OpenRouter] Error in video processing:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
     return NextResponse.json(
-      { error: 'OpenRouter API key not configured. Please set OPENROUTER_API_KEY in .env.local' },
+      { 
+        error: 'Error processing video for OpenRouter analysis',
+        message: error.message || 'Unknown error',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      },
       { status: 500 }
     );
   }
-
-  const configuredMaxFrames = Math.max(1, config.openRouter.maxFrames || 5);
-  const framesToSend = selectFramesForAnalysis(
-    framesData.frames,
-    Math.min(configuredMaxFrames, framesData.frames.length)
-  );
-
-  console.log('OpenRouter: Frame sampling details', {
-    extractedFrames: framesData.frames.length,
-    configuredMaxFrames,
-    framesSelected: framesToSend.length,
-  });
-
-  const frames = framesToSend.map((frame: any, index: number) => {
-    const base64Data = frame.image.replace(/^data:image\/jpeg;base64,/, '');
-    return {
-      type: 'image_url',
-      image_url: {
-        url: `data:image/jpeg;base64,${base64Data}`,
-        detail: index === 0 ? 'high' : 'low',
-      },
-    };
-  });
-
-  if (frames.length === 0) {
-    return NextResponse.json(
-      { error: 'No frames to send to OpenRouter' },
-      { status: 400 }
-    );
-  }
-
-  console.log('OpenRouter: Starting analysis with retry logic', {
-    totalFrames: framesData.frames.length,
-    framesToSend: framesToSend.length,
-    maxAttempts: 3,
-  });
-
-  let feedback: string | null = null;
-  const maxAttempts = 3;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    console.log(`OpenRouter: Attempt ${attempt}/${maxAttempts}`);
-
-    feedback = await queryOpenRouter(frames, attempt);
-
-    if (feedback && !isGenericResponse(feedback)) {
-      console.log(`OpenRouter: Received valid feedback on attempt ${attempt}`);
-      break;
-    }
-
-    if (attempt < maxAttempts) {
-      console.log(`OpenRouter: Attempt ${attempt} returned generic/invalid feedback, retrying...`);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-  }
-
-  if (!feedback || isGenericResponse(feedback)) {
-    console.warn('OpenRouter: All attempts returned generic feedback, using fallback');
-    feedback = generateFallbackFeedback();
-  }
-
-  console.log('OpenRouter: Final feedback', {
-    feedbackLength: feedback.length,
-    feedbackPreview: feedback.substring(0, 100) + '...',
-  });
-
-  return NextResponse.json({
-    ok: true,
-    feedback,
-    framesAnalyzed: framesToSend.length,
-    totalFrames: framesData.extractedFrames || framesData.frames.length,
-  });
 }

@@ -71,7 +71,7 @@ def log_request():
     logger.info(f"{request.method} {request.path}")
 
 if __name__ == '__main__':
-    port = int(os.getenv('PYTHON_BACKEND_PORT', 5000))
+    port = int(os.getenv('POSE_DETECTION_SERVICE_PORT') or os.getenv('PYTHON_BACKEND_PORT', '5003'))
     debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     logger.info(f"Starting Python backend on port {port}")
     app.run(host='0.0.0.0', port=port, debug=debug)
