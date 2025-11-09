@@ -6,7 +6,6 @@ import { Video, Send, Bot, Play, Calendar, TrendingUp, Sparkles, X } from 'lucid
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import type { Session } from '@/types/session';
 import type { VideoAnalysis } from '@/types/session';
-import { useRouter } from 'next/navigation';
 
 interface VideoGalleryProps {
   sessions: Session[];
@@ -21,11 +20,9 @@ interface SessionWithAnalysis extends Session {
 }
 
 export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot, onSendToOpenRouter }: VideoGalleryProps) {
-  const router = useRouter();
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [filter, setFilter] = useState<'all' | 'good' | 'needs_work'>('all');
   const [sessionsWithAnalysis, setSessionsWithAnalysis] = useState<SessionWithAnalysis[]>([]);
-  const [polling, setPolling] = useState(false);
   const modalRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previouslyFocusedElementRef = useRef<Element | null>(null);
@@ -61,25 +58,29 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
           body: JSON.stringify({ sessionIds: ids }),
         });
         if (resp.ok) {
-          const data = await resp.json();
-          const map: Record<string, { analysis?: VideoAnalysis } | null> = data.map || {};
-          setSessionsWithAnalysis((prev) => prev.map((item) => {
-            const rec = map[item.id];
-            if (rec && (rec as any).analysis?.ok) {
-              return { ...item, videoAnalysisData: (rec as any).analysis, pendingAnalysis: false };
-            }
-            return item;
-          }));
+          const data = (await resp.json()) as { map?: Record<string, { analysis?: VideoAnalysis | null } | null> };
+          const map = data.map ?? {};
+          setSessionsWithAnalysis((prev) =>
+            prev.map((item) => {
+              const record = map[item.id];
+              if (record?.analysis?.ok) {
+                return { ...item, videoAnalysisData: record.analysis, pendingAnalysis: false };
+              }
+              return item;
+            })
+          );
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     };
 
     if (sessions.length > 0) {
-      init();
+      void init();
     } else {
-      setSessionsWithAnalysis([]);
+      Promise.resolve().then(() => {
+        setSessionsWithAnalysis([]);
+      });
     }
   }, [sessions]);
 
@@ -91,7 +92,6 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
 
     const startPolling = () => {
       if (interval) return;
-      setPolling(true);
       interval = setInterval(async () => {
         try {
           const pending = sessionsWithAnalysis.filter(
@@ -101,7 +101,6 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
             if (interval) {
               clearInterval(interval);
               interval = null;
-              setPolling(false);
             }
             return;
           }
@@ -118,15 +117,17 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
               body: JSON.stringify({ sessionIds: ids }),
             });
             if (resp.ok) {
-              const data = await resp.json();
-              const map: Record<string, { analysis?: VideoAnalysis } | null> = data.map || {};
-              setSessionsWithAnalysis((prev) => prev.map((item) => {
-                const rec = map[item.id];
-                if (rec && (rec as any).analysis?.ok) {
-                  return { ...item, videoAnalysisData: (rec as any).analysis, pendingAnalysis: false };
-                }
-                return item;
-              }));
+              const data = (await resp.json()) as { map?: Record<string, { analysis?: VideoAnalysis | null } | null> };
+              const map = data.map ?? {};
+              setSessionsWithAnalysis((prev) =>
+                prev.map((item) => {
+                  const record = map[item.id];
+                  if (record?.analysis?.ok) {
+                    return { ...item, videoAnalysisData: record.analysis, pendingAnalysis: false };
+                  }
+                  return item;
+                })
+              );
             }
           } catch {
             // ignore
@@ -404,7 +405,6 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                       </button>
                     )}
                   </div>
-                </div>
                 </div>
               </div>
             );
