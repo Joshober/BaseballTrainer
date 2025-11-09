@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Settings, Loader2, Save, CheckCircle, AlertCircle } from 'lucide-react';
 import { onAuthChange } from '@/lib/hooks/useAuth';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
-import { useTeam } from '@/lib/hooks/useTeam';
 import PageContainer from '@/components/Layout/PageContainer';
 import type { User } from '@/types/user';
 
@@ -13,14 +12,10 @@ export default function SettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
-  const { teamId } = useTeam();
-  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
-  const [teams, setTeams] = useState<any[]>([]);
   const [notifications, setNotifications] = useState({
     email: true,
     push: false,
     messages: true,
-    teamUpdates: true,
   });
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -31,20 +26,14 @@ export default function SettingsPage() {
       if (!authUser) {
         router.push('/login');
       } else {
-        setLoading(false);
-        loadUserData();
-        loadTeams();
+      setLoading(false);
+      loadUserData();
       }
     });
 
     return () => unsubscribe();
   }, [router]);
 
-  useEffect(() => {
-    if (teamId) {
-      setSelectedTeamId(teamId);
-    }
-  }, [teamId]);
 
   const loadUserData = async () => {
     try {
@@ -69,25 +58,6 @@ export default function SettingsPage() {
     }
   };
 
-  const loadTeams = async () => {
-    try {
-      const token = getAuthToken();
-      if (!token) return;
-
-      const response = await fetch('/api/teams', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const teamsData = await response.json();
-        setTeams(teamsData);
-      }
-    } catch (error) {
-      console.error('Failed to load teams:', error);
-    }
-  };
 
   const handleSave = async () => {
     if (!user) return;
@@ -109,9 +79,7 @@ export default function SettingsPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          teamId: selectedTeamId || undefined,
-        }),
+        body: JSON.stringify({}),
       });
 
       if (!response.ok) {
@@ -164,31 +132,6 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Team Selection */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Team Selection</h2>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Default Team
-            </label>
-            <select
-              value={selectedTeamId}
-              onChange={(e) => setSelectedTeamId(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">No Team</option>
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500">
-              Select your default team for new sessions
-            </p>
-          </div>
-        </div>
-
         {/* Notification Preferences */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Notification Preferences</h2>
@@ -219,15 +162,6 @@ export default function SettingsPage() {
                 className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
               />
               <span className="text-sm font-medium text-gray-700">Message Notifications</span>
-            </label>
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={notifications.teamUpdates}
-                onChange={(e) => setNotifications({ ...notifications, teamUpdates: e.target.checked })}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-gray-700">Team Update Notifications</span>
             </label>
           </div>
         </div>

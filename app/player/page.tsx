@@ -410,7 +410,7 @@ export default function PlayerDashboard() {
                 <p className="text-white text-opacity-90">Get instant feedback on your swing as you perform it</p>
               </div>
               <Link
-                href="/blast-off"
+                href="/train"
                 className="flex items-center gap-2 px-6 py-3 bg-white text-purple-600 rounded-lg hover:bg-gray-100 transition-colors font-medium"
               >
                 <Video className="w-5 h-5" />

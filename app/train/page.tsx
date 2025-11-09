@@ -26,7 +26,7 @@ type VideoAnalysis = {
   [k: string]: any;
 };
 
-export default function BlastOffPage() {
+export default function TrainPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -138,7 +138,7 @@ export default function BlastOffPage() {
       const token = getAuthToken();
 
       if (!authUser || !token) {
-        console.error('Blast-off: Missing auth user or token', {
+        console.error('Train: Missing auth user or token', {
           hasUser: !!authUser,
           hasToken: !!token,
           tokenLength: token?.length,
@@ -149,7 +149,7 @@ export default function BlastOffPage() {
       // Validate token format
       const tokenParts = token.split('.');
       if (tokenParts.length !== 3 && tokenParts.length !== 5) {
-        console.error('Blast-off: Invalid token format', {
+        console.error('Train: Invalid token format', {
           parts: tokenParts.length,
           tokenPreview: `${token.substring(0, 20)}...`,
         });
@@ -318,7 +318,7 @@ export default function BlastOffPage() {
         err?.error ||
         err?.toString() ||
         'An unexpected error occurred during analysis.';
-      console.error('Blast off analysis error:', err);
+      console.error('Train analysis error:', err);
       setError(message);
     } finally {
       setIsAnalyzing(false);
@@ -333,7 +333,7 @@ export default function BlastOffPage() {
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
         <div role="status" aria-live="polite" className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-blue-400" aria-hidden="true" focusable="false" />
-          <span className="sr-only">Loading blast analysis workspace…</span>
+          <span className="sr-only">Loading train analysis workspace…</span>
         </div>
       </div>
     );
@@ -498,3 +498,4 @@ export default function BlastOffPage() {
     </div>
   );
 }
+

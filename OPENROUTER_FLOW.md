@@ -3,7 +3,7 @@
 ## Complete File List for OpenRouter Video Analysis
 
 ### 1. Frontend Entry Point
-**File:** `app/blast-off/page.tsx`
+**File:** `app/train/page.tsx`
 - **Lines 37-110**: `handleVideoSelect` function
 - **Line 83**: Calls `/api/openrouter/analyze-video`
 - **Lines 17, 39, 101**: Manages `openRouterFeedback` state
@@ -70,18 +70,18 @@
 **File:** `lib/storage/local-adapter.ts`
 - **Lines 5-44**: `uploadFile` method
 - **Purpose**: Uploads video to storage
-- **Used by**: Blast-off page (line 54)
+- **Used by**: Train page (line 54)
 
 ### 10. Session Creation
 **File:** `app/api/sessions/route.ts` (implied)
 - **Purpose**: Creates session in database
-- **Used by**: Blast-off page (lines 57-74)
+- **Used by**: Train page (lines 57-74)
 
 ## Data Flow
 
 ```
 1. User uploads video
-   └─> app/blast-off/page.tsx (handleVideoSelect)
+   └─> app/train/page.tsx (handleVideoSelect)
        │
 2. Video uploaded to storage
    └─> lib/storage/local-adapter.ts (uploadFile)
@@ -114,7 +114,7 @@
     └─> app/api/openrouter/analyze-video/route.ts (lines 189-218)
         │
 12. Return feedback to frontend
-    └─> app/blast-off/page.tsx (display feedback)
+    └─> app/train/page.tsx (display feedback)
 ```
 
 ## Environment Variables Required

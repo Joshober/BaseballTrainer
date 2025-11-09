@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users, TrendingUp, BarChart3, Plus, UserPlus, Eye, Target, ArrowRight } from 'lucide-react';
 import { onAuthChange, getAuth, getIdToken, ensureSignedIn } from '@/lib/auth0/client-auth';
-import type { Team } from '@/types/team';
 import type { User } from '@/types/user';
 import type { Session } from '@/types/session';
 
@@ -24,12 +23,8 @@ export default function CoachDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [players, setPlayers] = useState<User[]>([]);
   const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [teamName, setTeamName] = useState('');
   const [overallStats, setOverallStats] = useState({
     totalPlayers: 0,
     totalSessions: 0,

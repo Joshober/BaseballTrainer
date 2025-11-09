@@ -63,7 +63,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Compete with Friends</h3>
                 <p className="text-gray-600">
-                  Join teams, chat with coaches, and compare milestones on the Mars leaderboard.
+                  Compare milestones on the Mars leaderboard and track your progress.
                 </p>
               </article>
             </section>
@@ -80,7 +80,7 @@ export default function Home() {
                   </p>
                   <div className="flex flex-wrap gap-4">
                     <Link
-                      href="/blast-off"
+                      href="/train"
                       className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
                     >
                       <Rocket className="w-5 h-5" aria-hidden="true" focusable="false" />

@@ -71,8 +71,8 @@ const planets = [
   }
 ];
 
-// Street view locations from design
-const streetViewLocations = [
+// Street view locations from design - filtered to ensure valid panoId
+const rawStreetViewLocations = [
   { name: 'Times Square, New York', panoId: 'CAoSLEFGMVFpcE9fTWRsSWtOSXVUdmhEeW1OSGdCYzdMWUV1S3RudTNSZmR5TW1n', lat: 40.74844087767432, lng: -73.98566440535922 },
   { name: 'Eiffel Tower, Paris', panoId: 'CAoSLEFGMVFpcE9HVy1OQUNFa3VCZ0hQa0lKYVFJTXBsNnNjaFRaLU1ITGV3NWl3', lat: 48.858370, lng: 2.294481 },
   { name: 'Tokyo Tower, Japan', panoId: 'CAoSLEFGMVFpcE1fR0hYdDRQQW9sREExVGRPTWd2Qk43SFRJX0g3TlFkbWNDeTRV', lat: 35.658581, lng: 139.745438 },
@@ -105,6 +105,51 @@ const streetViewLocations = [
   { name: 'Shibuya Crossing, Tokyo', panoId: 'CAoSLEFGMVFpcE5ZN3JGNEhsN3BsR0lJUkJYMlRmM3FKd0lQbXBPWnhNcGVOYWF4', lat: 35.659517, lng: 139.700565 }
 ];
 
+// Filter to ensure all locations have valid street view data
+const streetViewLocations = rawStreetViewLocations.filter(loc => loc.panoId && loc.panoId.length > 0);
+
+// Haversine formula to calculate distance between two coordinates in kilometers
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Sort locations by distance from starting point (first location)
+const startingLocation = streetViewLocations[0];
+const sortedLocations = [...streetViewLocations].sort((a, b) => {
+  const distA = haversineDistance(startingLocation.lat, startingLocation.lng, a.lat, a.lng);
+  const distB = haversineDistance(startingLocation.lat, startingLocation.lng, b.lat, b.lng);
+  return distA - distB;
+});
+
+// Calculate cumulative distances for each location from start
+const locationDistances = sortedLocations.map((loc, index) => {
+  if (index === 0) return 0;
+  return haversineDistance(
+    sortedLocations[index - 1].lat,
+    sortedLocations[index - 1].lng,
+    loc.lat,
+    loc.lng
+  );
+});
+
+// Calculate total distance to each location (cumulative)
+const cumulativeLocationDistances = locationDistances.reduce((acc: number[], dist, index) => {
+  if (index === 0) {
+    acc.push(0);
+  } else {
+    acc.push(acc[index - 1] + dist);
+  }
+  return acc;
+}, []);
+
 type Swing = {
   bat_speed_mph: number;
   attack_angle_deg: number;
@@ -117,38 +162,84 @@ type Swing = {
 export default function FungoUniverse() {
   const [stage, setStage] = useState<'intro' | 'planets' | 'earth-loop' | 'descent' | 'maps'>('intro');
   const [currentPlanetIndex, setCurrentPlanetIndex] = useState(-1);
-  const [selectedLocation, setSelectedLocation] = useState<typeof streetViewLocations[0] | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<typeof sortedLocations[0] | null>(null);
   const [speed, setSpeed] = useState(0);
   const [distance, setDistance] = useState(0);
+  const [cumulativeDistance, setCumulativeDistance] = useState(0); // Total distance traveled based on swing metrics
   const [lastSwing, setLastSwing] = useState<Swing | null>(null);
   const [sseConnected, setSseConnected] = useState(false);
 
-  const handleSwing = (s: Swing) => {
-    console.log("[FungoUniverse] 🎯 handleSwing called with:", s);
+  // Function to map cumulative swing distance to location index
+  const getLocationFromDistance = (totalSwingDistance: number): typeof sortedLocations[0] => {
+    // Find the location index based on cumulative distance
+    // Scale swing distance to match geographic distances
+    // Use a scaling factor to map swing metrics to geographic distances
+    // We want players to progress through all locations, so we scale based on number of locations
+    const maxSwingDistance = 50000; // Maximum expected cumulative swing distance to visit all locations
+    const maxGeoDistance = cumulativeLocationDistances[cumulativeLocationDistances.length - 1] || 1;
+    const scaleFactor = maxGeoDistance / maxSwingDistance;
     
-    // Use exact formula from design: (value1 * 7 + value2 * 13 + value3 * 17) % streetViewLocations.length
-    // Must use Math.floor to convert to integer for array index
-    const combinedValue = Math.floor((s.bat_speed_mph * 7 + s.attack_angle_deg * 13 + s.omega_peak_dps * 17) % streetViewLocations.length);
-    const location = streetViewLocations[combinedValue];
+    // Map swing distance to geographic distance
+    const targetGeoDistance = totalSwingDistance * scaleFactor;
     
-    if (!location) {
-      console.error("[FungoUniverse] ❌ Invalid location index:", combinedValue, "array length:", streetViewLocations.length);
-      return;
+    // Find the location index that matches this distance
+    let locationIndex = 0;
+    for (let i = 0; i < cumulativeLocationDistances.length; i++) {
+      if (targetGeoDistance >= cumulativeLocationDistances[i]) {
+        locationIndex = i;
+      } else {
+        break;
+      }
     }
     
-    console.log("[FungoUniverse] 📍 Selected location:", location.name, "from index:", combinedValue);
+    // Ensure we don't exceed array bounds
+    locationIndex = Math.min(locationIndex, sortedLocations.length - 1);
     
-    // Set all state together - React will batch these updates
-    setLastSwing(s);
-    setSelectedLocation(location);
+    return sortedLocations[locationIndex];
+  };
+
+  const handleSwing = (s: Swing) => {
+    console.log("[FungoUniverse] 🎯 handleSwing called with:", s, "Current stage:", stage);
     
-    // Reset and start animation
-    setStage('intro');
-    setCurrentPlanetIndex(-1);
-    setSpeed(0);
-    setDistance(0);
+    // Calculate distance for this swing using formula: (bat_speed_mph * 7 + attack_angle_deg * 13 + omega_peak_dps * 17)
+    const swingDistance = s.bat_speed_mph * 7 + s.attack_angle_deg * 13 + s.omega_peak_dps * 17;
     
-    console.log("[FungoUniverse] 🎬 State updates queued - stage: 'intro', location:", location.name);
+    // Use functional update to ensure we're using the latest cumulative distance
+    setCumulativeDistance(prevCumulative => {
+      const newCumulativeDistance = prevCumulative + swingDistance;
+      
+      console.log("[FungoUniverse] 📏 Swing distance:", swingDistance, "Previous cumulative:", prevCumulative, "New cumulative:", newCumulativeDistance);
+      
+      // Get location based on cumulative distance
+      const location = getLocationFromDistance(newCumulativeDistance);
+      
+      if (!location) {
+        console.error("[FungoUniverse] ❌ Invalid location from distance:", newCumulativeDistance);
+        return prevCumulative; // Don't update if location is invalid
+      }
+      
+      console.log("[FungoUniverse] 📍 Selected location:", location.name, "from cumulative distance:", newCumulativeDistance);
+      
+      // Use setTimeout to ensure state updates happen in the next tick
+      // This ensures cumulativeDistance is updated first, then other state
+      setTimeout(() => {
+        // Set all state together - React will batch these updates
+        // Use a new object reference for lastSwing to ensure useEffect triggers
+        setLastSwing({ ...s, timestamp: Date.now() });
+        setSelectedLocation(location);
+        
+        // Always transition to intro to restart the animation sequence
+        // Reset to intro stage which will trigger the intro -> planets transition
+        setStage('intro');
+        setCurrentPlanetIndex(-1);
+        setSpeed(0);
+        setDistance(0);
+        
+        console.log("[FungoUniverse] 🎬 State updates queued - stage: 'intro', location:", location.name);
+      }, 0);
+      
+      return newCumulativeDistance;
+    });
     
     // The intro -> planets transition is handled by the useEffect hook below
     // No need for setTimeout here since useEffect will handle it
@@ -223,27 +314,28 @@ export default function FungoUniverse() {
     };
   }, []);
 
-  // Intro -> Planets transition
+  // Intro -> Planets transition (faster)
   useEffect(() => {
-    if (stage === 'intro' && lastSwing) {
+    if (stage === 'intro' && lastSwing && selectedLocation) {
       const introTimer = setTimeout(() => {
         setStage('planets');
         setCurrentPlanetIndex(0);
-      }, 3000);
+      }, 1000); // Reduced from 3000ms to 1000ms
       return () => clearTimeout(introTimer);
     }
-  }, [stage, lastSwing]);
+  }, [stage, lastSwing, selectedLocation]);
 
-  // Planets animation
+  // Planets animation (faster)
   useEffect(() => {
     if (stage === 'planets' && currentPlanetIndex >= 0) {
       const planet = planets[currentPlanetIndex];
       
       const speedInterval = setInterval(() => {
-        setSpeed(prev => Math.min(prev + 1000, 50000));
-        setDistance(prev => prev + 1000);
+        setSpeed(prev => Math.min(prev + 2000, 50000));
+        setDistance(prev => prev + 2000);
       }, 50);
 
+      // Reduce planet duration by 70% (from 4.5s to ~1.35s, from 5s to ~1.5s)
       const timer = setTimeout(() => {
         if (currentPlanetIndex < planets.length - 1) {
           setCurrentPlanetIndex(currentPlanetIndex + 1);
@@ -251,7 +343,7 @@ export default function FungoUniverse() {
         } else {
           setStage('earth-loop');
         }
-      }, planet.duration * 1000);
+      }, planet.duration * 300); // Reduced from 1000ms to 300ms (70% faster)
 
       return () => {
         clearTimeout(timer);
@@ -260,22 +352,22 @@ export default function FungoUniverse() {
     }
   }, [currentPlanetIndex, stage]);
 
-  // Earth loop
+  // Earth loop (faster)
   useEffect(() => {
     if (stage === 'earth-loop') {
       const timer = setTimeout(() => {
         setStage('descent');
-      }, 5000);
+      }, 1500); // Reduced from 5000ms to 1500ms
       return () => clearTimeout(timer);
     }
   }, [stage]);
 
-  // Descent
+  // Descent (faster)
   useEffect(() => {
     if (stage === 'descent') {
       const timer = setTimeout(() => {
         setStage('maps');
-      }, 4000);
+      }, 1200); // Reduced from 4000ms to 1200ms
       return () => clearTimeout(timer);
     }
   }, [stage]);
@@ -358,7 +450,7 @@ export default function FungoUniverse() {
                 boxShadow: `0 0 ${size * 2}px rgba(255, 255, 255, ${depth * 0.8})`,
                 transform: `translate3d(${startX}px, ${startY}px, ${startZ}px)`
               }}
-              animate={stage !== 'maps' && stage !== 'intro' ? {
+              animate={stage !== 'maps' ? {
                 z: [startZ, 1000],
                 x: [startX, startX * 3],
                 y: [startY, startY * 3],
@@ -392,7 +484,7 @@ export default function FungoUniverse() {
                 transform: `translate3d(${x}px, ${y}px, ${z}px)`,
                 filter: 'blur(1px)'
               }}
-              animate={stage !== 'maps' && stage !== 'intro' ? {
+              animate={stage !== 'maps' ? {
                 z: [z, 500],
                 x: [x, x * 2],
                 y: [y, y * 2],
@@ -432,6 +524,10 @@ export default function FungoUniverse() {
               <div className="bg-black/80 px-4 py-2 rounded border border-cyan-400/40">
                 <div className="text-cyan-300/70 text-xs">DISTANCE</div>
                 <div className="text-lg">{distance.toLocaleString()} km</div>
+              </div>
+              <div className="bg-black/80 px-4 py-2 rounded border border-cyan-400/40">
+                <div className="text-cyan-300/70 text-xs">TOTAL TRAVELED</div>
+                <div className="text-lg">{Math.round(cumulativeDistance).toLocaleString()}</div>
               </div>
               <div className="bg-black/80 px-4 py-2 rounded border border-cyan-400/40">
                 <div className="text-cyan-300/70 text-xs">DESTINATION</div>
@@ -481,7 +577,7 @@ export default function FungoUniverse() {
 
       {/* Intro */}
       <AnimatePresence>
-        {stage === 'intro' && (
+        {stage === 'intro' && selectedLocation && (
           <motion.div
             className="absolute inset-0 flex items-center justify-center z-10"
             initial={{ opacity: 0 }}
@@ -504,6 +600,16 @@ export default function FungoUniverse() {
                 >
                   DESTINATION: {selectedLocation.name}
                 </motion.div>
+                {cumulativeDistance > 0 && (
+                  <motion.div
+                    className="text-lg opacity-60 font-mono text-cyan-300 mt-2"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.6 }}
+                    transition={{ delay: 0.5 }}
+                  >
+                    Total Distance: {Math.round(cumulativeDistance).toLocaleString()}
+                  </motion.div>
+                )}
                 <div className="mt-8 flex justify-center gap-2">
                   {[...Array(3)].map((_, i) => (
                     <motion.div
@@ -546,7 +652,7 @@ export default function FungoUniverse() {
                 filter: 'blur(30px)'
               }}
               transition={{ 
-                duration: planets[currentPlanetIndex].duration,
+                duration: planets[currentPlanetIndex].duration * 0.3, // 70% faster
                 ease: [0.25, 0.46, 0.45, 0.94],
                 times: [0, 0.5, 1]
               }}
@@ -616,9 +722,9 @@ export default function FungoUniverse() {
                 rotateY: [0, 360]
               }}
               transition={{ 
-                z: { duration: 2.5, ease: 'easeOut' },
-                scale: { duration: 2.5, ease: 'easeOut' },
-                rotateY: { duration: 8, ease: 'linear', repeat: Infinity }
+                z: { duration: 0.75, ease: 'easeOut' }, // Reduced from 2.5s
+                scale: { duration: 0.75, ease: 'easeOut' }, // Reduced from 2.5s
+                rotateY: { duration: 2.4, ease: 'linear', repeat: Infinity } // Reduced from 8s
               }}
             >
               <Planet3D
@@ -675,7 +781,7 @@ export default function FungoUniverse() {
                 scale: [2.5, 1],
                 opacity: [0, 1, 0.9]
               }}
-              transition={{ duration: 3.5 }}
+              transition={{ duration: 1.05 }} // Reduced from 3.5s to 1.05s
             />
             
             {/* Heat particles */}
@@ -726,7 +832,7 @@ export default function FungoUniverse() {
             className="absolute inset-0 z-20"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 2.5 }}
+            transition={{ duration: 0.75 }} // Reduced from 2.5s to 0.75s
           >
             <iframe
               src={`https://www.google.com/maps/embed?pb=!4v1731169200000!6m8!1m7!1s${selectedLocation.panoId}!2m2!1d${selectedLocation.lat}!2d${selectedLocation.lng}!3f0!4f0!5f0.7820865974627469`}
@@ -742,10 +848,20 @@ export default function FungoUniverse() {
               className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-black/90 text-white px-8 py-4 rounded-lg border border-cyan-400/40 font-mono"
               initial={{ y: -100, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 1.5, duration: 1 }}
+              transition={{ delay: 0.5, duration: 0.5 }} // Reduced delays and duration
             >
               <div className="text-cyan-400 text-sm mb-1">LANDING SUCCESSFUL</div>
               <div className="text-xl">📍 {selectedLocation.name}</div>
+            </motion.div>
+            <motion.div
+              className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-black/90 text-white px-8 py-4 rounded-lg border border-cyan-400/40 font-mono text-center"
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.5, duration: 0.5 }} // Reduced delays and duration
+            >
+              <div className="text-cyan-400 text-sm mb-2">TOTAL DISTANCE TRAVELED</div>
+              <div className="text-2xl mb-2">{Math.round(cumulativeDistance).toLocaleString()}</div>
+              <div className="text-cyan-300/70 text-xs mt-2">Swing again to travel further around the world</div>
             </motion.div>
           </motion.div>
         )}

@@ -3,10 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Rocket, LayoutDashboard, Video, Target, Users, MessageCircle, Menu, X } from 'lucide-react';
+import { Rocket, LayoutDashboard, Video, Target, Menu, X, Gamepad2 } from 'lucide-react';
 import { getAuthUser } from '@/lib/auth0/client';
 import UserMenu from '@/components/Navigation/UserMenu';
-import NotificationBell from '@/components/Navigation/NotificationBell';
 import type { Auth0User } from '@/lib/auth0/client';
 
 export default function Header() {
@@ -65,9 +64,9 @@ export default function Header() {
       icon: LayoutDashboard 
     },
     { href: '/videos', label: 'Videos', icon: Video },
-    { href: '/blast-off', label: 'Blast Off', icon: Rocket },
+    { href: '/train', label: 'Train', icon: Rocket },
     { href: '/drills', label: 'Drills', icon: Target },
-    { href: '/teams', label: 'Teams', icon: Users },
+    { href: '/fungo-universe', label: 'Explore', icon: Gamepad2 },
   ];
 
   return (
@@ -103,22 +102,6 @@ export default function Header() {
 
           {/* Right Side Actions */}
           <div className="flex items-center gap-2">
-            {user && (
-              <>
-                <NotificationBell />
-                <Link
-                  href="/messages"
-                  className={`p-2 rounded-lg transition-colors ${
-                    isActive('/messages')
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  title="Messages"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                </Link>
-              </>
-            )}
             <UserMenu />
             
             {/* Mobile Menu Button */}
@@ -153,20 +136,6 @@ export default function Header() {
                   </Link>
                 );
               })}
-              {user && (
-                <Link
-                  href="/messages"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                    isActive('/messages')
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  <span>Messages</span>
-                </Link>
-              )}
             </div>
           </nav>
         )}

@@ -19,7 +19,7 @@ To file an issue, open the corresponding markdown file above and copy everything
 Lighthouse and WCAG 2.2 AA require text/background contrast ratios of 4.5:1 for body copy and 3:1 for large text. Several cards, gradients, and button states may fall short, reducing readability.
 
 ### Tasks
-- Audit primary/secondary palettes, gradients, and overlay states across key pages (`app/analyze`, `app/blast-off`, dashboard components).
+- Audit primary/secondary palettes, gradients, and overlay states across key pages (`app/analyze`, `app/train`, dashboard components).
 - Adjust Tailwind tokens or CSS variables so default, hover, and disabled states meet the required contrast ratios.
 - Re-test using Lighthouse and a manual contrast checker.
 
@@ -59,7 +59,7 @@ Interactive elements must be usable via keyboard and expose a visible focus indi
 Icons and media controls must expose descriptive labels for assistive tech (WCAG 1.1.1, 4.1.2). Lighthouse flags missing `aria-label`/`alt`.
 
 ### Tasks
-- Audit `VideoGallery`, `BlastOff`, dashboards to replace purely visual labels with `aria-label`, `aria-labelledby`, or visually hidden text.
+- Audit `VideoGallery`, `Train`, dashboards to replace purely visual labels with `aria-label`, `aria-labelledby`, or visually hidden text.
 - Provide `alt` text for hero/profile images; mark decorative images with empty `alt`.
 - Ensure custom video controls expose names such as `aria-label="Play video"`.
 
