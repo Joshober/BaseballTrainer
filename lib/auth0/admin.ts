@@ -37,16 +37,22 @@ function getJwksClient(): JwksClient {
  */
 function getKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
   try {
-    console.log('getKey called with header:', { kid: header.kid, alg: header.alg, typ: header.typ });
+    // Only log in debug mode
+    if (process.env.DEBUG_AUTH === 'true') {
+      console.log('getKey called with header:', { kid: header.kid, alg: header.alg, typ: header.typ });
+    }
     const client = getJwksClient();
     if (!header.kid) {
       console.error('Token header missing kid (key ID)');
       return callback(new Error('Token header missing kid (key ID)'));
     }
-    console.log('Fetching signing key from JWKS for kid:', header.kid);
+    // Only log in debug mode
+    if (process.env.DEBUG_AUTH === 'true') {
+      console.log('Fetching signing key from JWKS for kid:', header.kid);
+    }
     client.getSigningKey(header.kid, (err, key) => {
       if (err) {
-        console.error('Error fetching signing key from JWKS:', err.message, err);
+        console.error('Error fetching signing key from JWKS:', err.message);
         return callback(err);
       }
       if (!key) {
@@ -59,15 +65,18 @@ function getKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
           console.error('Failed to extract public key from signing key');
           return callback(new Error('Failed to extract public key from signing key'));
         }
-        console.log('Successfully retrieved signing key for kid:', header.kid);
+        // Only log in debug mode
+        if (process.env.DEBUG_AUTH === 'true') {
+          console.log('Successfully retrieved signing key for kid:', header.kid);
+        }
         callback(null, signingKey);
       } catch (keyErr: any) {
-        console.error('Error extracting public key:', keyErr.message, keyErr);
+        console.error('Error extracting public key:', keyErr.message);
         callback(keyErr);
       }
     });
   } catch (error: any) {
-    console.error('Error in getKey function:', error.message, error);
+    console.error('Error in getKey function:', error.message);
     callback(error);
   }
 }
@@ -143,7 +152,8 @@ export async function verifyAuth0Token(token: string): Promise<any> {
     let unverifiedDecode: any = null;
     try {
       unverifiedDecode = jwt.decode(token, { complete: true });
-      if (unverifiedDecode) {
+      // Only log in debug mode
+      if (process.env.DEBUG_AUTH === 'true' && unverifiedDecode) {
         console.log('Token decoded (unverified) before verification:', {
           header: unverifiedDecode.header,
           payload: {
@@ -158,14 +168,20 @@ export async function verifyAuth0Token(token: string): Promise<any> {
         });
       }
     } catch (decodeErr) {
-      console.error('Failed to decode token before verification:', decodeErr);
+      // Only log errors in debug mode
+      if (process.env.DEBUG_AUTH === 'true') {
+        console.error('Failed to decode token before verification:', decodeErr);
+      }
     }
 
-    console.log('Starting token verification with:', {
-      domain,
-      audience: audience || 'none',
-      expectedIssuer: `https://${domain}/`,
-    });
+    // Only log in debug mode
+    if (process.env.DEBUG_AUTH === 'true') {
+      console.log('Starting token verification with:', {
+        domain,
+        audience: audience || 'none',
+        expectedIssuer: `https://${domain}/`,
+      });
+    }
 
     return new Promise((resolve, reject) => {
       // First try with audience (for access tokens)
@@ -178,9 +194,15 @@ export async function verifyAuth0Token(token: string): Promise<any> {
       // (some tokens might not have audience, or it might be different)
       if (audience) {
         verifyOptions.audience = audience;
-        console.log('Verifying with audience:', audience);
+        // Only log in debug mode
+        if (process.env.DEBUG_AUTH === 'true') {
+          console.log('Verifying with audience:', audience);
+        }
       } else {
-        console.log('Verifying without audience check');
+        // Only log in debug mode
+        if (process.env.DEBUG_AUTH === 'true') {
+          console.log('Verifying without audience check');
+        }
       }
 
       jwt.verify(
@@ -197,7 +219,10 @@ export async function verifyAuth0Token(token: string): Promise<any> {
             // If verification failed with audience, try without audience check
             // (for ID tokens or tokens with different audience)
             if (audience) {
-              console.log('Retrying token verification without audience check...');
+              // Only log in debug mode
+              if (process.env.DEBUG_AUTH === 'true') {
+                console.log('Retrying token verification without audience check...');
+              }
               jwt.verify(
                 token,
                 getKey,
@@ -213,28 +238,34 @@ export async function verifyAuth0Token(token: string): Promise<any> {
                     const errorName2 = err2.name || 'JWTError';
                     console.error(`Auth0 token verification error (retry without audience): ${errorName2}: ${errorMessage2}`);
                     
-                    // Try to decode without verification to get more info
-                    try {
-                      const unverified = jwt.decode(token, { complete: true });
-                      if (unverified) {
-                        console.error('Token decoded (unverified):', {
-                          header: unverified.header,
-                          payload: {
-                            iss: (unverified.payload as any)?.iss,
-                            aud: (unverified.payload as any)?.aud,
-                            exp: (unverified.payload as any)?.exp,
-                            iat: (unverified.payload as any)?.iat,
-                            sub: (unverified.payload as any)?.sub,
-                          }
-                        });
+                    // Only log detailed info in debug mode
+                    if (process.env.DEBUG_AUTH === 'true') {
+                      // Try to decode without verification to get more info
+                      try {
+                        const unverified = jwt.decode(token, { complete: true });
+                        if (unverified) {
+                          console.error('Token decoded (unverified):', {
+                            header: unverified.header,
+                            payload: {
+                              iss: (unverified.payload as any)?.iss,
+                              aud: (unverified.payload as any)?.aud,
+                              exp: (unverified.payload as any)?.exp,
+                              iat: (unverified.payload as any)?.iat,
+                              sub: (unverified.payload as any)?.sub,
+                            }
+                          });
+                        }
+                      } catch (decodeErr) {
+                        console.error('Failed to decode token:', decodeErr);
                       }
-                    } catch (decodeErr) {
-                      console.error('Failed to decode token:', decodeErr);
                     }
                     
                     reject(err2);
                   } else {
-                    console.log('Token verification succeeded without audience check');
+                    // Only log in debug mode
+                    if (process.env.DEBUG_AUTH === 'true') {
+                      console.log('Token verification succeeded without audience check');
+                    }
                     resolve(decoded2);
                   }
                 }

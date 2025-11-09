@@ -211,3 +211,139 @@ export async function compareBlastWithPose(
   return response.json();
 }
 
+/**
+ * Swing Detection API
+ */
+
+export interface SwingData {
+  t_start: number;
+  t_peak: number;
+  t_end: number;
+  duration_ms: number;
+  omega_peak_dps: number;
+  bat_speed_mph: number;
+  attack_angle_deg: number;
+  timestamp?: string;
+}
+
+/**
+ * Start swing detection service
+ */
+export async function startSwingDetection(
+  sessionId: string,
+  authToken?: string
+): Promise<{ success: boolean; message: string; session_id?: string; status?: string }> {
+  const url = `${getBackendUrl()}/api/blast/swing-detection/start`;
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ sessionId }),
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to start swing detection: ${response.statusText}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Stop swing detection service
+ */
+export async function stopSwingDetection(
+  sessionId: string,
+  authToken?: string
+): Promise<{ success: boolean; message: string; session_id?: string; status?: string }> {
+  const url = `${getBackendUrl()}/api/blast/swing-detection/stop`;
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ sessionId }),
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to stop swing detection: ${response.statusText}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Get swing detection service status
+ */
+export async function getSwingDetectionStatus(
+  sessionId: string,
+  authToken?: string
+): Promise<{ success: boolean; is_running: boolean; session_id?: string; started_at?: string }> {
+  const url = `${getBackendUrl()}/api/blast/swing-detection/status?sessionId=${encodeURIComponent(sessionId)}`;
+  
+  const headers: HeadersInit = {};
+  
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  
+  const response = await fetch(url, {
+    method: 'GET',
+    headers,
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to get swing detection status: ${response.statusText}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Send swing data to Next.js API
+ */
+export async function sendSwingData(
+  swingData: SwingData,
+  sessionId?: string,
+  authToken?: string
+): Promise<{ success: boolean; received: SwingData; message: string }> {
+  const url = `${getBackendUrl()}/api/blast/swings`;
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      ...swingData,
+      sessionId,
+    }),
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to send swing data: ${response.statusText}`);
+  }
+  
+  return response.json();
+}
+

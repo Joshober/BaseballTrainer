@@ -88,6 +88,14 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         errorMessage = `HTTP Error ${response.status}: ${response.statusText}`;
       }
+      
+      // Provide helpful error message if gateway is not running
+      if (response.status === 404) {
+        errorMessage = 'Backend gateway not found. Make sure the gateway is running: npm run dev:gateway';
+      } else if (response.status === 503 || response.status === 500) {
+        errorMessage = 'Pose detection service unavailable. Make sure the pose detection service is running: npm run dev:pose';
+      }
+      
       return NextResponse.json(
         { error: errorMessage, ok: false },
         { status: response.status }

@@ -394,6 +394,7 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
       }
     });
 
+    // Forward to Pose Detection Service
     console.log(`Forwarding video analysis request to: ${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video`);
     console.log('Video file info:', {
       filename: req.file.originalname,
@@ -402,7 +403,7 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
       bufferLength: req.file.buffer.length,
       config: analysisConfig,
     });
-
+    
     const response = await axios.post(
       `${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video`,
       formData,
@@ -417,7 +418,7 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
         timeout: 600000,
       }
     );
-
+    
     console.log(`Pose detection service responded with status: ${response.status}`);
     if (response.data) {
       console.log(`Response data keys: ${Object.keys(response.data).join(', ')}`);
@@ -431,29 +432,25 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
     } else {
       console.warn('Pose detection service returned empty response');
     }
-
-    res.status(response.status).json(response.data);
+    
+    res.json(response.data);
   } catch (error: any) {
     console.error('Video analysis error:', error?.message || error);
     console.error('Error details:', {
-      code: error?.code,
-      status: error?.response?.status,
-      statusText: error?.response?.statusText,
-      data: error?.response?.data,
-      stack: error?.stack,
+      code: error.code,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      stack: error.stack,
     });
-
-    const statusCode = error?.response?.status || 500;
-    const responseData = error?.response?.data;
-    const normalized =
-      responseData && typeof responseData === 'object'
-        ? responseData
-        : { error: responseData || error?.message || 'Internal server error' };
-
+    
+    const statusCode = error.response?.status || 500;
+    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Internal server error';
+    
     res.status(statusCode).json({
-      error: normalized.error || normalized.message || 'Internal server error',
-      message: error?.message,
-      ok: false,
+      error: errorMessage,
+      message: error.message,
+      ok: false
     });
   }
 });
@@ -904,18 +901,6 @@ app.post('/api/blast/sync/compare', authenticate, async (req, res) => {
       message: error.message
     });
   }
-});
-
-// 404 handler for unregistered routes
-app.use((req, res) => {
-  console.error(`[Gateway] 404 - Route not found: ${req.method} ${req.path}`);
-  console.error(`[Gateway] Available routes should include: POST /api/pose/extract-frames`);
-  res.status(404).json({
-    error: 'Route not found',
-    method: req.method,
-    path: req.path,
-    message: `Cannot ${req.method} ${req.path}`,
-  });
 });
 
 // Start server

@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
     }
   } catch (error: any) {
     console.error('Conversations fetch error:', error);
-    // Return empty array instead of error - conversations are optional
+    // Return empty array instead of 500 error to prevent UI errors
+    // This allows the app to work even if database is not available
     return NextResponse.json([]);
   }
 }

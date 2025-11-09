@@ -73,15 +73,30 @@ export default function BlastPage() {
         <h1 className="text-3xl font-bold text-gray-900">Blast Motion Integration</h1>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6 mb-6">
+      <div className="mb-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <h2 className="text-lg font-semibold text-blue-900 mb-2">Swing Detection</h2>
+          <p className="text-sm text-blue-800 mb-2">
+            Swing detection is now handled by a simple Python script. When recording video, run:
+          </p>
+          <code className="block bg-white p-2 rounded text-sm text-gray-800">
+            python scripts/detect_swings.py --session-id &lt;SESSION_ID&gt;
+          </code>
+          <p className="text-xs text-blue-700 mt-2">
+            The session ID will be shown in the console when you start recording.
+          </p>
+        </div>
+
         {/* Connection */}
         <BlastConnection onConnected={handleConnected} onData={handleData} />
-
-        {/* Current Metrics */}
-        {currentData && (
-          <BlastMetrics data={currentData} />
-        )}
       </div>
+
+      {/* Current Metrics */}
+      {currentData && (
+        <div className="mb-6">
+          <BlastMetrics data={currentData} />
+        </div>
+      )}
 
       {/* Sessions */}
       {sessions.length > 0 && (

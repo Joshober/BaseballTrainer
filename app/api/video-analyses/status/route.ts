@@ -23,27 +23,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing sessionIds' }, { status: 400 });
     }
 
-    const map = await getVideoAnalysisBySessionIds(sessionIds);
+    let map: Record<string, any> = {};
+    try {
+      map = await getVideoAnalysisBySessionIds(sessionIds);
+    } catch (error: any) {
+      console.warn('Error getting video analysis by session IDs:', error?.message);
+      // Continue with empty map
+    }
 
     // Fallback: if no record yet, but the session embeds analysis, treat as completed
     try {
       const db = getDatabaseAdapter();
       await Promise.all(sessionIds.map(async (sid) => {
         if (!map[sid]) {
-          const session = await db.getSession(sid);
-          if (session?.videoAnalysis?.ok) {
-            map[sid] = {
-              id: `session-${sid}`,
-              sessionId: sid,
-              status: 'completed',
-              analysis: session.videoAnalysis,
-              createdAt: session.createdAt || new Date(),
-              updatedAt: new Date(),
-            } as any;
+          try {
+            const session = await db.getSession(sid);
+            if (session?.videoAnalysis?.ok) {
+              map[sid] = {
+                id: `session-${sid}`,
+                sessionId: sid,
+                status: 'completed',
+                analysis: session.videoAnalysis,
+                createdAt: session.createdAt || new Date(),
+                updatedAt: new Date(),
+              } as any;
+            }
+          } catch (err) {
+            // Skip if session doesn't exist
           }
         }
       }));
-    } catch {}
+    } catch (error: any) {
+      console.warn('Error checking sessions for embedded analysis:', error?.message);
+    }
 
     // Retrigger analysis in backend for pending/failed sessions (with backoff)
     const origin = request.nextUrl.origin;
@@ -79,8 +91,13 @@ export async function POST(request: NextRequest) {
     }));
 
     return NextResponse.json({ ok: true, map });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Video analyses status error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    // Return empty map instead of 500 error if database is not available
+    if (error?.message?.includes('Database') || error?.message?.includes('MongoDB')) {
+      console.warn('Database not available, returning empty map');
+      return NextResponse.json({ ok: true, map: {} });
+    }
+    return NextResponse.json({ error: 'Internal server error', message: error?.message || 'Unknown error' }, { status: 500 });
   }
 }
