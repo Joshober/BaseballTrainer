@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getBackendUrl } from '@/lib/utils/backend-url';
-import { config } from '@/lib/utils/config';
 import { verifyIdToken } from '@/lib/auth0/admin';
-import { saveVideoAnalysis, updateSessionVideoAnalysis, updateSessionRecommendations } from '@/lib/mongodb/operations';
+import { saveVideoAnalysis, updateSessionVideoAnalysis } from '@/lib/mongodb/operations';
 import { getOpenRouterFeedback } from '@/lib/utils/openrouter';
 
 export const runtime = 'nodejs';
@@ -229,25 +228,8 @@ export async function POST(request: NextRequest) {
             } catch (e) {
               console.error('Failed to update session with analysis:', e);
             }
-            // Trigger drill recommendations and persist on the session
-            try {
-              const recUrl = config.drillRecommender.url || 'http://localhost:5001';
-              const recResp = await fetch(`${recUrl}/api/drills/recommend`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ analysis: result }),
-              });
-              if (recResp.ok) {
-                const recs = await recResp.json();
-                await updateSessionRecommendations(sessionId, recs);
-                try {
-                  revalidatePath('/drills');
-                } catch {}
-              }
-            } catch (err) {
-              // non-fatal
-              console.warn('Failed to generate or save drill recommendations', err);
-            }
+            // Drill recommendations are now generated via Gemini API when user clicks "View Recommended Drills"
+            // Removed automatic drill recommendation generation
           }
         }
       } catch (error) {

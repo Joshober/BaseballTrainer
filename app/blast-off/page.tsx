@@ -347,7 +347,16 @@ export default function BlastOffPage() {
                   {openRouterFeedback ? (
                     <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <h3 className="font-semibold text-blue-900 mb-2">AI Coaching Feedback</h3>
-                      <p className="text-sm text-blue-800 whitespace-pre-wrap">{openRouterFeedback}</p>
+                      <p className="text-sm text-blue-800 whitespace-pre-wrap mb-4">{openRouterFeedback}</p>
+                      <button
+                        onClick={() => {
+                          const feedbackParam = encodeURIComponent(openRouterFeedback);
+                          router.push(`/drills?feedback=${feedbackParam}`);
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                      >
+                        View Recommended Drills
+                      </button>
                     </div>
                   ) : recommendations.length > 0 ? (
                     <div className="mt-4">

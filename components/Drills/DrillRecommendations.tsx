@@ -468,7 +468,7 @@ export default function DrillRecommendations({
           value={clubhouseQuestion}
           onChange={(event) => setClubhouseQuestion(event.target.value)}
           rows={3}
-          placeholder="Example: \"What did that last swing look like?\" or \"Why does my launch angle stink?\""
+          placeholder='Example: "What did that last swing look like?" or "Why does my launch angle stink?"'
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
 

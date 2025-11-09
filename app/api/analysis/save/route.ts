@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyIdToken } from '@/lib/auth0/admin';
-import { saveVideoAnalysis, updateSessionVideoAnalysis, updateSessionRecommendations } from '@/lib/mongodb/operations';
+import { saveVideoAnalysis, updateSessionVideoAnalysis } from '@/lib/mongodb/operations';
 import { revalidatePath } from 'next/cache';
-import { config } from '@/lib/utils/config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,23 +35,8 @@ export async function POST(request: NextRequest) {
       } catch {}
     }
 
-    // Optional: trigger drill recommendations and save on the session
-    try {
-      const recUrl = config.drillRecommender.url || 'http://localhost:5001';
-      const recResp = await fetch(`${recUrl}/api/drills/recommend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ analysis }),
-      });
-      if (recResp.ok) {
-        const recs = await recResp.json();
-        if (sessionId) {
-          await updateSessionRecommendations(sessionId, recs);
-        }
-      }
-    } catch (e) {
-      // non-fatal
-    }
+    // Drill recommendations are now generated via Gemini API when user clicks "View Recommended Drills"
+    // Removed automatic drill recommendation generation
 
     // Revalidate videos page to refresh cards
     try { revalidatePath('/videos'); } catch {}

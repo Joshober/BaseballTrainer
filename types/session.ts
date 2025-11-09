@@ -169,4 +169,11 @@ export interface CreateSessionInput {
   videoAnalysis?: VideoAnalysis;
 }
 
+export interface GeminiDrill {
+  name: string;
+  description: string;
+  youtubeUrl: string;
+  rationale?: string;
+}
+
 

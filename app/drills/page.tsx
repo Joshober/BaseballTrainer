@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Target, Loader2, Search, Filter } from 'lucide-react';
+import { Target, Loader2, Search, Filter, Sparkles } from 'lucide-react';
 import { onAuthChange } from '@/lib/hooks/useAuth';
 import { getDrills, searchDrills, getDrillRecommendations, type Drill } from '@/lib/services/drill-recommender';
 import { getAuthToken, getAuthUser } from '@/lib/auth0/client';
 import DrillCard from '@/components/Drills/DrillCard';
+import GeminiDrillCard from '@/components/Drills/GeminiDrillCard';
 import PageContainer from '@/components/Layout/PageContainer';
+import { generateDrills } from '@/lib/services/gemini-drills';
+import type { GeminiDrill } from '@/types/session';
 
 export default function DrillsPage() {
   const router = useRouter();
@@ -25,6 +28,12 @@ export default function DrillsPage() {
   const [recommendedDrills, setRecommendedDrills] = useState<Drill[] | null>(null);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
+
+  // Gemini-generated drills from OpenRouter feedback
+  const [geminiDrills, setGeminiDrills] = useState<GeminiDrill[]>([]);
+  const [loadingGeminiDrills, setLoadingGeminiDrills] = useState(false);
+  const [geminiDrillsError, setGeminiDrillsError] = useState<string | null>(null);
+  const [openRouterFeedback, setOpenRouterFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     let hasLoadedDrills = false;
@@ -67,6 +76,42 @@ export default function DrillsPage() {
       setLoading(false);
     }
   };
+
+  // If feedback is provided, generate drills using Gemini
+  useEffect(() => {
+    const feedback = searchParams?.get('feedback');
+    if (!feedback) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingGeminiDrills(true);
+        setGeminiDrillsError(null);
+        setOpenRouterFeedback(feedback);
+
+        const response = await generateDrills({ feedback });
+        if (!cancelled) {
+          if (response.success && response.drills) {
+            setGeminiDrills(response.drills);
+          } else {
+            setGeminiDrillsError(response.error || 'Failed to generate drills');
+          }
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setGeminiDrillsError(e.message || 'Failed to generate drills');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingGeminiDrills(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
 
   // If a sessionId is provided, surface session-specific recommendations
   useEffect(() => {
@@ -171,8 +216,46 @@ export default function DrillsPage() {
 
   return (
     <PageContainer>
+      {/* Gemini-generated Drills from OpenRouter Feedback */}
+      {openRouterFeedback && (
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <Sparkles className="w-6 h-6 text-orange-600" />
+            <h2 className="text-2xl font-bold text-gray-900">Recommended Drills</h2>
+          </div>
+          {loadingGeminiDrills ? (
+            <div className="flex items-center justify-center min-h-[120px] bg-white rounded-lg shadow-md">
+              <Loader2 className="w-6 h-6 animate-spin text-orange-600" />
+              <span className="ml-3 text-gray-600">Generating personalized drills...</span>
+            </div>
+          ) : geminiDrillsError ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+              <p className="font-semibold mb-2">Error generating drills</p>
+              <p className="text-sm">{geminiDrillsError}</p>
+            </div>
+          ) : geminiDrills.length > 0 ? (
+            <div className="mb-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Coaching Feedback:</strong> {openRouterFeedback}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {geminiDrills.map((drill, index) => (
+                  <GeminiDrillCard key={index} drill={drill} />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-md p-4 text-gray-600">
+              No drills generated. Please try again.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Session-specific Recommendations */}
-      {searchParams?.get('sessionId') && (
+      {searchParams?.get('sessionId') && !openRouterFeedback && (
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
             <Target className="w-6 h-6 text-emerald-600" />
@@ -200,13 +283,16 @@ export default function DrillsPage() {
         </div>
       )}
 
-      <div className="flex items-center gap-3 mb-8">
-        <Target className="w-8 h-8 text-blue-600" />
-        <h1 className="text-3xl font-bold text-gray-900">Drill Library</h1>
-      </div>
+      {/* Only show drill library if not showing Gemini drills */}
+      {!openRouterFeedback && (
+        <>
+          <div className="flex items-center gap-3 mb-8">
+            <Target className="w-8 h-8 text-blue-600" />
+            <h1 className="text-3xl font-bold text-gray-900">Drill Library</h1>
+          </div>
 
-      {/* Search and Filters */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          {/* Search and Filters */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -256,6 +342,8 @@ export default function DrillsPage() {
             <DrillCard key={drill._id} drill={drill} onSelect={handleDrillSelect} />
           ))}
         </div>
+      )}
+        </>
       )}
 
       {/* Drill Detail Modal */}

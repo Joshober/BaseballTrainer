@@ -1393,6 +1393,17 @@ export default function AnalyzePage() {
                 <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg p-6 border border-orange-200">
                   <h3 className="font-semibold text-lg mb-3 text-orange-900">Coaching Feedback</h3>
                   <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">{openRouterFeedback}</p>
+                  <div className="mt-4">
+                    <button
+                      onClick={() => {
+                        const feedbackParam = encodeURIComponent(openRouterFeedback);
+                        router.push(`/drills?feedback=${feedbackParam}`);
+                      }}
+                      className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
+                    >
+                      View Recommended Drills
+                    </button>
+                  </div>
                 </div>
               )
             ) : (
