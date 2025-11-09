@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Upload, Play, Pause, Loader2, AlertCircle, CheckCircle, TrendingUp, Activity, Target, Zap } from 'lucide-react';
+import { Upload, Play, Pause, Loader2, AlertCircle, CheckCircle, TrendingUp, Activity, Target, Zap, Sparkles, Bot } from 'lucide-react';
 import { onAuthChange } from '@/lib/hooks/useAuth';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import type { VideoAnalysis } from '@/types/session';
@@ -22,6 +22,15 @@ export default function AnalyzePage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [loadingVideoFromUrl, setLoadingVideoFromUrl] = useState(false);
+<<<<<<< Updated upstream
+=======
+  const [polling, setPolling] = useState(false);
+  const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
+  const [guarding, setGuarding] = useState(false);
+  const [showOpenRouterModal, setShowOpenRouterModal] = useState(false);
+  const [openRouterFeedback, setOpenRouterFeedback] = useState<string | null>(null);
+  const [isAnalyzingWithOpenRouter, setIsAnalyzingWithOpenRouter] = useState(false);
+>>>>>>> Stashed changes
 
   useEffect(() => {
     let mounted = true;
@@ -179,6 +188,54 @@ export default function AnalyzePage() {
     setVideoUrl(URL.createObjectURL(file));
     setAnalysis(null);
     setError(null);
+  };
+
+  const handleOpenRouterAnalysis = async () => {
+    const sessionIdParam = searchParams?.get('sessionId');
+    if (!sessionIdParam) {
+      setError('Session ID is required for AI coaching analysis. Please analyze a video from your videos page.');
+      return;
+    }
+
+    setShowOpenRouterModal(true);
+    setIsAnalyzingWithOpenRouter(true);
+    setOpenRouterFeedback(null);
+
+    try {
+      const authUser = getAuthUser();
+      const token = getAuthToken();
+      if (!authUser || !token) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch('/api/openrouter/analyze-video', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: sessionIdParam,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Analysis failed' }));
+        throw new Error(errorData.error || 'Failed to analyze video');
+      }
+
+      const data = await response.json();
+      if (data.ok && data.feedback) {
+        setOpenRouterFeedback(data.feedback);
+      } else {
+        throw new Error('No feedback received');
+      }
+    } catch (error: any) {
+      console.error('OpenRouter analysis error:', error);
+      setOpenRouterFeedback(`Error: ${error.message || 'Failed to analyze video. Please try again.'}`);
+    } finally {
+      setIsAnalyzingWithOpenRouter(false);
+    }
   };
 
   const analyzeVideo = async () => {
@@ -542,6 +599,17 @@ export default function AnalyzePage() {
                         </p>
                       </div>
                     )}
+                    {/* OpenRouter AI Coaching Button */}
+                    {searchParams?.get('sessionId') && (
+                      <button
+                        onClick={handleOpenRouterAnalysis}
+                        className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
+                        title="Get AI coaching feedback on your swing"
+                      >
+                        <Sparkles className="w-5 h-5" />
+                        Get AI Coaching Feedback
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : null;
@@ -832,6 +900,67 @@ export default function AnalyzePage() {
           </div>
         </div>
       </div>
+
+      {/* OpenRouter Analysis Modal */}
+      {showOpenRouterModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Bot className="w-6 h-6 text-orange-600" />
+                <h2 className="text-2xl font-bold">AI Coaching Feedback</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowOpenRouterModal(false);
+                  setOpenRouterFeedback(null);
+                  setIsAnalyzingWithOpenRouter(false);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {isAnalyzingWithOpenRouter ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Analyzing your swing... This may take a moment.</p>
+                <p className="text-sm text-gray-500 mt-2">Extracting frames and sending to AI for analysis...</p>
+              </div>
+            ) : openRouterFeedback ? (
+              openRouterFeedback.startsWith('Error:') ? (
+                <div className="bg-red-50 rounded-lg p-6 border border-red-200">
+                  <h3 className="font-semibold text-lg mb-3 text-red-900">Analysis Error</h3>
+                  <p className="text-red-800 whitespace-pre-wrap leading-relaxed">{openRouterFeedback.replace(/^Error: /, '')}</p>
+                </div>
+              ) : (
+                <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg p-6 border border-orange-200">
+                  <h3 className="font-semibold text-lg mb-3 text-orange-900">Coaching Feedback</h3>
+                  <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">{openRouterFeedback}</p>
+                </div>
+              )
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p>No feedback available.</p>
+              </div>
+            )}
+            
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowOpenRouterModal(false);
+                  setOpenRouterFeedback(null);
+                  setIsAnalyzingWithOpenRouter(false);
+                }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

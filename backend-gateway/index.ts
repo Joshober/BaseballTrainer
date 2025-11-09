@@ -536,6 +536,50 @@ app.post('/api/pose/analyze-live', authenticate, upload.single('video'), async (
   }
 });
 
+// Proxy to Python Backend (Extract Frames)
+app.post('/api/pose/extract-frames', authenticate, upload.single('video'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No video provided' });
+    }
+
+    // Get frame interval parameter
+    const frameInterval = req.body.frameInterval ? parseInt(req.body.frameInterval, 10) : 5;
+
+    // Create FormData for Python backend
+    const FormData = require('form-data');
+    const formData = new FormData();
+    formData.append('video', req.file.buffer, {
+      filename: req.file.originalname || 'video.mp4',
+      contentType: req.file.mimetype || 'video/mp4',
+    });
+    formData.append('frameInterval', String(frameInterval));
+
+    // Forward to Pose Detection Service
+    const response = await axios.post(
+      `${POSE_DETECTION_SERVICE_URL}/api/pose/extract-frames`,
+      formData,
+      {
+        headers: {
+          'X-Internal-Request': 'true',
+          'X-User-Id': (req as any).userId || 'anonymous',
+          ...formData.getHeaders(),
+        },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        timeout: 60000, // 1 minute timeout for frame extraction
+      }
+    );
+    res.json(response.data);
+  } catch (error: any) {
+    console.error('Frame extraction error:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
 // Proxy to Drill Recommender
 app.post('/api/drills/recommend', authenticate, async (req, res) => {
   try {

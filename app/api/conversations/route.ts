@@ -17,12 +17,19 @@ export async function GET(request: NextRequest) {
 
     const db = getDatabaseAdapter();
     // Auth0 uses 'sub' as the user ID
-    const conversations = await db.getConversations(decodedToken.sub);
-    
-    return NextResponse.json(conversations);
-  } catch (error) {
+    try {
+      const conversations = await db.getConversations(decodedToken.sub);
+      return NextResponse.json(conversations);
+    } catch (dbError: any) {
+      console.error('Conversations database error:', dbError);
+      // Return empty array instead of error - conversations are optional
+      // This allows the app to work even if conversations fail
+      return NextResponse.json([]);
+    }
+  } catch (error: any) {
     console.error('Conversations fetch error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    // Return empty array instead of error - conversations are optional
+    return NextResponse.json([]);
   }
 }
 

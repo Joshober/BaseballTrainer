@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+<<<<<<< Updated upstream
 import { Video, Send, Bot, Play, Calendar, TrendingUp, Sparkles } from 'lucide-react';
+=======
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Video, Send, Bot, Play, Calendar, TrendingUp } from 'lucide-react';
+import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
+>>>>>>> Stashed changes
 import type { Session } from '@/types/session';
 import type { VideoAnalysis } from '@/types/session';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
@@ -14,10 +21,22 @@ interface VideoGalleryProps {
   sessions: Session[];
   onSendToMessenger: (session: Session) => void;
   onSendToAIBot: (session: Session) => void;
+<<<<<<< Updated upstream
   onSendToOpenRouter: (session: Session) => void;
 }
 
 export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot, onSendToOpenRouter }: VideoGalleryProps) {
+=======
+}
+
+interface SessionWithAnalysis extends Session {
+  videoAnalysisData?: VideoAnalysis | null;
+  pendingAnalysis?: boolean;
+}
+
+export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot }: VideoGalleryProps) {
+  const router = useRouter();
+>>>>>>> Stashed changes
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [filter, setFilter] = useState<'all' | 'good' | 'needs_work'>('all');
   const [sessionsWithAnalysis, setSessionsWithAnalysis] = useState<SessionWithAnalysis[]>([]);
@@ -209,9 +228,35 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                     onClick={() => onSendToOpenRouter(session)}
                     className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
                   >
+<<<<<<< Updated upstream
                     <Sparkles className="w-4 h-4" />
                     Analyze
                   </button>
+=======
+                    <TrendingUp className="w-4 h-4" />
+                    Drills
+                  </Link>
+                  {(session as SessionWithAnalysis).videoAnalysisData?.ok ? (
+                    <Link
+                      href={`/analyze?sessionId=${encodeURIComponent(session.id)}`}
+                      prefetch
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-gray-100 text-gray-900 hover:bg-gray-200"
+                    >
+                      <Play className="w-4 h-4" />
+                      View
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
+                      title="Analysis pending"
+                    >
+                      <Play className="w-4 h-4" />
+                      Pending
+                    </button>
+                  )}
+>>>>>>> Stashed changes
                 </div>
               </div>
             </div>
