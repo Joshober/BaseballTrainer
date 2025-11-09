@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Rocket, Home, LayoutDashboard, Video, Play, Target, Menu, X } from 'lucide-react';
+import { Rocket, Video, Target, Menu, X, Gamepad2 } from 'lucide-react';
 import { getAuthUser } from '@/lib/auth0/client';
 import UserMenu from '@/components/Navigation/UserMenu';
 import type { Auth0User } from '@/lib/auth0/client';
@@ -52,15 +52,10 @@ export default function Header() {
   };
 
   const navLinks = [
-    { href: '/', label: 'Home', icon: Home },
-    { 
-      href: userRole === 'coach' ? '/coach' : '/player', 
-      label: 'Dashboard', 
-      icon: LayoutDashboard 
-    },
     { href: '/videos', label: 'Videos', icon: Video },
-    { href: '/blast-off', label: 'Blast Off', icon: Rocket },
+    { href: '/train', label: 'Train', icon: Rocket },
     { href: '/drills', label: 'Drills', icon: Target },
+    { href: '/explore', label: 'Explore', icon: Gamepad2 },
   ];
 
   return (

@@ -370,11 +370,11 @@ export default function MissionPage() {
               <h1 className="text-3xl font-bold text-gray-900">Mission Control</h1>
             </div>
             <Link
-              href="/blast-off"
+              href="/train"
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg hover:from-purple-600 hover:to-blue-700 transition-colors font-medium"
             >
               <Rocket className="w-5 h-5" />
-              Blast Off
+              Train
             </Link>
           </div>
 

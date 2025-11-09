@@ -71,8 +71,8 @@ const planets = [
   }
 ];
 
-// Street view locations from design
-const streetViewLocations = [
+// Raw street view locations
+const rawStreetViewLocations = [
   { name: 'Times Square, New York', panoId: 'CAoSLEFGMVFpcE9fTWRsSWtOSXVUdmhEeW1OSGdCYzdMWUV1S3RudTNSZmR5TW1n', lat: 40.74844087767432, lng: -73.98566440535922 },
   { name: 'Eiffel Tower, Paris', panoId: 'CAoSLEFGMVFpcE9HVy1OQUNFa3VCZ0hQa0lKYVFJTXBsNnNjaFRaLU1ITGV3NWl3', lat: 48.858370, lng: 2.294481 },
   { name: 'Tokyo Tower, Japan', panoId: 'CAoSLEFGMVFpcE1fR0hYdDRQQW9sREExVGRPTWd2Qk43SFRJX0g3TlFkbWNDeTRV', lat: 35.658581, lng: 139.745438 },
@@ -102,8 +102,93 @@ const streetViewLocations = [
   { name: 'Mount Fuji, Japan', panoId: 'CAoSLEFGMVFpcE1iakRVZXZZaEY2SW53ZlNneTFnRWJZS3hUYm1tdjFJcGlDaWVB', lat: 35.360638, lng: 138.727363 },
   { name: 'Acropolis, Athens', panoId: 'CAoSLEFGMVFpcE5nSXBhbnlWRnlyaDFiY2JBLXBvSnFUbUR5OGFUNEJNOENBSnJD', lat: 37.971536, lng: 23.726442 },
   { name: 'Brandenburg Gate, Berlin', panoId: 'CAoSLEFGMVFpcE9UUzYyRUdTNUV3eEFiRGljWHJxdFRjRUZDdUZiT2R4NUpnaHdN', lat: 52.516275, lng: 13.377704 },
-  { name: 'Shibuya Crossing, Tokyo', panoId: 'CAoSLEFGMVFpcE5ZN3JGNEhsN3BsR0lJUkJYMlRmM3FKd0lQbXBPWnhNcGVOYWF4', lat: 35.659517, lng: 139.700565 }
+  { name: 'Shibuya Crossing, Tokyo', panoId: 'CAoSLEFGMVFpcE5ZN3JGNEhsN3BsR0lJUkJYMlRmM3FKd0lQbXBPWnhNcGVOYWF4', lat: 35.659517, lng: 139.700565 },
+  { name: 'Angkor Wat, Cambodia', panoId: 'CAoSLEFGMVFpcE5hbmdrb3JXYXQsU2llbVJlcGFwLEtob21lcnBlYW4sQ2FtYm9kaWE', lat: 13.412469, lng: 103.867001 },
+  { name: 'Petra, Jordan', panoId: 'CAoSLEFGMVFpcE5wZXRyYSxXYWRpTXVzYSxKb3JkYW4', lat: 30.328611, lng: 35.444167 },
+  { name: 'Pyramids of Giza, Egypt', panoId: 'CAoSLEFGMVFpcE5weXJhbWlkcyBvZiBnaXphLEVneXB0', lat: 29.979167, lng: 31.134167 },
+  { name: 'Mount Rushmore, South Dakota', panoId: 'CAoSLEFGMVFpcE5tb3VudCBydXNobW9yZSxTb3V0aCBEYWtvdGE', lat: 43.879102, lng: -103.459068 },
+  { name: 'Yellowstone National Park, Wyoming', panoId: 'CAoSLEFGMVFpcE55ZWxsb3dzdG9uZSBOYXRpb25hbCBQYXJrLFd5b21pbmc', lat: 44.4280, lng: -110.5885 },
+  { name: 'Yosemite Valley, California', panoId: 'CAoSLEFGMVFpcE55b3NlbWl0ZSBWYWxsZXksQ2FsaWZvcm5pYQ', lat: 37.865101, lng: -119.538330 },
+  { name: 'Niagara Falls, New York', panoId: 'CAoSLEFGMVFpcE5uaWFnYXJhIGZhbGxzLE5ldyBZb3Jr', lat: 43.096214, lng: -79.037738 },
+  { name: 'CN Tower, Toronto', panoId: 'CAoSLEFGMVFpcE5DTiBUb3dlcixUb3JvbnRvLE9udGFyaW8', lat: 43.642567, lng: -79.387054 },
+  { name: 'Chichen Itza, Mexico', panoId: 'CAoSLEFGMVFpcE5jaGljaGVuIGl0emEsWW9jYXRhbixNZXhpY28', lat: 20.684285, lng: -88.567782 },
+  { name: 'Iguazu Falls, Argentina', panoId: 'CAoSLEFGMVFpcE5pZ3VhenUgZmFsbHMsQXJnZW50aW5h', lat: -25.695278, lng: -54.436667 },
+  { name: 'Christchurch, New Zealand', panoId: 'CAoSLEFGMVFpcE5jaHJpc3RjaHVyY2gsTmV3IFplYWxhbmQ', lat: -43.532054, lng: 172.636225 },
+  { name: 'Uluru, Australia', panoId: 'CAoSLEFGMVFpcE51bHVydSxBdXN0cmFsaWE', lat: -25.344428, lng: 131.036882 },
+  { name: 'Bondi Beach, Sydney', panoId: 'CAoSLEFGMVFpcE5ib25kaSBiZWFjaCxTeWRuZXksQXVzdHJhbGlh', lat: -33.891475, lng: 151.276684 },
+  { name: 'Forbidden City, Beijing', panoId: 'CAoSLEFGMVFpcE5mb3JiaWRkZW4gY2l0eSxCZWlqaW5nLENoaW5h', lat: 39.916668, lng: 116.397026 },
+  { name: 'Temple of Heaven, Beijing', panoId: 'CAoSLEFGMVFpcE50ZW1wbGUgb2YgaGVhdmVuLEJlaWppbmcsQ2hpbmE', lat: 39.882343, lng: 116.406622 },
+  { name: 'Mount Everest Base Camp, Nepal', panoId: 'CAoSLEFGMVFpcE5tb3VudCBldmVyZXN0IGJhc2UgY2FtcCxOZXBhbA', lat: 28.002558, lng: 86.852778 },
+  { name: 'Red Square, Moscow', panoId: 'CAoSLEFGMVFpcE5yZWQgc3F1YXJlLE1vc2NvdyxSdXNzaWE', lat: 55.753930, lng: 37.620792 },
+  { name: 'St. Basils Cathedral, Moscow', panoId: 'CAoSLEFGMVFpcE5zdCBiYXNpbHMgY2F0aGVkcmFsLE1vc2NvdyxSdXNzaWE', lat: 55.752535, lng: 37.623082 },
+  { name: 'Blue Mosque, Istanbul', panoId: 'CAoSLEFGMVFpcE5ibHVlIG1vc3F1ZSwgSXN0YW5idWwsIFR1cmtleQ', lat: 41.005370, lng: 28.976385 },
+  { name: 'Hagia Sophia, Istanbul', panoId: 'CAoSLEFGMVFpcE5oYWdpYSBzb3BoaWEsIElzdGFuYnVsLCBUdXJrZXk', lat: 41.008583, lng: 28.980175 },
+  { name: 'Parthenon, Athens', panoId: 'CAoSLEFGMVFpcE5wYXJ0aGVub24sIEF0aGVucywgR3JlZWNl', lat: 37.971515, lng: 23.726788 },
+  { name: 'Alhambra, Granada', panoId: 'CAoSLEFGMVFpcE5hbGhhbWJyYSwgR3JhbmFkYSwgU3BhaW4', lat: 37.176067, lng: -3.588315 },
+  { name: 'Sagrada Familia, Barcelona', panoId: 'CAoSLEFGMVFpcFBhSlh6R0J6YzlqcXY0RGJJNzBWSXl2c01Rd3BncWdpWkFKQ3I5', lat: 41.403629, lng: 2.174356 },
+  { name: 'Neuschwanstein Castle, Germany', panoId: 'CAoSLEFGMVFpcE5uZXVzY2h3YW5zdGVpbiBjYXN0bGUsIEdlcm1hbnk', lat: 47.557574, lng: 10.749800 },
+  { name: 'Matterhorn, Switzerland', panoId: 'CAoSLEFGMVFpcE5tYXR0ZXJob3JuLCBTd2l0emVybGFuZA', lat: 45.976300, lng: 7.658600 },
+  { name: 'Leaning Tower of Pisa, Italy', panoId: 'CAoSLEFGMVFpcE5sZWFuaW5nIHRvd2VyIG9mIHBpc2EsIEl0YWx5', lat: 43.723005, lng: 10.396604 },
+  { name: 'Amalfi Coast, Italy', panoId: 'CAoSLEFGMVFpcE5hbWFsZmkgY29hc3QsIEl0YWx5', lat: 40.634003, lng: 14.602680 },
+  { name: 'Dubrovnik Old Town, Croatia', panoId: 'CAoSLEFGMVFpcE5kdWJyb3ZuaWssIENyb2F0aWE', lat: 42.650661, lng: 18.094424 },
+  { name: 'Plitvice Lakes, Croatia', panoId: 'CAoSLEFGMVFpcE5wbGl0dmljZSBsYWtlcywgQ3JvYXRpYQ', lat: 44.865600, lng: 15.582000 },
+  { name: 'Table Mountain, Cape Town', panoId: 'CAoSLEFGMVFpcE50YWJsZSBtb3VudGFpbiwgQ2FwZSBUb3duLCBTb3V0aCBBZnJpY2E', lat: -33.962822, lng: 18.401643 },
+  { name: 'Victoria Falls, Zambia', panoId: 'CAoSLEFGMVFpcE52aWN0b3JpYSBmYWxscywgWmFtYmlh', lat: -17.924299, lng: 25.857223 },
+  { name: 'Serengeti National Park, Tanzania', panoId: 'CAoSLEFGMVFpcE5zZXJlbmdldGksIFRhbnphbmlh', lat: -2.333333, lng: 34.833333 },
+  { name: 'Marrakech Medina, Morocco', panoId: 'CAoSLEFGMVFpcE5tYXJyYWtlY2gsIE1vcm9jY28', lat: 31.629472, lng: -7.981084 },
+  { name: 'Ayers Rock, Australia', panoId: 'CAoSLEFGMVFpcE5heWVycyByb2NrLCBBdXN0cmFsaWE', lat: -25.344428, lng: 131.036882 },
+  { name: 'Milford Sound, New Zealand', panoId: 'CAoSLEFGMVFpcE5taWxmb3JkIHNvdW5kLCBOZXcgWmVhbGFuZA', lat: -44.641389, lng: 167.894722 },
+  { name: 'Bora Bora, French Polynesia', panoId: 'CAoSLEFGMVFpcE5ib3JhIGJvcmEsIEZyZW5jaCBQb2x5bmVzaWE', lat: -16.500413, lng: -151.741490 },
+  { name: 'Hawaii Volcanoes National Park', panoId: 'CAoSLEFGMVFpcE5oYXdhaWkgdm9sY2Fub2VzLCBVU0E', lat: 19.419067, lng: -155.288330 },
+  { name: 'Banff National Park, Canada', panoId: 'CAoSLEFGMVFpcE5iYW5mZiBuYXRpb25hbCBwYXJrLCBDYW5hZGE', lat: 51.178363, lng: -115.570770 },
+  { name: 'Lake Louise, Canada', panoId: 'CAoSLEFGMVFpcE5sYWtlIGxvdWlzZSwgQ2FuYWRh', lat: 51.425371, lng: -116.177255 },
+  { name: 'Monument Valley, USA', panoId: 'CAoSLEFGMVFpcE5tb251bWVudCB2YWxsZXksIFVTQQ', lat: 36.998979, lng: -110.112169 },
+  { name: 'Antelope Canyon, Arizona', panoId: 'CAoSLEFGMVFpcE5hbnRlbG9wZSBjYW55b24sIEFyaXpvbmEsIFVTQQ', lat: 36.861944, lng: -111.374167 },
+  { name: 'Zion National Park, Utah', panoId: 'CAoSLEFGMVFpcE56aW9uIG5hdGlvbmFsIHBhcmssIFV0YWgsIFVTQQ', lat: 37.298202, lng: -113.026300 },
+  { name: 'Arches National Park, Utah', panoId: 'CAoSLEFGMVFpcE5hcmNoZXMgbmF0aW9uYWwgcGFyaywgVXRh', lat: 38.722618, lng: -109.586365 },
+  { name: 'Bryce Canyon, Utah', panoId: 'CAoSLEFGMVFpcE5icnljZSBjYW55b24sIFV0YWgsIFVTQQ', lat: 37.593038, lng: -112.187089 }
 ];
+
+// Filter locations with valid panoId
+const streetViewLocations = rawStreetViewLocations.filter(loc => loc.panoId);
+
+// Starting point (first location)
+const startPoint = { lat: streetViewLocations[0]?.lat || 40.74844087767432, lng: streetViewLocations[0]?.lng || -73.98566440535922 };
+
+// Haversine distance formula
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Sort locations by distance from start point
+const sortedLocations = [...streetViewLocations].sort((a, b) => {
+  const distA = haversineDistance(startPoint.lat, startPoint.lng, a.lat, a.lng);
+  const distB = haversineDistance(startPoint.lat, startPoint.lng, b.lat, b.lng);
+  return distA - distB;
+});
+
+// Calculate cumulative distances for each sorted location
+const cumulativeLocationDistances: number[] = [];
+sortedLocations.forEach((loc, index) => {
+  if (index === 0) {
+    cumulativeLocationDistances.push(0);
+  } else {
+    const prevLoc = sortedLocations[index - 1];
+    const segmentDist = haversineDistance(prevLoc.lat, prevLoc.lng, loc.lat, loc.lng);
+    cumulativeLocationDistances.push(cumulativeLocationDistances[index - 1] + segmentDist);
+  }
+});
+
+// Max swing distance (used for scaling)
+const maxSwingDistance = 50000;
+const maxGeoDistance = cumulativeLocationDistances[cumulativeLocationDistances.length - 1] || 1;
 
 type Swing = {
   bat_speed_mph: number;
@@ -117,41 +202,64 @@ type Swing = {
 export default function FungoUniverse() {
   const [stage, setStage] = useState<'intro' | 'planets' | 'earth-loop' | 'descent' | 'maps'>('intro');
   const [currentPlanetIndex, setCurrentPlanetIndex] = useState(-1);
-  const [selectedLocation, setSelectedLocation] = useState<typeof streetViewLocations[0] | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<typeof sortedLocations[0] | null>(null);
   const [speed, setSpeed] = useState(0);
   const [distance, setDistance] = useState(0);
+  const [cumulativeDistance, setCumulativeDistance] = useState(0);
   const [lastSwing, setLastSwing] = useState<Swing | null>(null);
   const [sseConnected, setSseConnected] = useState(false);
+
+  // Get location from cumulative distance
+  const getLocationFromDistance = (totalSwingDistance: number): typeof sortedLocations[0] => {
+    // Scale swing distance to geographic distance
+    const scaledDistance = (totalSwingDistance / maxSwingDistance) * maxGeoDistance;
+    
+    // Find the location index based on cumulative geographic distance
+    let locationIndex = 0;
+    for (let i = 0; i < cumulativeLocationDistances.length; i++) {
+      if (scaledDistance >= cumulativeLocationDistances[i]) {
+        locationIndex = i;
+      } else {
+        break;
+      }
+    }
+    
+    // Ensure we don't go beyond the array
+    locationIndex = Math.min(locationIndex, sortedLocations.length - 1);
+    
+    return sortedLocations[locationIndex];
+  };
 
   const handleSwing = (s: Swing) => {
     console.log("[FungoUniverse] 🎯 handleSwing called with:", s);
     
-    // Use exact formula from design: (value1 * 7 + value2 * 13 + value3 * 17) % streetViewLocations.length
-    // Must use Math.floor to convert to integer for array index
-    const combinedValue = Math.floor((s.bat_speed_mph * 7 + s.attack_angle_deg * 13 + s.omega_peak_dps * 17) % streetViewLocations.length);
-    const location = streetViewLocations[combinedValue];
+    // Calculate swing distance using the formula
+    const swingDistance = s.bat_speed_mph * 7 + s.attack_angle_deg * 13 + s.omega_peak_dps * 17;
     
-    if (!location) {
-      console.error("[FungoUniverse] ❌ Invalid location index:", combinedValue, "array length:", streetViewLocations.length);
-      return;
-    }
-    
-    console.log("[FungoUniverse] 📍 Selected location:", location.name, "from index:", combinedValue);
-    
-    // Set all state together - React will batch these updates
-    setLastSwing(s);
-    setSelectedLocation(location);
-    
-    // Reset and start animation
-    setStage('intro');
-    setCurrentPlanetIndex(-1);
-    setSpeed(0);
-    setDistance(0);
-    
-    console.log("[FungoUniverse] 🎬 State updates queued - stage: 'intro', location:", location.name);
-    
-    // The intro -> planets transition is handled by the useEffect hook below
-    // No need for setTimeout here since useEffect will handle it
+    // Update cumulative distance using functional update
+    setCumulativeDistance(prevCumulative => {
+      const newCumulativeDistance = prevCumulative + swingDistance;
+      
+      // Get location based on new cumulative distance
+      const location = getLocationFromDistance(newCumulativeDistance);
+      
+      console.log("[FungoUniverse] 📍 Swing distance:", swingDistance, "Total distance:", newCumulativeDistance, "Location:", location.name);
+      
+      // Defer other state updates to ensure cumulativeDistance is updated first
+      setTimeout(() => {
+        // Set lastSwing with new object reference to trigger useEffect
+        setLastSwing({ ...s, timestamp: Date.now() } as any);
+        setSelectedLocation(location);
+        
+        // Always restart animation sequence
+        setStage('intro');
+        setCurrentPlanetIndex(-1);
+        setSpeed(0);
+        setDistance(0);
+      }, 0);
+      
+      return newCumulativeDistance;
+    });
   };
 
   // Listen to SSE swings with reconnection
@@ -225,14 +333,14 @@ export default function FungoUniverse() {
 
   // Intro -> Planets transition
   useEffect(() => {
-    if (stage === 'intro' && lastSwing) {
+    if (stage === 'intro' && lastSwing && selectedLocation) {
       const introTimer = setTimeout(() => {
         setStage('planets');
         setCurrentPlanetIndex(0);
-      }, 3000);
+      }, 1000); // Faster animation
       return () => clearTimeout(introTimer);
     }
-  }, [stage, lastSwing]);
+  }, [stage, lastSwing, selectedLocation]);
 
   // Planets animation
   useEffect(() => {
@@ -240,8 +348,8 @@ export default function FungoUniverse() {
       const planet = planets[currentPlanetIndex];
       
       const speedInterval = setInterval(() => {
-        setSpeed(prev => Math.min(prev + 1000, 50000));
-        setDistance(prev => prev + 1000);
+        setSpeed(prev => Math.min(prev + 2000, 50000));
+        setDistance(prev => prev + 2000);
       }, 50);
 
       const timer = setTimeout(() => {
@@ -251,7 +359,7 @@ export default function FungoUniverse() {
         } else {
           setStage('earth-loop');
         }
-      }, planet.duration * 1000);
+      }, planet.duration * 300); // 70% faster
 
       return () => {
         clearTimeout(timer);
@@ -265,7 +373,7 @@ export default function FungoUniverse() {
     if (stage === 'earth-loop') {
       const timer = setTimeout(() => {
         setStage('descent');
-      }, 5000);
+      }, 1500); // Faster
       return () => clearTimeout(timer);
     }
   }, [stage]);
@@ -275,7 +383,7 @@ export default function FungoUniverse() {
     if (stage === 'descent') {
       const timer = setTimeout(() => {
         setStage('maps');
-      }, 4000);
+      }, 1200); // Faster
       return () => clearTimeout(timer);
     }
   }, [stage]);
@@ -434,6 +542,10 @@ export default function FungoUniverse() {
                 <div className="text-lg">{distance.toLocaleString()} km</div>
               </div>
               <div className="bg-black/80 px-4 py-2 rounded border border-cyan-400/40">
+                <div className="text-cyan-300/70 text-xs">TOTAL TRAVELED</div>
+                <div className="text-lg">{cumulativeDistance.toLocaleString()}</div>
+              </div>
+              <div className="bg-black/80 px-4 py-2 rounded border border-cyan-400/40">
                 <div className="text-cyan-300/70 text-xs">DESTINATION</div>
                 <div className="text-lg">{selectedLocation.name}</div>
               </div>
@@ -487,7 +599,7 @@ export default function FungoUniverse() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 1 }}
+              transition={{ duration: 0.75 }}
           >
             <div className="text-white text-center">
               <motion.div
@@ -504,6 +616,16 @@ export default function FungoUniverse() {
                 >
                   DESTINATION: {selectedLocation.name}
                 </motion.div>
+                {cumulativeDistance > 0 && (
+                  <motion.div
+                    className="text-lg opacity-60 font-mono text-cyan-300 mt-2"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.6 }}
+                    transition={{ delay: 0.5 }}
+                  >
+                    Total Distance: {cumulativeDistance.toLocaleString()}
+                  </motion.div>
+                )}
                 <div className="mt-8 flex justify-center gap-2">
                   {[...Array(3)].map((_, i) => (
                     <motion.div
@@ -546,7 +668,7 @@ export default function FungoUniverse() {
                 filter: 'blur(30px)'
               }}
               transition={{ 
-                duration: planets[currentPlanetIndex].duration,
+                duration: planets[currentPlanetIndex].duration * 0.3, // Faster
                 ease: [0.25, 0.46, 0.45, 0.94],
                 times: [0, 0.5, 1]
               }}
@@ -616,9 +738,9 @@ export default function FungoUniverse() {
                 rotateY: [0, 360]
               }}
               transition={{ 
-                z: { duration: 2.5, ease: 'easeOut' },
-                scale: { duration: 2.5, ease: 'easeOut' },
-                rotateY: { duration: 8, ease: 'linear', repeat: Infinity }
+                z: { duration: 0.75, ease: 'easeOut' },
+                scale: { duration: 0.75, ease: 'easeOut' },
+                rotateY: { duration: 2.4, ease: 'linear', repeat: Infinity }
               }}
             >
               <Planet3D
@@ -675,7 +797,7 @@ export default function FungoUniverse() {
                 scale: [2.5, 1],
                 opacity: [0, 1, 0.9]
               }}
-              transition={{ duration: 3.5 }}
+              transition={{ duration: 1.05 }}
             />
             
             {/* Heat particles */}
@@ -726,7 +848,7 @@ export default function FungoUniverse() {
             className="absolute inset-0 z-20"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 2.5 }}
+            transition={{ duration: 0.75 }}
           >
             <iframe
               src={`https://www.google.com/maps/embed?pb=!4v1731169200000!6m8!1m7!1s${selectedLocation.panoId}!2m2!1d${selectedLocation.lat}!2d${selectedLocation.lng}!3f0!4f0!5f0.7820865974627469`}
@@ -742,10 +864,12 @@ export default function FungoUniverse() {
               className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-black/90 text-white px-8 py-4 rounded-lg border border-cyan-400/40 font-mono"
               initial={{ y: -100, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 1.5, duration: 1 }}
+              transition={{ delay: 0.5, duration: 0.5 }}
             >
               <div className="text-cyan-400 text-sm mb-1">LANDING SUCCESSFUL</div>
               <div className="text-xl">📍 {selectedLocation.name}</div>
+              <div className="text-cyan-300/70 text-sm mt-2">Total Distance: {cumulativeDistance.toLocaleString()}</div>
+              <div className="text-cyan-300/70 text-xs mt-1">Swing again to travel further!</div>
             </motion.div>
           </motion.div>
         )}

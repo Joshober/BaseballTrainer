@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Rocket, Trophy, Camera, MessageCircle } from 'lucide-react';
+import { Rocket, Video, Target, Gamepad2 } from 'lucide-react';
 import AuthButton from '@/components/Auth/AuthButton';
 
 export default function Home() {
@@ -19,84 +19,107 @@ export default function Home() {
           {/* Hero Section */}
           <div className="text-center mb-16">
             <h2 className="text-5xl font-bold text-gray-900 mb-4">
-              Launch Your Swing to Mars
+              Training Doesn't Have to Feel Like Work
             </h2>
-            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-              Capture your baseball swing, analyze it with AI pose detection, and see how far your
-              ball travels through space zones from Atmosphere to Mars!
+            <p className="text-2xl font-semibold text-blue-600 mb-4">
+              We Make It Feel Like a Mission to Mars
             </p>
-            <Link
-              href="/mission"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
-            >
-              <Camera className="w-6 h-6" />
-              Start Mission
-            </Link>
+            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+              Transform your baseball training into an adventure. Upload your swings, get AI-powered feedback, and explore the world through gamified training.
+            </p>
+            <div className="flex gap-4 justify-center">
+              <Link
+                href="/train"
+                className="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
+              >
+                <Rocket className="w-6 h-6" />
+                Start Training
+              </Link>
+              <Link
+                href="/explore"
+                className="inline-flex items-center gap-2 px-8 py-4 bg-purple-600 text-white rounded-lg text-lg font-semibold hover:bg-purple-700 transition-colors shadow-lg hover:shadow-xl"
+              >
+                <Gamepad2 className="w-6 h-6" />
+                Explore the World
+              </Link>
+            </div>
           </div>
 
           {/* Features */}
-          <div className="grid md:grid-cols-3 gap-8 mb-16">
-            <div className="p-6 bg-white rounded-lg shadow-md">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <Camera className="w-6 h-6 text-blue-600" />
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+            <Link
+              href="/train"
+              className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow group"
+            >
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4 group-hover:bg-blue-200 transition-colors">
+                <Rocket className="w-6 h-6 text-blue-600" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">AI Pose Detection</h3>
+              <h3 className="text-xl font-semibold mb-2 text-gray-900">AI-Powered Training</h3>
               <p className="text-gray-600">
-                Advanced on-device and server-side pose detection to analyze your swing angle and
-                form.
+                Upload your swing videos and get instant AI coaching feedback to improve your form.
               </p>
-            </div>
+            </Link>
 
-            <div className="p-6 bg-white rounded-lg shadow-md">
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                <Rocket className="w-6 h-6 text-purple-600" />
+            <Link
+              href="/videos"
+              className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow group"
+            >
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4 group-hover:bg-purple-200 transition-colors">
+                <Video className="w-6 h-6 text-purple-600" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">Space Zones</h3>
+              <h3 className="text-xl font-semibold mb-2 text-gray-900">Your Video Library</h3>
               <p className="text-gray-600">
-                Track your progress through Atmosphere, Low Earth Orbit, Moon, and Mars based on
-                your swing metrics.
+                Record, upload, and manage all your swing videos in one place.
               </p>
-            </div>
+            </Link>
 
-            <div className="p-6 bg-white rounded-lg shadow-md">
-              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mb-4">
-                <Trophy className="w-6 h-6 text-yellow-600" />
+            <Link
+              href="/drills"
+              className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow group"
+            >
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4 group-hover:bg-green-200 transition-colors">
+                <Target className="w-6 h-6 text-green-600" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">Leaderboard</h3>
+              <h3 className="text-xl font-semibold mb-2 text-gray-900">Personalized Drills</h3>
               <p className="text-gray-600">
-                Compete with your team and see who can launch their swing the farthest into space.
+                Get drill recommendations tailored to your swing analysis and improve faster.
               </p>
-            </div>
+            </Link>
+
+            <Link
+              href="/explore"
+              className="p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow group"
+            >
+              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4 group-hover:bg-orange-200 transition-colors">
+                <Gamepad2 className="w-6 h-6 text-orange-600" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2 text-gray-900">Explore the World</h3>
+              <p className="text-gray-600">
+                Swing your way around the globe - travel to real locations based on your performance.
+              </p>
+            </Link>
           </div>
 
-          {/* CTA */}
-          <div className="text-center space-x-4">
-            <Link
-              href="/leaderboard"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-            >
-              <Trophy className="w-5 h-5" />
-              View Leaderboard
-            </Link>
-            <Link
-              href="/teams"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-            >
-              Teams
-            </Link>
-            <Link
-              href="/coach"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-            >
-              Coach Dashboard
-            </Link>
-            <Link
-              href="/messages"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-            >
-              <MessageCircle className="w-5 h-5" />
-              Messages
-            </Link>
+          {/* Mission Statement */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-xl p-8 md:p-12 text-white text-center">
+            <h3 className="text-3xl font-bold mb-4">Your Mission Awaits</h3>
+            <p className="text-lg text-blue-100 mb-6 max-w-2xl mx-auto">
+              Every swing is a step closer to your next destination. Track your progress, improve your form, and explore the world - all while having fun.
+            </p>
+            <div className="flex flex-wrap gap-4 justify-center">
+              <div className="bg-white/20 backdrop-blur-sm rounded-lg px-6 py-3">
+                <div className="text-2xl font-bold">AI-Powered</div>
+                <div className="text-sm text-blue-100">Instant Feedback</div>
+              </div>
+              <div className="bg-white/20 backdrop-blur-sm rounded-lg px-6 py-3">
+                <div className="text-2xl font-bold">Gamified</div>
+                <div className="text-sm text-blue-100">Training Made Fun</div>
+              </div>
+              <div className="bg-white/20 backdrop-blur-sm rounded-lg px-6 py-3">
+                <div className="text-2xl font-bold">Explore</div>
+                <div className="text-sm text-blue-100">Travel the World</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
