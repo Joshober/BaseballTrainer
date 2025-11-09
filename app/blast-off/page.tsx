@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Rocket, Loader2, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Rocket, Loader2, ArrowLeft, AlertCircle, Volume2 } from 'lucide-react';
 import { onAuthChange } from '@/lib/hooks/useAuth';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import { getStorageAdapter } from '@/lib/storage';
 import CaptureUpload from '@/components/Mission/CaptureUpload';
+import { generateDrillNarration } from '@/lib/services/elevenlabs';
 import type { VideoAnalysis } from '@/types/session';
 
 const RECOMMENDATIONS_LIMIT = 2;
@@ -101,6 +102,10 @@ export default function BlastOffPage() {
   const [videoAnalysis, setVideoAnalysis] = useState<VideoAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthChange((authUser) => {
@@ -221,6 +226,7 @@ export default function BlastOffPage() {
             } as VideoAnalysis);
             feedbackReceived = true;
             console.log('[Blast Off] OpenRouter feedback received:', openRouterResult.feedback.substring(0, 100));
+            // Don't redirect - stay on page and show buttons
           } else {
             console.warn('[Blast Off] OpenRouter returned no feedback:', openRouterResult);
           }
@@ -269,6 +275,59 @@ export default function BlastOffPage() {
       setIsAnalyzing(false);
     }
   };
+
+  const handlePlayVoiceOver = async () => {
+    const openRouterFeedback = (videoAnalysis as any)?.openRouterFeedback;
+    if (!openRouterFeedback || openRouterFeedback.startsWith('Error:')) {
+      setAudioError('No feedback available for voice over');
+      return;
+    }
+
+    try {
+      setAudioLoading(true);
+      setAudioError(null);
+      
+      // Clean up previous audio URL if it exists
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+        setAudioUrl(null);
+      }
+
+      // Generate audio using 11labs
+      const audioBlob = await generateDrillNarration({
+        text: openRouterFeedback,
+        voice: 'american_coach',
+      });
+
+      // Create blob URL for audio playback
+      const url = URL.createObjectURL(audioBlob);
+      setAudioUrl(url);
+      
+      // Audio will be available for playback via the audio element
+    } catch (err: any) {
+      console.error('Error generating voice over:', err);
+      setAudioError(err.message || 'Failed to generate voice over');
+    } finally {
+      setAudioLoading(false);
+    }
+  };
+
+  const handleViewDrills = () => {
+    const openRouterFeedback = (videoAnalysis as any)?.openRouterFeedback;
+    if (openRouterFeedback) {
+      const feedbackParam = encodeURIComponent(openRouterFeedback);
+      router.push(`/drills?feedback=${feedbackParam}`);
+    }
+  };
+
+  // Cleanup audio URL on unmount
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
 
   if (loading) {
     return (
@@ -348,15 +407,43 @@ export default function BlastOffPage() {
                     <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <h3 className="font-semibold text-blue-900 mb-2">AI Coaching Feedback</h3>
                       <p className="text-sm text-blue-800 whitespace-pre-wrap mb-4">{openRouterFeedback}</p>
-                      <button
-                        onClick={() => {
-                          const feedbackParam = encodeURIComponent(openRouterFeedback);
-                          router.push(`/drills?feedback=${feedbackParam}`);
-                        }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-                      >
-                        View Recommended Drills
-                      </button>
+                      
+                      {/* Action Buttons */}
+                      <div className="flex gap-3 mt-4">
+                        <button
+                          onClick={handlePlayVoiceOver}
+                          disabled={audioLoading}
+                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                        >
+                          {audioLoading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="w-4 h-4" />
+                              Play Voice Over
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={handleViewDrills}
+                          className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
+                        >
+                          View Recommended Drills
+                        </button>
+                      </div>
+
+                      {/* Audio Error */}
+                      {audioError && (
+                        <p className="text-xs text-red-600 mt-2">{audioError}</p>
+                      )}
+
+                      {/* Audio Element */}
+                      {audioUrl && (
+                        <audio ref={audioRef} src={audioUrl} controls className="mt-3 w-full" autoPlay />
+                      )}
                     </div>
                   ) : recommendations.length > 0 ? (
                     <div className="mt-4">

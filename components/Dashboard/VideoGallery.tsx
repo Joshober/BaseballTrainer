@@ -1,18 +1,14 @@
 ﻿'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Video, Send, Bot, Play, Calendar, TrendingUp, Sparkles } from 'lucide-react';
+import { Video, Bot, Calendar } from 'lucide-react';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import type { Session } from '@/types/session';
 import type { VideoAnalysis } from '@/types/session';
 
 interface VideoGalleryProps {
   sessions: Session[];
-  onSendToMessenger: (session: Session) => void;
   onSendToAIBot: (session: Session) => void;
-  onSendToOpenRouter?: (session: Session) => void;
 }
 
 interface SessionWithAnalysis extends Session {
@@ -20,8 +16,7 @@ interface SessionWithAnalysis extends Session {
   pendingAnalysis?: boolean;
 }
 
-export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot, onSendToOpenRouter }: VideoGalleryProps) {
-  const router = useRouter();
+export default function VideoGallery({ sessions, onSendToAIBot }: VideoGalleryProps) {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [filter, setFilter] = useState<'all' | 'good' | 'needs_work'>('all');
   const [sessionsWithAnalysis, setSessionsWithAnalysis] = useState<SessionWithAnalysis[]>([]);
@@ -261,61 +256,16 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                     <span>{new Date(session.createdAt).toLocaleDateString()}</span>
                   </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => onSendToMessenger(session)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                  >
-                    <Send className="w-4 h-4" />
-                    Send
-                  </button>
-                  <button
-                    onClick={() => onSendToAIBot(session)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
-                  >
-                    <Bot className="w-4 h-4" />
-                    AI Bot
-                  </button>
-                  <Link
-                    href={`/drills?sessionId=${encodeURIComponent(session.id)}`}
-                    prefetch
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700"
-                    title="View recommended drills for this session"
-                  >
-                    <TrendingUp className="w-4 h-4" />
-                    Drills
-                  </Link>
-                  {onSendToOpenRouter && (
-                    <button
-                      onClick={() => onSendToOpenRouter(session)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      Analyze
-                    </button>
-                  )}
-                  {(session as SessionWithAnalysis).videoAnalysisData?.ok ? (
-                    <Link
-                      href={`/analyze?sessionId=${encodeURIComponent(session.id)}`}
-                      prefetch
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-gray-100 text-gray-900 hover:bg-gray-200"
-                    >
-                      <Play className="w-4 h-4" />
-                      View
-                    </Link>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
-                      title="Analysis pending"
-                    >
-                      <Play className="w-4 h-4" />
-                      Pending
-                    </button>
-                  )}
-                </div>
+                 {/* Action Button */}
+                 <div className="flex gap-2">
+                   <button
+                     onClick={() => onSendToAIBot(session)}
+                     className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                   >
+                     <Bot className="w-4 h-4" />
+                     Send to AI Chat Bot
+                   </button>
+                 </div>
                 </div>
               </div>
             );

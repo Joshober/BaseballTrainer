@@ -636,7 +636,6 @@ export default function VideosPage() {
                 )}
                 <VideoGallery
                   sessions={sessions}
-                  onSendToMessenger={handleSendToMessenger}
                   onSendToAIBot={handleSendToAIBot}
                 />
               </>

@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server';
 
-type BaseballVoice = 'dominican' | 'japanese' | 'black_american';
+type BaseballVoice = 'dominican' | 'japanese' | 'black_american' | 'american_coach';
 
 const VOICE_ENV_MAP: Record<BaseballVoice, string | undefined> = {
   dominican: process.env.ELEVENLABS_DOMINICAN_VOICE_ID,
   japanese: process.env.ELEVENLABS_JAPANESE_VOICE_ID,
   black_american: process.env.ELEVENLABS_BLACK_AMERICAN_VOICE_ID,
+  american_coach: process.env.AMERICAN_COACH_ID,
 };
 
 export async function POST(request: NextRequest) {

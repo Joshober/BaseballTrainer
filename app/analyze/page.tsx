@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Upload, Play, Pause, Loader2, AlertCircle, CheckCircle, TrendingUp, Activity, Target, Zap, Sparkles, Bot } from 'lucide-react';
+import { Upload, Play, Pause, Loader2, AlertCircle, CheckCircle, TrendingUp, Activity, Target, Zap, Sparkles, Bot, Volume2 } from 'lucide-react';
 import { onAuthChange } from '@/lib/hooks/useAuth';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
+import { generateDrillNarration } from '@/lib/services/elevenlabs';
 import type { VideoAnalysis } from '@/types/session';
 import AnalysisAnimation from '@/components/Analysis/AnalysisAnimation';
 
@@ -28,6 +29,10 @@ export default function AnalyzePage() {
   const [showOpenRouterModal, setShowOpenRouterModal] = useState(false);
   const [openRouterFeedback, setOpenRouterFeedback] = useState<string | null>(null);
   const [isAnalyzingWithOpenRouter, setIsAnalyzingWithOpenRouter] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -263,6 +268,7 @@ export default function AnalyzePage() {
       const data = await response.json();
       if (data.ok && data.feedback) {
         setOpenRouterFeedback(data.feedback);
+        // Don't redirect - stay on page and show buttons
       } else {
         throw new Error('No feedback received');
       }
@@ -273,6 +279,58 @@ export default function AnalyzePage() {
       setIsAnalyzingWithOpenRouter(false);
     }
   };
+
+  const handlePlayVoiceOver = async () => {
+    if (!openRouterFeedback || openRouterFeedback.startsWith('Error:')) {
+      setAudioError('No feedback available for voice over');
+      return;
+    }
+
+    try {
+      setAudioLoading(true);
+      setAudioError(null);
+      
+      // Clean up previous audio URL if it exists
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+        setAudioUrl(null);
+      }
+
+      // Generate audio using 11labs
+      const audioBlob = await generateDrillNarration({
+        text: openRouterFeedback,
+        voice: 'american_coach',
+      });
+
+      // Create blob URL for audio playback
+      const url = URL.createObjectURL(audioBlob);
+      setAudioUrl(url);
+      
+      // Audio will auto-play when the element is rendered
+    } catch (err: any) {
+      console.error('Error generating voice over:', err);
+      setAudioError(err.message || 'Failed to generate voice over');
+    } finally {
+      setAudioLoading(false);
+    }
+  };
+
+  const handleViewDrills = () => {
+    if (openRouterFeedback) {
+      const feedbackParam = encodeURIComponent(openRouterFeedback);
+      router.push(`/drills?feedback=${feedbackParam}`);
+    }
+  };
+
+  // Cleanup audio URL on unmount
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
+
 
   const analyzeVideo = async () => {
     if (!selectedFile) {
@@ -1393,17 +1451,43 @@ export default function AnalyzePage() {
                 <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg p-6 border border-orange-200">
                   <h3 className="font-semibold text-lg mb-3 text-orange-900">Coaching Feedback</h3>
                   <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">{openRouterFeedback}</p>
-                  <div className="mt-4">
+                  
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 mt-4">
                     <button
-                      onClick={() => {
-                        const feedbackParam = encodeURIComponent(openRouterFeedback);
-                        router.push(`/drills?feedback=${feedbackParam}`);
-                      }}
-                      className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
+                      onClick={handlePlayVoiceOver}
+                      disabled={audioLoading}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                    >
+                      {audioLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Volume2 className="w-4 h-4" />
+                          Play Voice Over
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={handleViewDrills}
+                      className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
                     >
                       View Recommended Drills
                     </button>
                   </div>
+
+                  {/* Audio Error */}
+                  {audioError && (
+                    <p className="text-xs text-red-600 mt-2">{audioError}</p>
+                  )}
+
+                  {/* Audio Element */}
+                  {audioUrl && (
+                    <audio ref={audioRef} src={audioUrl} controls className="mt-3 w-full" autoPlay />
+                  )}
                 </div>
               )
             ) : (

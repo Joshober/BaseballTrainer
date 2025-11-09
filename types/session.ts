@@ -173,6 +173,7 @@ export interface GeminiDrill {
   name: string;
   description: string;
   youtubeUrl: string;
+  videoDescription?: string;
   rationale?: string;
 }
 

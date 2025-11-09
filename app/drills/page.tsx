@@ -2,15 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Target, Loader2, Search, Filter, Sparkles } from 'lucide-react';
+import { Target, Loader2, Search, Filter } from 'lucide-react';
 import { onAuthChange } from '@/lib/hooks/useAuth';
 import { getDrills, searchDrills, getDrillRecommendations, type Drill } from '@/lib/services/drill-recommender';
 import { getAuthToken, getAuthUser } from '@/lib/auth0/client';
 import DrillCard from '@/components/Drills/DrillCard';
-import GeminiDrillCard from '@/components/Drills/GeminiDrillCard';
 import PageContainer from '@/components/Layout/PageContainer';
-import { generateDrills } from '@/lib/services/gemini-drills';
-import type { GeminiDrill } from '@/types/session';
 
 export default function DrillsPage() {
   const router = useRouter();
@@ -30,10 +27,11 @@ export default function DrillsPage() {
   const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
 
   // Gemini-generated drills from OpenRouter feedback
-  const [geminiDrills, setGeminiDrills] = useState<GeminiDrill[]>([]);
+  const [geminiDrills, setGeminiDrills] = useState<any[]>([]);
   const [loadingGeminiDrills, setLoadingGeminiDrills] = useState(false);
   const [geminiDrillsError, setGeminiDrillsError] = useState<string | null>(null);
   const [openRouterFeedback, setOpenRouterFeedback] = useState<string | null>(null);
+
 
   useEffect(() => {
     let hasLoadedDrills = false;
@@ -89,12 +87,24 @@ export default function DrillsPage() {
         setGeminiDrillsError(null);
         setOpenRouterFeedback(feedback);
 
-        const response = await generateDrills({ feedback });
+        const response = await fetch('/api/gemini/generate-drills', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ feedback }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to generate drills');
+        }
+
+        const data = await response.json();
         if (!cancelled) {
-          if (response.success && response.drills) {
-            setGeminiDrills(response.drills);
+          if (data.success && data.drills) {
+            setGeminiDrills(data.drills);
           } else {
-            setGeminiDrillsError(response.error || 'Failed to generate drills');
+            setGeminiDrillsError(data.error || 'Failed to generate drills');
           }
         }
       } catch (e: any) {
@@ -112,6 +122,7 @@ export default function DrillsPage() {
       cancelled = true;
     };
   }, [searchParams]);
+
 
   // If a sessionId is provided, surface session-specific recommendations
   useEffect(() => {
@@ -220,8 +231,8 @@ export default function DrillsPage() {
       {openRouterFeedback && (
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <Sparkles className="w-6 h-6 text-orange-600" />
-            <h2 className="text-2xl font-bold text-gray-900">Recommended Drills</h2>
+            <Target className="w-6 h-6 text-orange-600" />
+            <h2 className="text-2xl font-bold text-gray-900">Recommended Hitting Drills</h2>
           </div>
           {loadingGeminiDrills ? (
             <div className="flex items-center justify-center min-h-[120px] bg-white rounded-lg shadow-md">
@@ -242,7 +253,18 @@ export default function DrillsPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {geminiDrills.map((drill, index) => (
-                  <GeminiDrillCard key={index} drill={drill} />
+                  <div key={index} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden">
+                    <div className="p-4">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">{drill.name}</h3>
+                      <p className="text-sm text-gray-600 mb-3">{drill.description}</p>
+                      {drill.rationale && (
+                        <div className="mt-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
+                          <strong className="block mb-1">Why this drill helps:</strong>
+                          {drill.rationale}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -283,7 +305,7 @@ export default function DrillsPage() {
         </div>
       )}
 
-      {/* Only show drill library if not showing Gemini drills */}
+      {/* Drill Library (only show if no OpenRouter feedback) */}
       {!openRouterFeedback && (
         <>
           <div className="flex items-center gap-3 mb-8">
@@ -293,56 +315,56 @@ export default function DrillsPage() {
 
           {/* Search and Filters */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search drills..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search drills..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All Categories</option>
+                  <option value="hitting">Hitting</option>
+                  <option value="pitching">Pitching</option>
+                  <option value="fielding">Fielding</option>
+                  <option value="conditioning">Conditioning</option>
+                </select>
+                <select
+                  value={difficultyFilter}
+                  onChange={(e) => setDifficultyFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All Levels</option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Categories</option>
-              <option value="hitting">Hitting</option>
-              <option value="pitching">Pitching</option>
-              <option value="fielding">Fielding</option>
-              <option value="conditioning">Conditioning</option>
-            </select>
-            <select
-              value={difficultyFilter}
-              onChange={(e) => setDifficultyFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Levels</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-            </select>
-          </div>
-        </div>
-      </div>
 
-      {/* Drill Grid */}
-      {filteredDrills.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-12 text-center">
-          <Target className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-          <p className="text-lg text-gray-600">No drills found matching your criteria.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredDrills.map((drill) => (
-            <DrillCard key={drill._id} drill={drill} onSelect={handleDrillSelect} />
-          ))}
-        </div>
-      )}
+          {/* Drill Grid */}
+          {filteredDrills.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-md p-12 text-center">
+              <Target className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+              <p className="text-lg text-gray-600">No drills found matching your criteria.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredDrills.map((drill) => (
+                <DrillCard key={drill._id} drill={drill} onSelect={handleDrillSelect} />
+              ))}
+            </div>
+          )}
         </>
       )}
 

@@ -1,4 +1,4 @@
-export type BaseballVoice = 'dominican' | 'japanese' | 'black_american';
+export type BaseballVoice = 'dominican' | 'japanese' | 'black_american' | 'american_coach';
 
 export interface GenerateNarrationOptions {
   text: string;
@@ -59,6 +59,14 @@ export const BASEBALL_VOICE_OPTIONS: Array<{
       process.env.NEXT_PUBLIC_ELEVENLABS_BLACK_AMERICAN_VOICE_ID ??
       process.env.ELEVENLABS_BLACK_AMERICAN_VOICE_ID ??
       'unknown-black-american-voice-id',
+  },
+  {
+    value: 'american_coach',
+    label: 'American Coach',
+    voiceId:
+      process.env.NEXT_PUBLIC_AMERICAN_COACH_ID ??
+      process.env.AMERICAN_COACH_ID ??
+      'unknown-american-coach-voice-id',
   },
 ];
 
