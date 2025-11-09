@@ -1,16 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Target, Loader2, Search, Filter } from 'lucide-react';
 import { onAuthChange } from '@/lib/hooks/useAuth';
-import { getDrills, searchDrills, type Drill } from '@/lib/services/drill-recommender';
+import { getDrills, searchDrills, getDrillRecommendations, type Drill } from '@/lib/services/drill-recommender';
 import { getAuthToken, getAuthUser } from '@/lib/auth0/client';
 import DrillCard from '@/components/Drills/DrillCard';
 import PageContainer from '@/components/Layout/PageContainer';
 
 export default function DrillsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [drills, setDrills] = useState<Drill[]>([]);
@@ -19,6 +20,11 @@ export default function DrillsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [selectedDrill, setSelectedDrill] = useState<Drill | null>(null);
+
+  // Session-scoped recommendations
+  const [recommendedDrills, setRecommendedDrills] = useState<Drill[] | null>(null);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
 
   useEffect(() => {
     let hasLoadedDrills = false;
@@ -62,6 +68,67 @@ export default function DrillsPage() {
     }
   };
 
+  // If a sessionId is provided, surface session-specific recommendations
+  useEffect(() => {
+    const sessionId = searchParams?.get('sessionId');
+    if (!sessionId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingRecommendations(true);
+        setRecommendationsError(null);
+        const token = getAuthToken();
+        if (!token) return;
+
+        // Load session to check for persisted recommendations and analysis
+        const resp = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!resp.ok) throw new Error('Failed to load session');
+        const session = await resp.json();
+
+        // Use stored recommendations if present
+        const stored = session?.recommendations;
+        if (stored) {
+          const recs: Drill[] | null =
+            Array.isArray(stored) ? stored :
+            (stored?.recommendations && Array.isArray(stored.recommendations)) ? stored.recommendations :
+            null;
+          if (!cancelled && recs) {
+            setRecommendedDrills(recs);
+            return;
+          }
+        }
+
+        // Otherwise compute on the fly using metrics we can derive
+        const analysis = session?.videoAnalysis?.ok ? session.videoAnalysis : null;
+        const metrics = analysis?.metrics || {};
+        const biomech = analysis?.biomechanics || {};
+        const rotation = biomech?.rotation_angles || {};
+        const request = {
+          metrics: {
+            launchAngle: typeof metrics.launchAngle === 'number' ? metrics.launchAngle : undefined,
+            shoulderAngle: typeof rotation.shoulder_rotation === 'number' ? rotation.shoulder_rotation : undefined,
+            hipAngle: typeof rotation.hip_rotation === 'number' ? rotation.hip_rotation : undefined,
+            confidence: typeof metrics.confidence === 'number' ? metrics.confidence : undefined,
+          },
+          limit: 5,
+        };
+        const recResp = await getDrillRecommendations(request, token);
+        if (!cancelled && recResp?.success && Array.isArray(recResp.recommendations)) {
+          setRecommendedDrills(recResp.recommendations);
+        }
+      } catch (e: any) {
+        if (!cancelled) setRecommendationsError(e.message || 'Failed to load recommendations');
+      } finally {
+        if (!cancelled) setLoadingRecommendations(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [searchParams]);
+
   const filterDrills = () => {
     let filtered = [...drills];
 
@@ -104,6 +171,35 @@ export default function DrillsPage() {
 
   return (
     <PageContainer>
+      {/* Session-specific Recommendations */}
+      {searchParams?.get('sessionId') && (
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <Target className="w-6 h-6 text-emerald-600" />
+            <h2 className="text-2xl font-bold text-gray-900">Recommended for your session</h2>
+          </div>
+          {loadingRecommendations ? (
+            <div className="flex items-center justify-center min-h-[120px] bg-white rounded-lg shadow-md">
+              <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+            </div>
+          ) : recommendationsError ? (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800">
+              {recommendationsError}
+            </div>
+          ) : recommendedDrills && recommendedDrills.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+              {recommendedDrills.map((drill) => (
+                <DrillCard key={drill._id} drill={drill} onSelect={setSelectedDrill} />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-md p-4 text-gray-600">
+              No recommendations yet. Complete a video analysis to get personalized drills.
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center gap-3 mb-8">
         <Target className="w-8 h-8 text-blue-600" />
         <h1 className="text-3xl font-bold text-gray-900">Drill Library</h1>
