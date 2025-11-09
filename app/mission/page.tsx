@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Rocket, Loader2, Video, Play } from 'lucide-react';
+import { Rocket, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { onAuthChange } from '@/lib/hooks/useAuth';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
@@ -27,7 +27,7 @@ export default function MissionPage() {
   const router = useRouter();
   const [user, setUser] = useState<Auth0User | null>(null);
   const [loading, setLoading] = useState(true);
-  const { teamId, loading: teamLoading } = useTeam();
+  const { teamId } = useTeam();
   const [mode, setMode] = useState<Mode>('photo');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -317,26 +317,7 @@ export default function MissionPage() {
         throw new Error(error.error || 'Failed to create session');
       }
 
-      const session = await sessionResponse.json();
-
-      // Update leaderboard via API
-      const leaderboardResponse = await fetch('/api/leaderboard', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          teamId: 'default',
-          uid: user.sub,
-          distanceFt,
-          sessionId: session.id,
-        }),
-      });
-
-      if (!leaderboardResponse.ok) {
-        console.warn('Failed to update leaderboard');
-      }
+      await sessionResponse.json();
 
       // Show success message
       alert('Mission saved successfully!');

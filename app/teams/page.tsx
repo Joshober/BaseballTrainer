@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Users, Plus, UserPlus } from 'lucide-react';
 import { onAuthChange, getAuth, getIdToken } from '@/lib/auth0/client-auth';
 import type { Team } from '@/types/team';
@@ -211,12 +210,7 @@ export default function TeamsPage() {
                   </p>
                   <p className="text-sm text-gray-600">Team ID: {user.teamId}</p>
                 </div>
-                <Link
-                  href="/leaderboard"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  View Leaderboard
-                </Link>
+                <div className="text-sm text-gray-500">Stay tuned for team rankings.</div>
               </div>
             </div>
           )}

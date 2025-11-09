@@ -38,7 +38,7 @@ export default function UserMenu() {
         href="/login"
         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
       >
-        <User className="w-5 h-5" />
+        <User className="w-5 h-5" aria-hidden="true" focusable="false" />
         <span className="text-sm font-medium">Sign In</span>
       </Link>
     );
@@ -49,6 +49,9 @@ export default function UserMenu() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        aria-label="Open user menu"
       >
         <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm">
           {user.picture ? (
@@ -60,11 +63,11 @@ export default function UserMenu() {
         <span className="text-sm font-medium text-gray-700 hidden md:block">
           {user.name || user.nickname || user.email}
         </span>
-        <ChevronDown className="w-4 h-4 text-gray-500 hidden md:block" />
+        <ChevronDown className="w-4 h-4 text-gray-500 hidden md:block" aria-hidden="true" focusable="false" />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+        <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50" role="menu">
           <div className="px-4 py-3 border-b border-gray-200">
             <p className="text-sm font-semibold text-gray-900">{user.name || user.nickname || 'User'}</p>
             <p className="text-xs text-gray-500 truncate">{user.email}</p>
@@ -74,8 +77,9 @@ export default function UserMenu() {
             href="/profile"
             onClick={() => setIsOpen(false)}
             className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            role="menuitem"
           >
-            <User className="w-4 h-4" />
+            <User className="w-4 h-4" aria-hidden="true" focusable="false" />
             Profile
           </Link>
           
@@ -83,8 +87,9 @@ export default function UserMenu() {
             href="/settings"
             onClick={() => setIsOpen(false)}
             className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            role="menuitem"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-4 h-4" aria-hidden="true" focusable="false" />
             Settings
           </Link>
           
@@ -92,8 +97,10 @@ export default function UserMenu() {
             <button
               onClick={handleSignOut}
               className="flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors w-full text-left"
+              role="menuitem"
+              aria-label="Sign out"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4" aria-hidden="true" focusable="false" />
               Sign Out
             </button>
           </div>

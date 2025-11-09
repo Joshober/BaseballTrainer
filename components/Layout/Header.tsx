@@ -1,31 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Rocket, Home, LayoutDashboard, Video, Play, Target, Users, Trophy, MessageCircle, Menu, X } from 'lucide-react';
+import { Rocket, LayoutDashboard, Video, Target, Users, MessageCircle, Menu, X } from 'lucide-react';
 import { getAuthUser } from '@/lib/auth0/client';
 import UserMenu from '@/components/Navigation/UserMenu';
 import NotificationBell from '@/components/Navigation/NotificationBell';
 import type { Auth0User } from '@/lib/auth0/client';
 
 export default function Header() {
-  const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<Auth0User | null>(null);
   const [userRole, setUserRole] = useState<'player' | 'coach' | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    const authUser = getAuthUser();
-    setUser(authUser);
-    loadUserRole();
-  }, []);
-
-  const loadUserRole = async () => {
+  const loadUserRole = useCallback(async () => {
     try {
       const authUser = getAuthUser();
-      if (!authUser) return;
+      if (!authUser) {
+        setUser(null);
+        return;
+      }
+
+      setUser(authUser);
 
       const token = localStorage.getItem('auth_token');
       if (!token) return;
@@ -43,7 +41,15 @@ export default function Header() {
     } catch (error) {
       console.error('Failed to load user role:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    Promise.resolve()
+      .then(loadUserRole)
+      .catch((error) => {
+        console.error('Failed to initialize header user state:', error);
+      });
+  }, [loadUserRole]);
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -53,7 +59,6 @@ export default function Header() {
   };
 
   const navLinks = [
-    { href: '/', label: 'Home', icon: Home },
     { 
       href: userRole === 'coach' ? '/coach' : '/player', 
       label: 'Dashboard', 
@@ -63,7 +68,6 @@ export default function Header() {
     { href: '/blast-off', label: 'Blast Off', icon: Rocket },
     { href: '/drills', label: 'Drills', icon: Target },
     { href: '/teams', label: 'Teams', icon: Users },
-    { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   ];
 
   return (

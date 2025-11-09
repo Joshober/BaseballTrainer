@@ -1,12 +1,12 @@
-﻿'use client';
+'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Video, Send, Bot, Play, Calendar, TrendingUp, Sparkles } from 'lucide-react';
+import { Video, Send, Bot, Play, Calendar, TrendingUp, Sparkles, X } from 'lucide-react';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import type { Session } from '@/types/session';
 import type { VideoAnalysis } from '@/types/session';
+import { useRouter } from 'next/navigation';
 
 interface VideoGalleryProps {
   sessions: Session[];
@@ -26,6 +26,9 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
   const [filter, setFilter] = useState<'all' | 'good' | 'needs_work'>('all');
   const [sessionsWithAnalysis, setSessionsWithAnalysis] = useState<SessionWithAnalysis[]>([]);
   const [polling, setPolling] = useState(false);
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previouslyFocusedElementRef = useRef<Element | null>(null);
 
   // Initialize list and batch check analysis statuses
   useEffect(() => {
@@ -150,7 +153,7 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
 
     if (analysis && analysis.ok && analysis.metrics) {
       // Use analysis metrics if available
-      // Calculate distance from exit velocity (rough estimate: 1 mph â‰ˆ 0.15 ft)
+      // Calculate distance from exit velocity (rough estimate: 1 mph ~ 0.15 ft)
       const distance = analysis.metrics.exitVelocityEstimateMph 
         ? Math.max(0, Math.round(analysis.metrics.exitVelocityEstimateMph * 0.15))
         : session.game.distanceFt;
@@ -172,6 +175,71 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
       velocity: session.metrics.exitVelocity,
     };
   };
+
+  useEffect(() => {
+    if (!selectedSession) {
+      return;
+    }
+
+    previouslyFocusedElementRef.current = document.activeElement;
+    const focusTimer = window.setTimeout(() => {
+      closeButtonRef.current?.focus();
+    }, 0);
+
+    const focusableSelectors =
+      'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setSelectedSession(null);
+        return;
+      }
+
+      if (event.key !== 'Tab' || !modalRef.current) {
+        return;
+      }
+
+      const focusable = Array.from(
+        modalRef.current.querySelectorAll<HTMLElement>(focusableSelectors)
+      ).filter((element) => !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true');
+
+      if (focusable.length === 0) {
+        event.preventDefault();
+        modalRef.current.focus();
+        return;
+      }
+
+      const firstElement = focusable[0];
+      const lastElement = focusable[focusable.length - 1];
+      const activeElement = document.activeElement as HTMLElement | null;
+
+      if (!activeElement) {
+        return;
+      }
+
+      if (!event.shiftKey && activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+        return;
+      }
+
+      if (event.shiftKey && activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', handleKeyDown);
+      const previouslyFocused = previouslyFocusedElementRef.current as HTMLElement | null;
+      previouslyFocused?.focus();
+      previouslyFocusedElementRef.current = null;
+    };
+  }, [selectedSession]);
 
   const filteredSessions = sessionsWithAnalysis.length > 0 ? sessionsWithAnalysis : sessions;
   const filteredByLabel = filteredSessions.filter((session) => {
@@ -196,31 +264,31 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
         <button
           onClick={() => setFilter('all')}
           className={`px-4 py-2 font-medium transition-colors ${
-            filter === 'all' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:text-gray-900'
-          }`}
+            filter === 'all' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-slate-700 hover:text-slate-900'
+          } focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600`}
         >
           All Videos ({videosWithURLs.length})
         </button>
         <button
           onClick={() => setFilter('good')}
           className={`px-4 py-2 font-medium transition-colors ${
-            filter === 'good' ? 'border-b-2 border-green-600 text-green-600' : 'text-gray-600 hover:text-gray-900'
-          }`}
+            filter === 'good' ? 'border-b-2 border-green-600 text-green-600' : 'text-slate-700 hover:text-slate-900'
+          } focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600`}
         >
           Good Swings ({sessions.filter((s) => s.label === 'good' && s.videoURL).length})
         </button>
         <button
           onClick={() => setFilter('needs_work')}
           className={`px-4 py-2 font-medium transition-colors ${
-            filter === 'needs_work' ? 'border-b-2 border-yellow-600 text-yellow-600' : 'text-gray-600 hover:text-gray-900'
-          }`}
+            filter === 'needs_work' ? 'border-b-2 border-yellow-600 text-yellow-600' : 'text-slate-700 hover:text-slate-900'
+          } focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600`}
         >
           Needs Work ({sessions.filter((s) => s.label === 'needs_work' && s.videoURL).length})
         </button>
       </div>
 
       {videosWithURLs.length === 0 ? (
-        <div className="py-12 text-center text-gray-500">
+        <div className="py-12 text-center text-slate-600">
           <Video className="mx-auto mb-4 h-16 w-16 opacity-50" />
           <p>No videos found</p>
         </div>
@@ -228,7 +296,7 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {videosWithURLs.map((session) => {
             const sessionWithAnalysis = session as SessionWithAnalysis;
-            const hasAnalysis = !!sessionWithAnalysis.videoAnalysisData?.ok || !!session.videoAnalysis?.ok;
+            const analysisReady = !!sessionWithAnalysis.videoAnalysisData?.ok || !!session.videoAnalysis?.ok;
 
             return (
               <div
@@ -237,10 +305,16 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
               >
                 <div className="relative aspect-video bg-black">
                   {session.videoURL ? (
-                    <video src={session.videoURL} className="h-full w-full object-cover" controls preload="metadata" />
+                    <video
+                      src={session.videoURL}
+                      className="h-full w-full object-cover"
+                      controls
+                      preload="metadata"
+                      aria-describedby={`video-transcript-${session.id}`}
+                    />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center">
-                      <Video className="h-12 w-12 text-gray-400" />
+                      <Video className="h-12 w-12 text-slate-500" aria-hidden="true" focusable="false" />
                     </div>
                   )}
                   {/* Removed 'Pending analysis' overlay per request */}
@@ -255,66 +329,81 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                   </div>
                 </div>
 
-                <div className="p-4">
-                  <div className="mb-4 flex items-center gap-2 text-sm text-gray-600">
-                    <Calendar className="h-4 w-4" />
+                <div className="p-4 space-y-4">
+                  <div className="flex items-center gap-2 text-sm text-slate-700">
+                    <Calendar className="h-4 w-4" aria-hidden="true" focusable="false" />
                     <span>{new Date(session.createdAt).toLocaleDateString()}</span>
                   </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => onSendToMessenger(session)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  <p
+                    id={`video-transcript-${session.id}`}
+                    className="text-xs text-slate-600"
                   >
-                    <Send className="w-4 h-4" />
-                    Send
-                  </button>
-                  <button
-                    onClick={() => onSendToAIBot(session)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
-                  >
-                    <Bot className="w-4 h-4" />
-                    AI Bot
-                  </button>
-                  <Link
-                    href={`/drills?sessionId=${encodeURIComponent(session.id)}`}
-                    prefetch
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700"
-                    title="View recommended drills for this session"
-                  >
-                    <TrendingUp className="w-4 h-4" />
-                    Drills
-                  </Link>
-                  {onSendToOpenRouter && (
-                    <button
-                      onClick={() => onSendToOpenRouter(session)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      Analyze
-                    </button>
-                  )}
-                  {(session as SessionWithAnalysis).videoAnalysisData?.ok ? (
-                    <Link
-                      href={`/analyze?sessionId=${encodeURIComponent(session.id)}`}
-                      prefetch
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-gray-100 text-gray-900 hover:bg-gray-200"
-                    >
-                      <Play className="w-4 h-4" />
-                      View
-                    </Link>
-                  ) : (
+                    Caption and transcript resources for team videos are tracked in <a
+                      href="https://github.com/Joshober/BaseballTrainer/blob/main/docs/media-accessibility.md"
+                      className="underline"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >media-accessibility.md</a>.
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      disabled
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
-                      title="Analysis pending"
+                      onClick={() => onSendToMessenger(session)}
+                      className="flex-1 min-w-[120px] rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600"
                     >
-                      <Play className="w-4 h-4" />
-                      Pending
+                      <Send className="h-4 w-4" aria-hidden="true" focusable="false" />
+                      Send
                     </button>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => onSendToAIBot(session)}
+                      className="flex-1 min-w-[120px] rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700 flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600"
+                    >
+                      <Bot className="h-4 w-4" aria-hidden="true" focusable="false" />
+                      AI Bot
+                    </button>
+                    <Link
+                      href={`/drills?sessionId=${encodeURIComponent(session.id)}`}
+                      prefetch
+                      className="flex-1 min-w-[120px] rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600"
+                      title="View recommended drills for this session"
+                    >
+                      <TrendingUp className="h-4 w-4" aria-hidden="true" focusable="false" />
+                      Drills
+                    </Link>
+                    {onSendToOpenRouter && (
+                      <button
+                        type="button"
+                        onClick={() => onSendToOpenRouter(session)}
+                        className="flex-1 min-w-[120px] rounded-lg bg-orange-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600"
+                      >
+                        <Sparkles className="h-4 w-4" aria-hidden="true" focusable="false" />
+                        Analyze
+                      </button>
+                    )}
+                    {analysisReady ? (
+                      <Link
+                        href={`/analyze?sessionId=${encodeURIComponent(session.id)}`}
+                        prefetch
+                        className="flex-1 min-w-[120px] rounded-lg bg-slate-200 px-3 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-300 flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600"
+                      >
+                        <Play className="h-4 w-4" aria-hidden="true" focusable="false" />
+                        View
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="flex-1 min-w-[120px] cursor-not-allowed rounded-lg bg-slate-200 px-3 py-2 text-sm font-medium text-slate-500 flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600"
+                        title="Analysis pending"
+                      >
+                        <Play className="h-4 w-4" aria-hidden="true" focusable="false" />
+                        Pending
+                      </button>
+                    )}
+                  </div>
                 </div>
                 </div>
               </div>
@@ -329,16 +418,24 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
           onClick={() => setSelectedSession(null)}
         >
           <div
+            ref={modalRef}
             className="mx-4 max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="video-details-title"
+            tabIndex={-1}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Video Details</h2>
+              <h2 className="text-2xl font-bold" id="video-details-title">Video Details</h2>
               <button
+                type="button"
                 onClick={() => setSelectedSession(null)}
-                className="text-gray-500 transition-colors hover:text-gray-700"
+                ref={closeButtonRef}
+                className="text-slate-600 transition-colors hover:text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600"
+                aria-label="Close"
               >
-                âœ•
+                <X className="h-5 w-5" aria-hidden="true" focusable="false" />
               </button>
             </div>
             {selectedSession.videoURL && (

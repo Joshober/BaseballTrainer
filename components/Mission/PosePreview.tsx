@@ -95,8 +95,9 @@ export default function PosePreview({ imageUrl, onResult, useServer = false }: P
           }}
         />
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
-            <Loader2 className="w-8 h-8 text-white animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50" role="status" aria-live="polite">
+            <Loader2 className="w-8 h-8 text-white animate-spin" aria-hidden="true" focusable="false" />
+            <span className="sr-only">Detecting pose…</span>
           </div>
         )}
       </div>

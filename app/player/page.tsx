@@ -66,11 +66,8 @@ export default function PlayerDashboard() {
         const needsWorkSwings = allSessions.filter((s) => s.label === 'needs_work').length;
         
         // Helper function to check if a value is valid
-        const isValidValue = (value: any): boolean => {
-          return value != null && 
-                 !isNaN(value) && 
-                 isFinite(value) && 
-                 value !== 0; // Exclude 0 for metrics that should have meaningful values
+        const isValidValue = (value: unknown): value is number => {
+          return typeof value === 'number' && !Number.isNaN(value) && Number.isFinite(value) && value !== 0;
         };
         
         // Calculate average launch angle from valid values only
@@ -373,19 +370,6 @@ export default function PlayerDashboard() {
                 <div>
                   <h3 className="text-xl font-semibold mb-2">Start New Mission</h3>
                   <p className="text-gray-600">Capture and analyze your swing</p>
-                </div>
-                <ArrowRight className="w-6 h-6 text-blue-600" />
-              </div>
-            </Link>
-
-            <Link
-              href="/leaderboard"
-              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">View Leaderboard</h3>
-                  <p className="text-gray-600">See how you rank against your team</p>
                 </div>
                 <ArrowRight className="w-6 h-6 text-blue-600" />
               </div>
