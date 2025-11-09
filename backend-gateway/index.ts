@@ -22,6 +22,12 @@ const PORT = process.env.GATEWAY_PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Request logging middleware (before routes)
+app.use((req, res, next) => {
+  console.log(`[Gateway] Incoming request: ${req.method} ${req.path} ${req.url}`);
+  next();
+});
+
 // Multer for file uploads
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -511,13 +517,35 @@ app.post('/api/pose/analyze-live', authenticate, upload.single('video'), async (
 
 // Proxy to Python Backend (Extract Frames)
 app.post('/api/pose/extract-frames', authenticate, upload.single('video'), async (req, res) => {
+  console.log('[Gateway] ========== EXTRACT FRAMES ENDPOINT CALLED ==========');
+  console.log('[Gateway] Request details:', {
+    method: req.method,
+    path: req.path,
+    url: req.url,
+    headers: {
+      'content-type': req.headers['content-type'],
+      'authorization': req.headers.authorization ? 'present' : 'missing',
+      'content-length': req.headers['content-length'],
+    },
+  });
+  
   try {
+    console.log('[Gateway] Request body keys:', Object.keys(req.body || {}));
+    console.log('[Gateway] Request file:', req.file ? {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      fieldname: req.file.fieldname,
+    } : 'no file');
+
     if (!req.file) {
-      return res.status(400).json({ error: 'No video provided' });
+      console.error('[Gateway] No video file provided in request');
+      return res.status(400).json({ error: 'No video provided', ok: false });
     }
 
     // Get frame interval parameter
     const frameInterval = req.body.frameInterval ? parseInt(req.body.frameInterval, 10) : 5;
+    console.log('[Gateway] Frame interval:', frameInterval);
 
     // Create FormData for Python backend
     const FormData = require('form-data');
@@ -527,6 +555,15 @@ app.post('/api/pose/extract-frames', authenticate, upload.single('video'), async
       contentType: req.file.mimetype || 'video/mp4',
     });
     formData.append('frameInterval', String(frameInterval));
+
+    console.log(`[Gateway] Forwarding frame extraction request to: ${POSE_DETECTION_SERVICE_URL}/api/pose/extract-frames`);
+    console.log('[Gateway] Video file info:', {
+      filename: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      bufferLength: req.file.buffer.length,
+      frameInterval,
+    });
 
     // Forward to Pose Detection Service
     const response = await axios.post(
@@ -543,12 +580,29 @@ app.post('/api/pose/extract-frames', authenticate, upload.single('video'), async
         timeout: 60000, // 1 minute timeout for frame extraction
       }
     );
+
+    console.log(`[Gateway] Pose detection service responded with status: ${response.status}`);
+    console.log(`[Gateway] Response data keys: ${Object.keys(response.data || {}).join(', ')}`);
+    console.log(`[Gateway] Extracted frames count: ${response.data?.frames?.length || 0}`);
+
     res.json(response.data);
   } catch (error: any) {
-    console.error('Frame extraction error:', error.message);
-    res.status(error.response?.status || 500).json({
-      error: 'Internal server error',
-      message: error.message
+    console.error('[Gateway] Frame extraction error:', error.message);
+    console.error('[Gateway] Error details:', {
+      code: error.code,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      stack: error.stack,
+    });
+
+    const statusCode = error.response?.status || 500;
+    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Internal server error';
+
+    res.status(statusCode).json({
+      error: errorMessage,
+      message: error.message,
+      ok: false,
     });
   }
 });
@@ -852,6 +906,18 @@ app.post('/api/blast/sync/compare', authenticate, async (req, res) => {
   }
 });
 
+// 404 handler for unregistered routes
+app.use((req, res) => {
+  console.error(`[Gateway] 404 - Route not found: ${req.method} ${req.path}`);
+  console.error(`[Gateway] Available routes should include: POST /api/pose/extract-frames`);
+  res.status(404).json({
+    error: 'Route not found',
+    method: req.method,
+    path: req.path,
+    message: `Cannot ${req.method} ${req.path}`,
+  });
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log('\n' + '='.repeat(60));
@@ -863,6 +929,12 @@ app.listen(PORT, () => {
   console.log(`   - Pose Detection Service: ${POSE_DETECTION_SERVICE_URL}`);
   console.log(`   - Drill Recommender: ${DRILL_RECOMMENDER_URL}`);
   console.log(`   - Blast Connector: ${BLAST_CONNECTOR_URL}`);
+  console.log('');
+  console.log('Registered routes:');
+  console.log('   - POST /api/pose/extract-frames');
+  console.log('   - POST /api/pose/analyze-video');
+  console.log('   - POST /api/pose/detect');
+  console.log('   - GET /health');
   console.log('');
 });
 

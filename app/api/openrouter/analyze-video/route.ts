@@ -110,6 +110,26 @@ function generateFallbackFeedback(): string {
   );
 }
 
+function selectFramesForAnalysis(allFrames: any[], maxFrames: number): any[] {
+  if (!Array.isArray(allFrames) || allFrames.length === 0) {
+    return [];
+  }
+  
+  if (allFrames.length <= maxFrames) {
+    return allFrames;
+  }
+
+  const selected: any[] = [];
+  const step = allFrames.length / maxFrames;
+
+  for (let i = 0; i < maxFrames; i++) {
+    const index = Math.min(Math.floor(i * step), allFrames.length - 1);
+    selected.push(allFrames[index]);
+  }
+
+  return selected;
+}
+
 async function queryOpenRouter(
   frames: any[],
   attempt: number
@@ -231,241 +251,225 @@ async function queryOpenRouter(
 }
 
 export async function POST(request: NextRequest) {
+  console.log('[OpenRouter] Config loaded:', {
+    model: config.openRouter.model,
+    apiUrl: config.openRouter.apiUrl,
+    hasApiKey: !!config.openRouter.apiKey,
+    maxFrames: config.openRouter.maxFrames,
+    apiKeyPrefix: config.openRouter.apiKey ? config.openRouter.apiKey.substring(0, 10) + '...' : 'MISSING',
+  });
+
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    console.error('OpenRouter: Missing or invalid Authorization header');
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  let token = authHeader.substring(7).trim();
+  
+  // Log token info for debugging (without exposing the full token)
+  console.log('OpenRouter: Token received', {
+    length: token.length,
+    startsWith: token.substring(0, 20),
+    parts: token.split('.').length,
+    hasSpaces: token.includes(' '),
+  });
+  
+  // Validate token format before attempting verification
+  if (!token || token.length < 10) {
+    console.error('OpenRouter: Token is empty or too short');
+    return NextResponse.json({ error: 'Invalid token: token is empty or too short' }, { status: 401 });
+  }
+  
+  // Check if token looks like a JWT (should have 3 or 5 parts separated by dots)
+  const tokenParts = token.split('.');
+  if (tokenParts.length !== 3 && tokenParts.length !== 5) {
+    console.error('OpenRouter: Token does not have valid JWT/JWE format', {
+      parts: tokenParts.length,
+      tokenPreview: token.substring(0, 50) + '...',
+    });
+    return NextResponse.json({ 
+      error: `Invalid token format: expected JWT (3 parts) or JWE (5 parts), got ${tokenParts.length} parts` 
+    }, { status: 401 });
+  }
+  
+  let decodedToken;
   try {
-    console.log('[OpenRouter] Config loaded:', {
-      model: config.openRouter.model,
-      apiUrl: config.openRouter.apiUrl,
-      hasApiKey: !!config.openRouter.apiKey,
-      maxFrames: config.openRouter.maxFrames,
-      apiKeyPrefix: config.openRouter.apiKey ? config.openRouter.apiKey.substring(0, 10) + '...' : 'MISSING',
+    decodedToken = await verifyIdToken(token);
+    if (!decodedToken) {
+      console.error('OpenRouter: Token verification returned null');
+      return NextResponse.json({ error: 'Invalid token: verification returned null' }, { status: 401 });
+    }
+    console.log('OpenRouter: Token verified successfully', { sub: decodedToken.sub });
+  } catch (tokenError: any) {
+    console.error('OpenRouter: Token verification error:', {
+      message: tokenError.message,
+      stack: tokenError.stack,
     });
+    return NextResponse.json({ 
+      error: `Token verification failed: ${tokenError.message}` 
+    }, { status: 401 });
+  }
 
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      console.error('OpenRouter: Missing or invalid Authorization header');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const body = await request.json();
+  const sessionId = body.sessionId;
 
-    let token = authHeader.substring(7).trim();
-    
-    // Log token info for debugging (without exposing the full token)
-    console.log('OpenRouter: Token received', {
-      length: token.length,
-      startsWith: token.substring(0, 20),
-      parts: token.split('.').length,
-      hasSpaces: token.includes(' '),
-    });
-    
-    // Validate token format before attempting verification
-    if (!token || token.length < 10) {
-      console.error('OpenRouter: Token is empty or too short');
-      return NextResponse.json({ error: 'Invalid token: token is empty or too short' }, { status: 401 });
-    }
-    
-    // Check if token looks like a JWT (should have 3 or 5 parts separated by dots)
-    const tokenParts = token.split('.');
-    if (tokenParts.length !== 3 && tokenParts.length !== 5) {
-      console.error('OpenRouter: Token does not have valid JWT/JWE format', {
-        parts: tokenParts.length,
-        tokenPreview: token.substring(0, 50) + '...',
-      });
-      return NextResponse.json({ 
-        error: `Invalid token format: expected JWT (3 parts) or JWE (5 parts), got ${tokenParts.length} parts` 
-      }, { status: 401 });
-    }
-    
-    let decodedToken;
-    try {
-      decodedToken = await verifyIdToken(token);
-      if (!decodedToken) {
-        console.error('OpenRouter: Token verification returned null');
-        return NextResponse.json({ error: 'Invalid token: verification returned null' }, { status: 401 });
-      }
-      console.log('OpenRouter: Token verified successfully', { sub: decodedToken.sub });
-    } catch (tokenError: any) {
-      console.error('OpenRouter: Token verification error:', {
-        message: tokenError.message,
-        stack: tokenError.stack,
-      });
-      return NextResponse.json({ 
-        error: `Token verification failed: ${tokenError.message}` 
-      }, { status: 401 });
-    }
+  if (!sessionId) {
+    console.error('OpenRouter: Session ID is missing');
+    return NextResponse.json({ error: 'Session ID is required' }, { status: 400 });
+  }
 
-    const body = await request.json();
-    const sessionId = body.sessionId;
+  const session = await getSession(sessionId);
+  if (!session) {
+    return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+  }
 
-    if (!sessionId) {
-      console.error('OpenRouter: Session ID is missing');
-      return NextResponse.json({ error: 'Session ID is required' }, { status: 400 });
-    }
+  if (session.uid !== decodedToken.sub) {
+    console.error('OpenRouter: User does not own session:', { sessionUid: session.uid, tokenSub: decodedToken.sub });
+    return NextResponse.json({ error: 'Unauthorized to access this session' }, { status: 403 });
+  }
 
-    const session = await getSession(sessionId);
-    if (!session) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
-    }
+  if (!session.videoPath) {
+    console.error('OpenRouter: Session does not have a video path');
+    return NextResponse.json({ error: 'Session does not have a video' }, { status: 400 });
+  }
 
-    if (session.uid !== decodedToken.sub) {
-      console.error('OpenRouter: User does not own session:', { sessionUid: session.uid, tokenSub: decodedToken.sub });
-      return NextResponse.json({ error: 'Unauthorized to access this session' }, { status: 403 });
-    }
+  const storageServerUrl = getStorageServerUrl();
+  const videoUrl = `${storageServerUrl}/api/storage/${session.videoPath}`;
 
-    if (!session.videoPath) {
-      console.error('OpenRouter: Session does not have a video path');
-      return NextResponse.json({ error: 'Session does not have a video' }, { status: 400 });
-    }
-
-    const storageServerUrl = getStorageServerUrl();
-    const videoUrl = `${storageServerUrl}/api/storage/${session.videoPath}`;
-
-    const videoResponse = await fetch(videoUrl);
-    if (!videoResponse.ok) {
-      return NextResponse.json(
-        { error: 'Failed to download video from storage' },
-        { status: 500 }
-      );
-    }
-
-    const videoArrayBuffer = await videoResponse.arrayBuffer();
-    const videoBuffer = Buffer.from(videoArrayBuffer);
-
-    const gatewayUrl = getBackendUrl();
-    const extractFramesUrl = `${gatewayUrl}/api/pose/extract-frames`;
-
-    const formData = new FormData();
-    const videoBlob = new Blob([videoBuffer], { type: 'video/mp4' });
-    formData.append('video', videoBlob, 'video.mp4');
-    formData.append('frameInterval', '5');
-
-    let framesData;
-    try {
-      const framesResponse = await fetch(extractFramesUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: authHeader,
-        },
-        body: formData,
-      });
-
-      if (!framesResponse.ok) {
-        const errorText = await framesResponse.text().catch(() => '');
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = { error: errorText || 'Frame extraction failed' };
-        }
-        console.error('Frame extraction failed:', {
-          status: framesResponse.status,
-          statusText: framesResponse.statusText,
-          error: errorData,
-        });
-        return NextResponse.json(
-          { error: errorData.error || errorData.message || 'Failed to extract frames' },
-          { status: framesResponse.status }
-        );
-      }
-
-      framesData = await framesResponse.json();
-    } catch (error: any) {
-      console.error('Frame extraction request error:', error);
-      return NextResponse.json(
-        { error: error.message || 'Failed to extract frames' },
-        { status: 500 }
-      );
-    }
-
-    if (!framesData.ok || !framesData.frames || framesData.frames.length === 0) {
-      return NextResponse.json(
-        { error: 'No frames extracted from video' },
-        { status: 400 }
-      );
-    }
-
-    if (!config.openRouter.apiKey) {
-      console.error('OpenRouter: API key not configured');
-      return NextResponse.json(
-        { error: 'OpenRouter API key not configured. Please set OPENROUTER_API_KEY in .env.local' },
-        { status: 500 }
-      );
-    }
-
-    // Testing: send only 1 frame
-    const maxFramesForOpenRouter = 1;
-    const framesToSend = framesData.frames.slice(0, maxFramesForOpenRouter);
-
-    const frames = framesToSend.map((frame: any, index: number) => {
-      const base64Data = frame.image.replace(/^data:image\/jpeg;base64,/, '');
-      return {
-        type: 'image_url',
-        image_url: {
-          url: `data:image/jpeg;base64,${base64Data}`,
-          detail: index === 0 ? 'high' : 'low',
-        },
-      };
-    });
-
-    if (frames.length === 0) {
-      return NextResponse.json(
-        { error: 'No frames to send to OpenRouter' },
-        { status: 400 }
-      );
-    }
-
-    console.log('OpenRouter: Starting analysis with retry logic', {
-      totalFrames: framesData.frames.length,
-      framesToSend: framesToSend.length,
-      maxAttempts: 3,
-    });
-
-    let feedback: string | null = null;
-    const maxAttempts = 3;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      console.log(`OpenRouter: Attempt ${attempt}/${maxAttempts}`);
-
-      feedback = await queryOpenRouter(frames, attempt);
-
-      if (feedback && !isGenericResponse(feedback)) {
-        console.log(`OpenRouter: Received valid feedback on attempt ${attempt}`);
-        break;
-      }
-
-      if (attempt < maxAttempts) {
-        console.log(`OpenRouter: Attempt ${attempt} returned generic/invalid feedback, retrying...`);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
-    }
-
-    if (!feedback || isGenericResponse(feedback)) {
-      console.warn('OpenRouter: All attempts returned generic feedback, using fallback');
-      feedback = generateFallbackFeedback();
-    }
-
-    console.log('OpenRouter: Final feedback', {
-      feedbackLength: feedback.length,
-      feedbackPreview: feedback.substring(0, 100) + '...',
-    });
-
-    return NextResponse.json({
-      ok: true,
-      feedback,
-      framesAnalyzed: framesToSend.length,
-      totalFrames: framesData.extractedFrames || framesData.frames.length,
-    });
-  } catch (error: any) {
-    console.error('OpenRouter video analysis error:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-    });
+  const videoResponse = await fetch(videoUrl);
+  if (!videoResponse.ok) {
     return NextResponse.json(
-      { 
-        error: error.message || 'Internal server error', 
-        ok: false,
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      },
+      { error: 'Failed to download video from storage' },
       { status: 500 }
     );
   }
+
+  const videoArrayBuffer = await videoResponse.arrayBuffer();
+  const videoBuffer = Buffer.from(videoArrayBuffer);
+
+  const gatewayUrl = getBackendUrl();
+  const extractFramesUrl = `${gatewayUrl}/api/pose/extract-frames`;
+
+  const formData = new FormData();
+  const videoBlob = new Blob([videoBuffer], { type: 'video/mp4' });
+  formData.append('video', videoBlob, 'video.mp4');
+  formData.append('frameInterval', '5');
+
+  const framesResponse = await fetch(extractFramesUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: authHeader,
+    },
+    body: formData,
+  });
+
+  if (!framesResponse.ok) {
+    const errorText = await framesResponse.text().catch(() => '');
+    let errorData;
+    try {
+      errorData = JSON.parse(errorText);
+    } catch {
+      errorData = { error: errorText || 'Frame extraction failed' };
+    }
+    console.error('Frame extraction failed:', {
+      status: framesResponse.status,
+      statusText: framesResponse.statusText,
+      error: errorData,
+    });
+    throw new Error(
+      `Frame extraction failed with status ${framesResponse.status}: ${
+        errorData.error || errorData.message || 'Unknown error'
+      }`
+    );
+  }
+
+  const framesData = await framesResponse.json();
+
+  if (!framesData.ok || !framesData.frames || framesData.frames.length === 0) {
+    return NextResponse.json(
+      { error: 'No frames extracted from video' },
+      { status: 400 }
+    );
+  }
+
+  if (!config.openRouter.apiKey) {
+    console.error('OpenRouter: API key not configured');
+    return NextResponse.json(
+      { error: 'OpenRouter API key not configured. Please set OPENROUTER_API_KEY in .env.local' },
+      { status: 500 }
+    );
+  }
+
+  const configuredMaxFrames = Math.max(1, config.openRouter.maxFrames || 5);
+  const framesToSend = selectFramesForAnalysis(
+    framesData.frames,
+    Math.min(configuredMaxFrames, framesData.frames.length)
+  );
+
+  console.log('OpenRouter: Frame sampling details', {
+    extractedFrames: framesData.frames.length,
+    configuredMaxFrames,
+    framesSelected: framesToSend.length,
+  });
+
+  const frames = framesToSend.map((frame: any, index: number) => {
+    const base64Data = frame.image.replace(/^data:image\/jpeg;base64,/, '');
+    return {
+      type: 'image_url',
+      image_url: {
+        url: `data:image/jpeg;base64,${base64Data}`,
+        detail: index === 0 ? 'high' : 'low',
+      },
+    };
+  });
+
+  if (frames.length === 0) {
+    return NextResponse.json(
+      { error: 'No frames to send to OpenRouter' },
+      { status: 400 }
+    );
+  }
+
+  console.log('OpenRouter: Starting analysis with retry logic', {
+    totalFrames: framesData.frames.length,
+    framesToSend: framesToSend.length,
+    maxAttempts: 3,
+  });
+
+  let feedback: string | null = null;
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    console.log(`OpenRouter: Attempt ${attempt}/${maxAttempts}`);
+
+    feedback = await queryOpenRouter(frames, attempt);
+
+    if (feedback && !isGenericResponse(feedback)) {
+      console.log(`OpenRouter: Received valid feedback on attempt ${attempt}`);
+      break;
+    }
+
+    if (attempt < maxAttempts) {
+      console.log(`OpenRouter: Attempt ${attempt} returned generic/invalid feedback, retrying...`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+
+  if (!feedback || isGenericResponse(feedback)) {
+    console.warn('OpenRouter: All attempts returned generic feedback, using fallback');
+    feedback = generateFallbackFeedback();
+  }
+
+  console.log('OpenRouter: Final feedback', {
+    feedbackLength: feedback.length,
+    feedbackPreview: feedback.substring(0, 100) + '...',
+  });
+
+  return NextResponse.json({
+    ok: true,
+    feedback,
+    framesAnalyzed: framesToSend.length,
+    totalFrames: framesData.extractedFrames || framesData.frames.length,
+  });
 }

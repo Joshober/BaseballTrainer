@@ -33,12 +33,16 @@ function formatBlurb(analysis: VideoAnalysis): string {
 
 function extractAllRecommendations(analysis: VideoAnalysis): string[] {
   const recommendations: string[] = [];
+  const openRouterFeedback: string | null = (analysis as any)?.openRouterFeedback || null;
+  
   const formAnalysis: any = (analysis as any).formAnalysis;
   if (formAnalysis && Array.isArray(formAnalysis.feedback)) {
     recommendations.push(
       ...formAnalysis.feedback
         .filter((item: unknown): item is string => typeof item === 'string')
-        .map((item: string) => item.trim()),
+        .map((item: string) => item.trim())
+        // Exclude OpenRouter feedback to avoid duplication
+        .filter((item: string) => !openRouterFeedback || item !== openRouterFeedback.trim()),
     );
   }
 
@@ -48,7 +52,9 @@ function extractAllRecommendations(analysis: VideoAnalysis): string[] {
       recommendations.push(
         ...formErrors.recommendations
           .filter((item: unknown): item is string => typeof item === 'string')
-          .map((item: string) => item.trim()),
+          .map((item: string) => item.trim())
+          // Exclude OpenRouter feedback to avoid duplication
+          .filter((item: string) => !openRouterFeedback || item !== openRouterFeedback.trim()),
       );
     }
     const errorEntries = Array.isArray(formErrors.errors) ? formErrors.errors : undefined;
@@ -57,7 +63,9 @@ function extractAllRecommendations(analysis: VideoAnalysis): string[] {
         ...errorEntries
           .map((entry: any) => entry?.recommendation || entry?.description)
           .filter((item: unknown): item is string => typeof item === 'string')
-          .map((item: string) => item.trim()),
+          .map((item: string) => item.trim())
+          // Exclude OpenRouter feedback to avoid duplication
+          .filter((item: string) => !openRouterFeedback || item !== openRouterFeedback.trim()),
       );
     }
   }
@@ -226,14 +234,12 @@ export default function BlastOffPage() {
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">Analysis Results</h2>
                   <p className="text-gray-700 mb-4">{formatBlurb(videoAnalysis)}</p>
 
-                  {openRouterFeedback && (
+                  {openRouterFeedback ? (
                     <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <h3 className="font-semibold text-blue-900 mb-2">AI Coaching Feedback</h3>
                       <p className="text-sm text-blue-800 whitespace-pre-wrap">{openRouterFeedback}</p>
                     </div>
-                  )}
-
-                  {recommendations.length > 0 && (
+                  ) : recommendations.length > 0 ? (
                     <div className="mt-4">
                       <h3 className="font-semibold text-gray-900 mb-2">Recommendations</h3>
                       <ul className="list-disc list-inside space-y-2">
@@ -244,7 +250,7 @@ export default function BlastOffPage() {
                         ))}
                       </ul>
                     </div>
-                  )}
+                  ) : null}
                 </section>
               </div>
             )}

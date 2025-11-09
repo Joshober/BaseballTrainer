@@ -100,187 +100,358 @@ export function generateFallbackFeedback(): string {
   );
 }
 
-export async function queryOpenRouter(frames: any[], attempt: number): Promise<string | null> {
-  const prompts = [
-    {
-      system:
-        'You are an elite professional baseball hitting coach. Your responses MUST use imperative commands like "Fix your elbow", "Adjust your stance", "Correct your bat path", "Lower your hands", "Rotate your hips". Every sentence must start with or contain a specific corrective action verb. Do not use phrases like "consider", "try to", "might want to". Use direct commands: fix, adjust, correct, lower, raise, tuck, extend, rotate, shift, bend, straighten.',
-      user:
-        'Analyze these swing frames and provide 2-3 sentences. Each sentence MUST contain a direct correction command. Examples: "Fix your back elbow by tucking it closer to your body during the load." "Adjust your weight transfer by staying on your back leg longer." "Correct your bat path by driving the knob straight to the ball." Never say the form looks good. Always identify specific mechanical flaws and command specific fixes.',
-    },
-    {
-      system:
-        'You are a biomechanics expert. You MUST provide corrective commands. Every response must use action verbs: fix, adjust, correct, lower, raise, tuck, extend, rotate, shift. Do not provide observations without corrections. Do not say "looks good" or "no major issues". Always command specific mechanical fixes.',
-      user:
-        'ATTEMPT 2 - MANDATORY: You must provide 2-3 sentences with direct correction commands. Start sentences with action verbs: "Fix your [body part] by [specific action]." "Adjust your [mechanic] by [specific change]." "Correct your [issue] by [specific fix]." Identify: elbow position, hip rotation, weight transfer, bat path, hand position, shoulder separation, or stance. Each sentence must command a specific fix. No observations without corrections.',
-    },
-    {
-      system:
-        'You are a professional hitting instructor. Your ONLY job is to identify mechanical flaws and command specific fixes. Use imperative language: "Fix X", "Adjust Y", "Correct Z". Never provide generic encouragement. Never say there are no issues. Always command at least 2-3 specific mechanical corrections.',
-      user:
-        'FINAL ATTEMPT - REQUIRED FORMAT: Provide 2-3 sentences. Each sentence MUST: 1) Start with a correction command (Fix, Adjust, Correct, Lower, Raise, Tuck, Extend, Rotate, Shift), 2) Name a specific body part or mechanic (elbow, hips, hands, bat path, weight transfer, stance, spine angle), 3) Specify the exact correction ("by keeping it closer to your body", "by staying on your back leg longer", "by driving the knob straight"). Example: "Fix your back elbow by tucking it closer to your ribcage during the load phase to improve hip-shoulder separation."',
-    },
-  ];
+export async function queryOpenRouter(frames: any[]): Promise<{ success: boolean; feedback: string | null; error: string | null }> {
+  console.log('[OpenRouter] ========== QUERY OPENROUTER START ==========');
+  
+  try {
+    if (!config.openRouter.apiKey) {
+      const error = 'OpenRouter API key not configured';
+      console.error(`[OpenRouter] ERROR: ${error}`);
+      return { success: false, feedback: null, error };
+    }
 
-  const promptIndex = Math.min(attempt - 1, prompts.length - 1);
-  const prompt = prompts[promptIndex];
-  const model = config.openRouter.model || 'anthropic/claude-3.5-sonnet';
+    if (frames.length === 0) {
+      const error = 'No frames provided to OpenRouter';
+      console.error(`[OpenRouter] ERROR: ${error}`);
+      return { success: false, feedback: null, error };
+    }
 
-  console.log(`[OpenRouter] Attempt ${attempt}:`, {
-    model,
-    apiUrl: config.openRouter.apiUrl,
-    framesCount: frames.length,
-    hasApiKey: !!config.openRouter.apiKey,
-  });
+    const model = config.openRouter.model || 'anthropic/claude-3.5-sonnet';
+    
+    // Simplified prompt for short, concise feedback
+    const systemPrompt = 'You are a professional baseball hitting coach. Provide brief, actionable feedback (1-2 sentences) with specific corrections. Use imperative commands like "Fix your elbow", "Adjust your stance".';
+    const userPrompt = 'Analyze this swing frame and provide 1-2 sentences of specific coaching feedback. Focus on one key mechanical issue that needs correction.';
 
-  const requestBody = {
-    model,
-    messages: [
-      {
-        role: 'system',
-        content: prompt.system,
-      },
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: prompt.user,
-          },
-          ...frames,
-        ],
-      },
-    ],
-    max_tokens: 600,
-    temperature: 0.3,
-  };
-
-  const response = await fetch(config.openRouter.apiUrl, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.openRouter.apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
-      'X-Title': 'Baseball Trainer',
-    },
-    body: JSON.stringify(requestBody),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    console.error(`[OpenRouter] API error (attempt ${attempt}):`, {
-      status: response.status,
-      statusText: response.statusText,
-      error: errorData,
+    console.log('[OpenRouter] Configuration:', {
+      model,
+      apiUrl: config.openRouter.apiUrl,
+      framesCount: frames.length,
+      hasApiKey: !!config.openRouter.apiKey,
     });
-    return null;
+
+    // Build user content with frame
+    const userContent = [
+      {
+        type: 'text',
+        text: userPrompt,
+      },
+      ...frames,
+    ];
+
+    const requestBody = {
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
+        {
+          role: 'user',
+          content: userContent,
+        },
+      ],
+      max_tokens: 200, // Reduced for shorter responses
+      temperature: 0.5, // Slightly higher for more varied responses
+    };
+
+    console.log('[OpenRouter] Request details:', {
+      model: requestBody.model,
+      systemPromptLength: systemPrompt.length,
+      userPromptLength: userPrompt.length,
+      framesCount: frames.length,
+      maxTokens: requestBody.max_tokens,
+      temperature: requestBody.temperature,
+    });
+
+    console.log('[OpenRouter] Making API call to OpenRouter...');
+    const startTime = Date.now();
+    
+    const response = await fetch(config.openRouter.apiUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.openRouter.apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
+        'X-Title': 'Baseball Trainer',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    const responseTime = Date.now() - startTime;
+    console.log(`[OpenRouter] API response received in ${responseTime}ms`);
+    console.log(`[OpenRouter] Response status: ${response.status} ${response.statusText}`);
+
+    if (!response.ok) {
+      let errorData: any = {};
+      try {
+        const errorText = await response.text();
+        console.error(`[OpenRouter] ERROR: Response not OK. Status: ${response.status}`);
+        console.error(`[OpenRouter] ERROR: Response text: ${errorText}`);
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
+        }
+      } catch (parseError: any) {
+        console.error(`[OpenRouter] ERROR: Failed to parse error response:`, parseError);
+        errorData = { error: 'Failed to parse error response' };
+      }
+      
+      const error = `OpenRouter API error: ${response.status} ${response.statusText}. ${JSON.stringify(errorData)}`;
+      console.error(`[OpenRouter] ERROR: ${error}`);
+      return { success: false, feedback: null, error };
+    }
+
+    let data: any = {};
+    try {
+      const responseText = await response.text();
+      console.log(`[OpenRouter] Response text length: ${responseText.length} characters`);
+      data = JSON.parse(responseText);
+    } catch (parseError: any) {
+      const error = `Failed to parse OpenRouter response: ${parseError.message}`;
+      console.error(`[OpenRouter] ERROR: ${error}`);
+      console.error(`[OpenRouter] ERROR: Parse error stack:`, parseError.stack);
+      return { success: false, feedback: null, error };
+    }
+
+    console.log('[OpenRouter] Response data structure:', {
+      hasChoices: !!data.choices,
+      choicesCount: data.choices?.length || 0,
+      model: data.model || 'unknown',
+      responseId: data.id || 'no-id',
+      usage: data.usage || 'no-usage-data',
+    });
+
+    if (!data.choices || data.choices.length === 0) {
+      const error = 'OpenRouter response has no choices';
+      console.error(`[OpenRouter] ERROR: ${error}`);
+      console.error(`[OpenRouter] ERROR: Full response data:`, JSON.stringify(data, null, 2));
+      return { success: false, feedback: null, error };
+    }
+
+    const rawFeedback = data.choices[0]?.message?.content || null;
+
+    console.log('[OpenRouter] Raw feedback extracted:', {
+      hasFeedback: !!rawFeedback,
+      feedbackLength: rawFeedback?.length || 0,
+      feedbackPreview: rawFeedback ? rawFeedback.substring(0, 150) : 'null',
+    });
+
+    if (!rawFeedback) {
+      const error = 'OpenRouter response has no feedback content';
+      console.error(`[OpenRouter] ERROR: ${error}`);
+      console.error(`[OpenRouter] ERROR: Choice structure:`, JSON.stringify(data.choices[0], null, 2));
+      return { success: false, feedback: null, error };
+    }
+
+    // Return the feedback directly - no normalization or validation for simplicity
+    console.log('[OpenRouter] ========== QUERY OPENROUTER SUCCESS ==========');
+    console.log('[OpenRouter] Final feedback:', rawFeedback.trim());
+    
+    return { success: true, feedback: rawFeedback.trim(), error: null };
+  } catch (error: any) {
+    const errorMessage = `Unexpected error in queryOpenRouter: ${error.message}`;
+    console.error(`[OpenRouter] ERROR: ${errorMessage}`);
+    console.error(`[OpenRouter] ERROR: Stack trace:`, error.stack);
+    return { success: false, feedback: null, error: errorMessage };
   }
-
-  const data = await response.json();
-
-  console.log(`[OpenRouter] Response received (attempt ${attempt}):`, {
-    model: data.model || 'unknown',
-    hasChoices: !!data.choices,
-    choicesCount: data.choices?.length || 0,
-  });
-
-  const rawFeedback = data.choices?.[0]?.message?.content || null;
-
-  if (!rawFeedback) {
-    return null;
-  }
-
-  const normalized = normalizeFeedback(rawFeedback);
-  if (normalized && !isGenericResponse(normalized)) {
-    return normalized;
-  }
-
-  return null;
 }
 
-export async function getOpenRouterFeedback(videoFile: File, authHeader: string): Promise<string | null> {
+export async function getOpenRouterFeedback(
+  videoFile: File, 
+  authHeader: string
+): Promise<{ success: boolean; feedback: string | null; error: string | null; step: string }> {
+  console.log('[OpenRouter] ========== GET OPENROUTER FEEDBACK START ==========');
+  console.log('[OpenRouter] Step: INITIALIZATION');
+  console.log('[OpenRouter] Video file details:', {
+    name: videoFile.name,
+    size: videoFile.size,
+    type: videoFile.type,
+    lastModified: videoFile.lastModified,
+  });
+
+  // Step 1: Validate API key
   if (!config.openRouter.apiKey) {
-    console.warn('[OpenRouter] API key not configured, skipping OpenRouter analysis');
-    return null;
+    const error = 'OpenRouter API key not configured';
+    console.error(`[OpenRouter] ERROR at step INITIALIZATION: ${error}`);
+    return { success: false, feedback: null, error, step: 'INITIALIZATION' };
   }
+  console.log('[OpenRouter] API key is configured');
 
   try {
+    // Step 2: Extract 1 frame from video
+    console.log('[OpenRouter] Step: FRAME_EXTRACTION');
     const gatewayUrl = getBackendUrl();
     const extractFramesUrl = `${gatewayUrl}/api/pose/extract-frames`;
 
+    console.log('[OpenRouter] Frame extraction configuration:', {
+      gatewayUrl,
+      extractFramesUrl,
+      frameInterval: 1, // Extract every frame, we'll take the first one
+    });
+
     const formData = new FormData();
     formData.append('video', videoFile);
-    formData.append('frameInterval', '5');
+    formData.append('frameInterval', '1'); // Extract every frame to get first frame
 
-    console.log('[OpenRouter] Extracting frames for analysis...');
-    const framesResponse = await fetch(extractFramesUrl, {
+    console.log('[OpenRouter] Sending frame extraction request...');
+    console.log('[OpenRouter] Request details:', {
+      url: extractFramesUrl,
       method: 'POST',
-      headers: {
-        Authorization: authHeader,
-      },
-      body: formData,
+      hasAuthHeader: !!authHeader,
+      videoFileName: videoFile.name,
+      videoFileSize: videoFile.size,
+    });
+
+    const extractionStartTime = Date.now();
+    let framesResponse: Response;
+    try {
+      framesResponse = await fetch(extractFramesUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: authHeader,
+        },
+        body: formData,
+      });
+    } catch (fetchError: any) {
+      const error = `Failed to connect to frame extraction endpoint: ${fetchError.message}`;
+      console.error(`[OpenRouter] ERROR at step FRAME_EXTRACTION: ${error}`);
+      console.error(`[OpenRouter] ERROR: Fetch error details:`, {
+        message: fetchError.message,
+        code: fetchError.code,
+        stack: fetchError.stack,
+      });
+      return { success: false, feedback: null, error, step: 'FRAME_EXTRACTION' };
+    }
+
+    const extractionTime = Date.now() - extractionStartTime;
+    console.log(`[OpenRouter] Frame extraction response received in ${extractionTime}ms`);
+    console.log('[OpenRouter] Frame extraction response status:', {
+      status: framesResponse.status,
+      statusText: framesResponse.statusText,
+      ok: framesResponse.ok,
+      headers: Object.fromEntries(framesResponse.headers.entries()),
     });
 
     if (!framesResponse.ok) {
-      console.error('[OpenRouter] Frame extraction failed:', framesResponse.status);
-      return null;
-    }
-
-    const framesData = await framesResponse.json();
-    if (!framesData.ok || !framesData.frames || framesData.frames.length === 0) {
-      console.error('[OpenRouter] No frames extracted');
-      return null;
-    }
-
-    const maxFramesForOpenRouter = 1;
-    const framesToSend = framesData.frames.slice(0, maxFramesForOpenRouter);
-
-    const frames = framesToSend.map((frame: any, index: number) => {
-      const base64Data = frame.image.replace(/^data:image\/jpeg;base64,/, '');
-      return {
-        type: 'image_url',
-        image_url: {
-          url: `data:image/jpeg;base64,${base64Data}`,
-          detail: index === 0 ? 'high' : 'low',
-        },
-      };
-    });
-
-    if (frames.length === 0) {
-      return null;
-    }
-
-    console.log('[OpenRouter] Starting analysis with retry logic', {
-      framesToSend: framesToSend.length,
-      maxAttempts: 3,
-    });
-
-    let feedback: string | null = null;
-    const maxAttempts = 3;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      feedback = await queryOpenRouter(frames, attempt);
-
-      if (feedback && !isGenericResponse(feedback)) {
-        console.log(`[OpenRouter] Received valid feedback on attempt ${attempt}`);
-        break;
+      let errorText = '';
+      let errorData: any = {};
+      try {
+        errorText = await framesResponse.text();
+        console.error(`[OpenRouter] ERROR: Frame extraction failed with status ${framesResponse.status}`);
+        console.error(`[OpenRouter] ERROR: Response text: ${errorText.substring(0, 500)}`);
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
+        }
+      } catch (parseError: any) {
+        console.error(`[OpenRouter] ERROR: Failed to read error response:`, parseError);
+        errorData = { error: 'Failed to read error response' };
       }
 
-      if (attempt < maxAttempts) {
-        console.log(`[OpenRouter] Attempt ${attempt} returned generic/invalid feedback, retrying...`);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
+      const error = `Frame extraction failed: ${framesResponse.status} ${framesResponse.statusText}. ${JSON.stringify(errorData)}`;
+      console.error(`[OpenRouter] ERROR at step FRAME_EXTRACTION: ${error}`);
+      return { success: false, feedback: null, error, step: 'FRAME_EXTRACTION' };
     }
 
-    if (!feedback || isGenericResponse(feedback)) {
-      console.warn('[OpenRouter] All attempts returned generic feedback, using fallback');
-      feedback = generateFallbackFeedback();
+    // Step 3: Parse frame extraction response
+    console.log('[OpenRouter] Step: PARSE_FRAMES');
+    let framesData: any = {};
+    try {
+      const responseText = await framesResponse.text();
+      console.log(`[OpenRouter] Frame extraction response text length: ${responseText.length} characters`);
+      framesData = JSON.parse(responseText);
+    } catch (parseError: any) {
+      const error = `Failed to parse frame extraction response: ${parseError.message}`;
+      console.error(`[OpenRouter] ERROR at step PARSE_FRAMES: ${error}`);
+      console.error(`[OpenRouter] ERROR: Parse error stack:`, parseError.stack);
+      return { success: false, feedback: null, error, step: 'PARSE_FRAMES' };
     }
 
-    return feedback;
+    console.log('[OpenRouter] Frame extraction response data:', {
+      ok: framesData.ok,
+      framesCount: framesData.frames?.length || 0,
+      extractedFrames: framesData.extractedFrames || 'unknown',
+      totalFrames: framesData.totalFrames || 'unknown',
+      hasFrames: !!framesData.frames,
+    });
+
+    if (!framesData.ok) {
+      const error = `Frame extraction returned error: ${framesData.error || 'Unknown error'}`;
+      console.error(`[OpenRouter] ERROR at step PARSE_FRAMES: ${error}`);
+      return { success: false, feedback: null, error, step: 'PARSE_FRAMES' };
+    }
+
+    if (!framesData.frames || framesData.frames.length === 0) {
+      const error = `No frames extracted from video. Response: ${JSON.stringify(framesData)}`;
+      console.error(`[OpenRouter] ERROR at step PARSE_FRAMES: ${error}`);
+      return { success: false, feedback: null, error, step: 'PARSE_FRAMES' };
+    }
+
+    // Step 4: Prepare first frame for OpenRouter
+    console.log('[OpenRouter] Step: PREPARE_FRAME');
+    const firstFrame = framesData.frames[0];
+    console.log('[OpenRouter] First frame details:', {
+      frameIndex: firstFrame.frameIndex,
+      hasImage: !!firstFrame.image,
+      imageLength: firstFrame.image?.length || 0,
+      imagePreview: firstFrame.image?.substring(0, 50) || 'no image',
+    });
+
+    if (!firstFrame.image) {
+      const error = 'First frame has no image data';
+      console.error(`[OpenRouter] ERROR at step PREPARE_FRAME: ${error}`);
+      return { success: false, feedback: null, error, step: 'PREPARE_FRAME' };
+    }
+
+    const base64Data = firstFrame.image.replace(/^data:image\/jpeg;base64,/, '');
+    console.log('[OpenRouter] Base64 data length:', base64Data.length);
+
+    const frameForOpenRouter = {
+      type: 'image_url',
+      image_url: {
+        url: `data:image/jpeg;base64,${base64Data}`,
+        detail: 'high',
+      },
+    };
+
+    console.log('[OpenRouter] Frame prepared for OpenRouter:', {
+      type: frameForOpenRouter.type,
+      hasImageUrl: !!frameForOpenRouter.image_url.url,
+      urlLength: frameForOpenRouter.image_url.url.length,
+    });
+
+    // Step 5: Call OpenRouter with single frame
+    console.log('[OpenRouter] Step: OPENROUTER_API_CALL');
+    const openRouterResult = await queryOpenRouter([frameForOpenRouter]);
+
+    if (!openRouterResult.success) {
+      const error = `OpenRouter API call failed: ${openRouterResult.error}`;
+      console.error(`[OpenRouter] ERROR at step OPENROUTER_API_CALL: ${error}`);
+      return { success: false, feedback: null, error, step: 'OPENROUTER_API_CALL' };
+    }
+
+    if (!openRouterResult.feedback) {
+      const error = 'OpenRouter returned no feedback';
+      console.error(`[OpenRouter] ERROR at step OPENROUTER_API_CALL: ${error}`);
+      return { success: false, feedback: null, error, step: 'OPENROUTER_API_CALL' };
+    }
+
+    console.log('[OpenRouter] ========== GET OPENROUTER FEEDBACK SUCCESS ==========');
+    console.log('[OpenRouter] Final feedback:', openRouterResult.feedback);
+
+    return { 
+      success: true, 
+      feedback: openRouterResult.feedback, 
+      error: null,
+      step: 'COMPLETE'
+    };
   } catch (error: any) {
-    console.error('[OpenRouter] Error getting feedback:', error);
-    return null;
+    const errorMessage = `Unexpected error in getOpenRouterFeedback: ${error.message}`;
+    console.error(`[OpenRouter] ERROR: ${errorMessage}`);
+    console.error(`[OpenRouter] ERROR: Stack trace:`, error.stack);
+    return { success: false, feedback: null, error: errorMessage, step: 'UNKNOWN' };
   }
 }
 

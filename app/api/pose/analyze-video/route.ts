@@ -91,33 +91,66 @@ export async function POST(request: NextRequest) {
     const result = await response.json();
     
     // Get OpenRouter feedback (non-blocking - don't fail if it errors)
+    console.log('[Pose Analysis] ========== STARTING OPENROUTER FEEDBACK ==========');
     let openRouterFeedback: string | null = null;
+    let openRouterError: string | null = null;
+    let openRouterStep: string | null = null;
+    
     try {
       console.log('[Pose Analysis] Getting OpenRouter feedback...');
       // Create a new File from the buffer for OpenRouter (reuse the buffer)
       const openRouterFileBlob = new Blob([fileBuffer], { type: file.type });
       const openRouterFile = new File([openRouterFileBlob], file.name, { type: file.type });
-      openRouterFeedback = await getOpenRouterFeedback(openRouterFile, authHeader);
-      if (openRouterFeedback) {
+      
+      const openRouterResult = await getOpenRouterFeedback(openRouterFile, authHeader);
+      
+      console.log('[Pose Analysis] OpenRouter result:', {
+        success: openRouterResult.success,
+        hasFeedback: !!openRouterResult.feedback,
+        hasError: !!openRouterResult.error,
+        step: openRouterResult.step,
+      });
+
+      if (openRouterResult.success && openRouterResult.feedback) {
+        openRouterFeedback = openRouterResult.feedback;
         console.log('[Pose Analysis] OpenRouter feedback received:', openRouterFeedback.substring(0, 100) + '...');
-        // Add OpenRouter feedback to the result
-        if (!result.formAnalysis) {
-          result.formAnalysis = {};
-        }
-        if (!result.formAnalysis.feedback) {
-          result.formAnalysis.feedback = [];
-        }
-        // Add OpenRouter feedback as the first item
-        result.formAnalysis.feedback = [openRouterFeedback, ...result.formAnalysis.feedback];
-        // Also add it as a top-level property for easy access
+        // Keep OpenRouter feedback separate from formAnalysis.feedback to avoid duplication
+        // Only add it as a top-level property for easy access
         result.openRouterFeedback = openRouterFeedback;
       } else {
-        console.warn('[Pose Analysis] No OpenRouter feedback received');
+        openRouterError = openRouterResult.error || 'Unknown error';
+        openRouterStep = openRouterResult.step || 'UNKNOWN';
+        console.error('[Pose Analysis] OpenRouter feedback failed:', {
+          error: openRouterError,
+          step: openRouterStep,
+        });
+        // Add error info to result so user can see what failed
+        result.openRouterError = {
+          error: openRouterError,
+          step: openRouterStep,
+          message: `OpenRouter feedback failed at step: ${openRouterStep}. Error: ${openRouterError}`,
+        };
       }
     } catch (error: any) {
-      console.error('[Pose Analysis] Error getting OpenRouter feedback:', error);
-      // Don't fail the request if OpenRouter fails
+      openRouterError = error.message || 'Unknown error';
+      openRouterStep = 'EXCEPTION';
+      console.error('[Pose Analysis] Exception getting OpenRouter feedback:', {
+        error: error.message,
+        stack: error.stack,
+      });
+      result.openRouterError = {
+        error: openRouterError,
+        step: openRouterStep,
+        message: `Exception getting OpenRouter feedback: ${openRouterError}`,
+      };
     }
+    
+    console.log('[Pose Analysis] ========== OPENROUTER FEEDBACK COMPLETE ==========');
+    console.log('[Pose Analysis] Final status:', {
+      hasFeedback: !!openRouterFeedback,
+      hasError: !!openRouterError,
+      errorStep: openRouterStep,
+    });
     
     // Save to MongoDB if analysis was successful
     if (result.ok) {
