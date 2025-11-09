@@ -22,11 +22,14 @@ interface VideoGalleryProps {
   onSendToMessenger: (session: Session) => void;
   onSendToAIBot: (session: Session) => void;
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   onSendToOpenRouter: (session: Session) => void;
 }
 
 export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot, onSendToOpenRouter }: VideoGalleryProps) {
 =======
+=======
+>>>>>>> Stashed changes
 }
 
 interface SessionWithAnalysis extends Session {

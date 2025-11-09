@@ -3,7 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import { Rocket, Loader2, Video, ArrowLeft, Camera } from 'lucide-react';
+=======
+import { Rocket, Loader2, ArrowLeft, Bot, AlertCircle } from 'lucide-react';
+>>>>>>> Stashed changes
 =======
 import { Rocket, Loader2, ArrowLeft, Bot, AlertCircle } from 'lucide-react';
 >>>>>>> Stashed changes
@@ -17,6 +21,7 @@ export default function BlastOffPage() {
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<'photo' | 'video' | 'manual'>('video');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
   const [videoAnalysis, setVideoAnalysis] = useState<VideoAnalysis | null>(null);
   const [analyzingVideo, setAnalyzingVideo] = useState(false);
@@ -102,6 +107,11 @@ export default function BlastOffPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 >>>>>>> Stashed changes
+=======
+  const [openRouterFeedback, setOpenRouterFeedback] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+>>>>>>> Stashed changes
 
   useEffect(() => {
     const unsubscribe = onAuthChange((authUser) => {
@@ -124,14 +134,20 @@ export default function BlastOffPage() {
   const handleVideoSelect = async (file: File) => {
     setSelectedFile(file);
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     setVideoAnalysis(null);
     setAnalyzingVideo(true);
     
 =======
+=======
+>>>>>>> Stashed changes
     setOpenRouterFeedback(null);
     setError(null);
     setIsAnalyzing(true);
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     try {
       let analysisFound = false;
@@ -139,8 +155,11 @@ export default function BlastOffPage() {
       const token = getAuthToken();
       if (!authUser || !token) {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         throw new Error('User not authenticated');
 =======
+=======
+>>>>>>> Stashed changes
         console.error('Blast-off: Missing auth user or token', { 
           hasUser: !!authUser, 
           hasToken: !!token,
@@ -157,6 +176,9 @@ export default function BlastOffPage() {
           tokenPreview: token.substring(0, 20) + '...' 
         });
         throw new Error('Invalid authentication token. Please sign in again.');
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
       }
 
@@ -169,9 +191,12 @@ export default function BlastOffPage() {
       formData.append('yoloConfidence', '0.5');
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       // Call video analysis API
       const response = await fetch('/api/pose/analyze-video', {
 =======
+=======
+>>>>>>> Stashed changes
       // 2) Create session
       const createResp = await fetch('/api/sessions', {
 >>>>>>> Stashed changes
@@ -181,6 +206,7 @@ export default function BlastOffPage() {
         },
         body: formData,
       });
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 
 <<<<<<< Updated upstream
@@ -407,6 +433,53 @@ export default function BlastOffPage() {
       console.error('Blast off error:', error);
       setError(error.message || 'Failed to analyze video. Please try again.');
 >>>>>>> Stashed changes
+=======
+
+      if (!createResp.ok) {
+        const errorData = await createResp.json().catch(() => ({ error: 'Failed to create session' }));
+        throw new Error(errorData.error || errorData.message || 'Failed to create session');
+      }
+
+      const createdSession = await createResp.json();
+
+      // 3) Call OpenRouter for AI coaching feedback
+      const openRouterResponse = await fetch('/api/openrouter/analyze-video', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: createdSession.id,
+        }),
+      });
+
+      if (!openRouterResponse.ok) {
+        const errorText = await openRouterResponse.text().catch(() => '');
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText || 'Analysis failed' };
+        }
+        console.error('OpenRouter API error:', {
+          status: openRouterResponse.status,
+          statusText: openRouterResponse.statusText,
+          error: errorData,
+        });
+        throw new Error(errorData.error || errorData.message || `Failed to get AI coaching feedback (${openRouterResponse.status})`);
+      }
+
+      const data = await openRouterResponse.json();
+      if (data.ok && data.feedback) {
+        setOpenRouterFeedback(data.feedback);
+      } else {
+        throw new Error('No feedback received from AI');
+      }
+    } catch (error: any) {
+      console.error('Blast off error:', error);
+      setError(error.message || 'Failed to analyze video. Please try again.');
+>>>>>>> Stashed changes
     } finally {
       setIsAnalyzing(false);
     }
@@ -422,6 +495,7 @@ export default function BlastOffPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
       {/* Fullscreen Analysis Animation Overlay */}
       <AnalysisAnimation isAnalyzing={analyzingVideo} />
@@ -456,6 +530,8 @@ export default function BlastOffPage() {
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
@@ -477,6 +553,7 @@ export default function BlastOffPage() {
             {/* Video Recording Section */}
             <section className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-xl font-semibold mb-4">Record Your Swing</h2>
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
               <p className="text-gray-600 mb-4">
                 Record a video of your baseball swing. Once recording is complete, the video will be automatically analyzed.
@@ -600,6 +677,28 @@ export default function BlastOffPage() {
               </section>
             )}
 
+=======
+              <p className="text-gray-600 mb-4">Record or upload a swing to get AI coaching feedback.</p>
+              <CaptureUpload 
+                onImageSelect={handleImageSelect} 
+                onVideoSelect={handleVideoSelect} 
+                mode={mode} 
+                onModeChange={setMode} 
+              />
+            </section>
+
+            {/* Loading State */}
+            {isAnalyzing && (
+              <section className="bg-white rounded-lg shadow-md p-6">
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Analyzing your swing... This may take a moment.</p>
+                  <p className="text-sm text-gray-500 mt-2">Extracting frames and sending to AI for analysis...</p>
+                </div>
+              </section>
+            )}
+
+>>>>>>> Stashed changes
             {/* Error State */}
             {error && (
               <section className="bg-red-50 border border-red-200 rounded-lg p-6">
@@ -623,6 +722,9 @@ export default function BlastOffPage() {
                 <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg p-6 border border-orange-200">
                   <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">{openRouterFeedback}</p>
                 </div>
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
               </section>
             )}

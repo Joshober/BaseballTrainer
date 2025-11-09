@@ -30,6 +30,9 @@ export default function AnalyzePage() {
   const [showOpenRouterModal, setShowOpenRouterModal] = useState(false);
   const [openRouterFeedback, setOpenRouterFeedback] = useState<string | null>(null);
   const [isAnalyzingWithOpenRouter, setIsAnalyzingWithOpenRouter] = useState(false);
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
   useEffect(() => {
