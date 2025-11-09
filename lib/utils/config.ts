@@ -49,7 +49,7 @@ export const config = {
     apiKey: process.env.OPENROUTER_API_KEY || '',
     apiUrl: 'https://openrouter.ai/api/v1/chat/completions',
     model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet',
-    maxFrames: parseInt(process.env.OPENROUTER_MAX_FRAMES || '10', 10),
+    maxFrames: parseInt(process.env.OPENROUTER_MAX_FRAMES || '3', 10), // Reduced from 10 to 3 for faster requests
   },
 } as const;
 

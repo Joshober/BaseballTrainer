@@ -463,6 +463,11 @@ export default function AnalyzePage() {
         setError(null);
         console.log('[Analyze Page] ✅ Analysis successful! Results should be visible now.');
       }
+
+      // Wait for React to process the state update and render the analysis
+      // This ensures the spinner continues until the message is actually visible
+      // Give enough time for the state update, re-render, and DOM update to complete
+      await new Promise(resolve => setTimeout(resolve, 300));
     } catch (error: any) {
       console.error('Video analysis error:', error);
       
@@ -472,6 +477,8 @@ export default function AnalyzePage() {
       } else {
         setError(error.message || 'Error analyzing video');
       }
+      // Wait a moment for error message to render
+      await new Promise(resolve => setTimeout(resolve, 100));
     } finally {
       setAnalyzing(false);
       setProgress(0);
