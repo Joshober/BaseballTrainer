@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Loader2, Target, AlertCircle, Volume2, Square } from 'lucide-react';
+import { Loader2, Target, AlertCircle, Volume2, Square, Shuffle, MessageCircle } from 'lucide-react';
 import { getDrillRecommendations, type Drill, type RecommendationRequest } from '@/lib/services/drill-recommender';
 import { getAuthToken } from '@/lib/auth0/client';
 import DrillCard from './DrillCard';
 import { BASEBALL_VOICE_OPTIONS, generateDrillNarration, type BaseballVoice } from '@/lib/services/elevenlabs';
+import { askClubhouseCoach } from '@/lib/services/gemini';
 
 interface DrillRecommendationsProps {
   corrections?: string[];
@@ -33,9 +34,21 @@ export default function DrillRecommendations({
   const [narrationLoading, setNarrationLoading] = useState(false);
   const [narrationError, setNarrationError] = useState<string | null>(null);
   const [isNarrating, setIsNarrating] = useState(false);
+  const [lastVoiceUsed, setLastVoiceUsed] = useState<BaseballVoice | null>(null);
+  const [clubhouseQuestion, setClubhouseQuestion] = useState('');
+  const [clubhouseAnswer, setClubhouseAnswer] = useState('');
+  const [clubhouseLoading, setClubhouseLoading] = useState(false);
+  const [clubhouseError, setClubhouseError] = useState<string | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const autoRoastTriggeredRef = useRef(false);
+
+  const voiceOptionsMap = useMemo(() => {
+    const map = new Map<BaseballVoice, (typeof BASEBALL_VOICE_OPTIONS)[number]>();
+    BASEBALL_VOICE_OPTIONS.forEach((option) => map.set(option.value, option));
+    return map;
+  }, []);
 
   useEffect(() => {
     if (corrections.length > 0 || metrics) {
@@ -84,8 +97,11 @@ export default function DrillRecommendations({
       };
 
       const response = await getDrillRecommendations(request, token);
-      
+
       if (response.success) {
+        autoRoastTriggeredRef.current = false;
+        setClubhouseAnswer('');
+        setClubhouseError(null);
         setRecommendations(response.recommendations);
       } else {
         throw new Error('Failed to get recommendations');
@@ -171,56 +187,151 @@ export default function DrillRecommendations({
     setNarrationLoading(false);
   }, []);
 
-  const handleNarration = useCallback(async () => {
-    if (!narrationText) {
-      return;
-    }
+  const playNarrationText = useCallback(
+    async (text: string, voice: BaseballVoice) => {
+      if (!text) {
+        return;
+      }
 
-    try {
+      stopNarration();
+
+      try {
+        setNarrationError(null);
+        setNarrationLoading(true);
+
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
+        const narrationBlob = await generateDrillNarration({
+          text,
+          voice,
+          signal: controller.signal,
+        });
+
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+          audioUrlRef.current = null;
+        }
+
+        const audioUrl = URL.createObjectURL(narrationBlob);
+        audioUrlRef.current = audioUrl;
+
+        if (!audioElementRef.current) {
+          audioElementRef.current = new Audio();
+        }
+
+        audioElementRef.current.src = audioUrl;
+        await audioElementRef.current.play();
+        setIsNarrating(true);
+      } catch (err: any) {
+        if (err?.name === 'AbortError') {
+          return;
+        }
+        console.error('Narration error:', err);
+        setNarrationError(err?.message || 'Failed to play narration');
+        setIsNarrating(false);
+      } finally {
+        setNarrationLoading(false);
+        abortControllerRef.current = null;
+      }
+    },
+    [stopNarration]
+  );
+
+  const handleNarration = useCallback(
+    async (voiceOverride?: BaseballVoice) => {
+      if (!narrationText) {
+        return;
+      }
+
       if (isNarrating) {
         stopNarration();
         return;
       }
 
-      setNarrationError(null);
-      setNarrationLoading(true);
+      const voiceToUse = voiceOverride ?? selectedVoice;
+      setLastVoiceUsed(voiceToUse);
 
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
+      await playNarrationText(narrationText, voiceToUse);
+    },
+    [isNarrating, narrationText, playNarrationText, selectedVoice, stopNarration]
+  );
 
-      const narrationBlob = await generateDrillNarration({
-        text: narrationText,
-        voice: selectedVoice,
-        signal: controller.signal,
+  const handleRandomNarration = useCallback(() => {
+    if (!narrationText) {
+      return;
+    }
+
+    const availableVoices = BASEBALL_VOICE_OPTIONS.map((option) => option.value);
+
+    if (availableVoices.length === 0) {
+      return;
+    }
+
+    const randomVoice =
+      availableVoices[Math.floor(Math.random() * availableVoices.length)];
+
+    setLastVoiceUsed(randomVoice);
+    void playNarrationText(narrationText, randomVoice);
+  }, [narrationText, playNarrationText]);
+
+  const handleClubhouseRoast = useCallback(async () => {
+    const prompt =
+      clubhouseQuestion.trim() ||
+      'Give me a brutally honest breakdown of that swing and what to fix next.';
+
+    const availableVoices = BASEBALL_VOICE_OPTIONS.map((option) => option.value);
+    const randomVoice =
+      availableVoices[Math.floor(Math.random() * availableVoices.length)] ??
+      selectedVoice;
+
+    setClubhouseLoading(true);
+    setClubhouseError(null);
+
+    try {
+      const response = await askClubhouseCoach({
+        question: prompt,
+        metrics,
+        corrections,
+        drills: recommendations.map((drill) => ({
+          name: drill.name,
+          description: drill.description,
+        })),
       });
 
-      if (audioUrlRef.current) {
-        URL.revokeObjectURL(audioUrlRef.current);
-        audioUrlRef.current = null;
+      if (!response.success || !response.answer) {
+        throw new Error(response.error || 'Clubhouse coach had nothing to say');
       }
 
-      const audioUrl = URL.createObjectURL(narrationBlob);
-      audioUrlRef.current = audioUrl;
-
-      if (!audioElementRef.current) {
-        audioElementRef.current = new Audio();
-      }
-
-      audioElementRef.current.src = audioUrl;
-      await audioElementRef.current.play();
-      setIsNarrating(true);
-    } catch (err: any) {
-      if (err?.name === 'AbortError') {
-        return;
-      }
-      console.error('Narration error:', err);
-      setNarrationError(err?.message || 'Failed to play narration');
-      stopNarration();
+      setClubhouseAnswer(response.answer);
+      setLastVoiceUsed(randomVoice);
+      await playNarrationText(response.answer, randomVoice);
+    } catch (error: any) {
+      console.error('Clubhouse coach error:', error);
+      setClubhouseError(
+        error?.message || 'The clubhouse coach lost his temper. Try again.'
+      );
     } finally {
-      setNarrationLoading(false);
-      abortControllerRef.current = null;
+      setClubhouseLoading(false);
     }
-  }, [narrationText, selectedVoice, isNarrating, stopNarration]);
+  }, [clubhouseQuestion, corrections, metrics, playNarrationText, recommendations, selectedVoice]);
+
+  useEffect(() => {
+    if (recommendations.length === 0) {
+      return;
+    }
+
+    if (clubhouseLoading) {
+      return;
+    }
+
+    if (autoRoastTriggeredRef.current) {
+      return;
+    }
+
+    autoRoastTriggeredRef.current = true;
+    void handleClubhouseRoast();
+  }, [recommendations, clubhouseLoading, handleClubhouseRoast]);
 
   if (loading) {
     return (
@@ -281,37 +392,138 @@ export default function DrillRecommendations({
             </select>
           </label>
 
-          <button
-            onClick={handleNarration}
-            disabled={narrationLoading || recommendations.length === 0}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-          >
-            {narrationLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Generating Voice Feedback...
-              </>
-            ) : isNarrating ? (
-              <>
-                <Square className="h-4 w-4" />
-                Stop Playback
-              </>
-            ) : (
-              <>
-                <Volume2 className="h-4 w-4" />
-                Play Voice Feedback
-              </>
-            )}
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={() => handleNarration()}
+              disabled={narrationLoading || recommendations.length === 0}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+            >
+              {narrationLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating Voice Feedback...
+                </>
+              ) : isNarrating ? (
+                <>
+                  <Square className="h-4 w-4" />
+                  Stop Playback
+                </>
+              ) : (
+                <>
+                  <Volume2 className="h-4 w-4" />
+                  Play Voice Feedback
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handleRandomNarration}
+              disabled={narrationLoading || isNarrating || recommendations.length === 0}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+            >
+              <Shuffle className="h-4 w-4" />
+              Play Random Voice
+            </button>
+          </div>
         </div>
-        <p className="text-xs text-gray-500">
-          {BASEBALL_VOICE_OPTIONS.find((option) => option.value === selectedVoice)
-            ?.description || ''}
-        </p>
+
+        {(() => {
+          const activeVoice = voiceOptionsMap.get(lastVoiceUsed ?? selectedVoice);
+
+          if (!activeVoice) {
+            return null;
+          }
+
+          return (
+            <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+              <span className="font-semibold text-gray-700">{activeVoice.label}</span>
+              <span className="ml-2 text-[11px] text-gray-500">Voice ID: {activeVoice.voiceId}</span>
+              {lastVoiceUsed && lastVoiceUsed !== selectedVoice && (
+                <span className="ml-2 text-[11px] text-gray-500 italic">(Random playback in use)</span>
+              )}
+            </div>
+          );
+        })()}
+
         {narrationError && (
           <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             <AlertCircle className="h-4 w-4" />
             <span>{narrationError}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
+        <div className="flex items-center gap-2 text-gray-800">
+          <MessageCircle className="h-5 w-5 text-indigo-600" />
+          <div>
+            <h3 className="font-semibold">Clubhouse Roast Line</h3>
+            <p className="text-xs text-gray-500">
+              Ask the clubhouse coach anything and brace for a brutally honest breakdown.
+            </p>
+          </div>
+        </div>
+
+        <textarea
+          value={clubhouseQuestion}
+          onChange={(event) => setClubhouseQuestion(event.target.value)}
+          rows={3}
+          placeholder="Example: \"What did that last swing look like?\" or \"Why does my launch angle stink?\""
+          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        />
+
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex gap-2">
+            <button
+              onClick={handleClubhouseRoast}
+              disabled={clubhouseLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+            >
+              {clubhouseLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Cooking up a roast...
+                </>
+              ) : (
+                <>
+                  <MessageCircle className="h-4 w-4" />
+                  Roast My Swing
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setClubhouseQuestion('');
+                setClubhouseAnswer('');
+                setClubhouseError(null);
+              }}
+              className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100"
+            >
+              Clear
+            </button>
+          </div>
+          {lastVoiceUsed && (
+            <span className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+              Serving with: {voiceOptionsMap.get(lastVoiceUsed)?.label ?? 'Clubhouse Voice'}
+            </span>
+          )}
+        </div>
+
+        {clubhouseError && (
+          <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <span>{clubhouseError}</span>
+          </div>
+        )}
+
+        {clubhouseAnswer && (
+          <div className="rounded-md border border-indigo-200 bg-white px-4 py-3 text-sm text-gray-800 shadow-sm">
+            {clubhouseAnswer.split('\n').map((paragraph, index) => (
+              <p key={index} className="mb-2 last:mb-0">
+                {paragraph}
+              </p>
+            ))}
           </div>
         )}
       </div>

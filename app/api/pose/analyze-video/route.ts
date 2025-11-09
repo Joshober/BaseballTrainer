@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getBackendUrl } from '@/lib/utils/backend-url';
+import { config } from '@/lib/utils/config';
 import { verifyIdToken } from '@/lib/auth0/admin';
-import { saveVideoAnalysis } from '@/lib/mongodb/operations';
+import { saveVideoAnalysis, updateSessionVideoAnalysis, updateSessionRecommendations } from '@/lib/mongodb/operations';
 import { getOpenRouterFeedback } from '@/lib/utils/openrouter';
 
 export const runtime = 'nodejs';
@@ -33,6 +35,7 @@ export async function POST(request: NextRequest) {
     
     // Get videoUrl if provided (for videos from existing sessions)
     const videoUrl = formData.get('videoUrl') as string | null;
+    const sessionId = formData.get('sessionId') as string | null;
 
     // Get configuration parameters
     const processingMode = formData.get('processingMode') as string || 'full';
@@ -61,6 +64,9 @@ export async function POST(request: NextRequest) {
     }
     if (videoUrl) {
       proxyFormData.append('videoUrl', videoUrl);
+    }
+    if (sessionId) {
+      proxyFormData.append('sessionId', sessionId);
     }
 
     // Forward request to gateway (which will route to Python backend)
@@ -163,10 +169,42 @@ export async function POST(request: NextRequest) {
             userId,
             result,
             file.name,
-            videoUrl || undefined // Use provided videoUrl if available
+            videoUrl || undefined, // Use provided videoUrl if available
+            sessionId || undefined
           );
           // Add analysis ID to response
           result.analysisId = analysisId;
+          // Optionally update session with embedded analysis
+          if (sessionId) {
+            try {
+              await updateSessionVideoAnalysis(sessionId, result);
+              // Revalidate pages that show sessions/videos
+              try {
+                revalidatePath('/videos');
+              } catch {}
+            } catch (e) {
+              console.error('Failed to update session with analysis:', e);
+            }
+            // Trigger drill recommendations and persist on the session
+            try {
+              const recUrl = config.drillRecommender.url || 'http://localhost:5001';
+              const recResp = await fetch(`${recUrl}/api/drills/recommend`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ analysis: result }),
+              });
+              if (recResp.ok) {
+                const recs = await recResp.json();
+                await updateSessionRecommendations(sessionId, recs);
+                try {
+                  revalidatePath('/drills');
+                } catch {}
+              }
+            } catch (err) {
+              // non-fatal
+              console.warn('Failed to generate or save drill recommendations', err);
+            }
+          }
         }
       } catch (error) {
         // Log error but don't fail the request

@@ -22,7 +22,7 @@ export default function AnalyzePage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [loadingVideoFromUrl, setLoadingVideoFromUrl] = useState(false);
-const [polling, setPolling] = useState(false);
+  const [polling, setPolling] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
   const [guarding, setGuarding] = useState(false);
   const [showOpenRouterModal, setShowOpenRouterModal] = useState(false);

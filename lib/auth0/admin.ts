@@ -36,14 +36,40 @@ function getJwksClient(): JwksClient {
  * Get signing key for JWT verification
  */
 function getKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
-  const client = getJwksClient();
-  client.getSigningKey(header.kid || '', (err, key) => {
-    if (err) {
-      return callback(err);
+  try {
+    console.log('getKey called with header:', { kid: header.kid, alg: header.alg, typ: header.typ });
+    const client = getJwksClient();
+    if (!header.kid) {
+      console.error('Token header missing kid (key ID)');
+      return callback(new Error('Token header missing kid (key ID)'));
     }
-    const signingKey = key?.getPublicKey();
-    callback(null, signingKey);
-  });
+    console.log('Fetching signing key from JWKS for kid:', header.kid);
+    client.getSigningKey(header.kid, (err, key) => {
+      if (err) {
+        console.error('Error fetching signing key from JWKS:', err.message, err);
+        return callback(err);
+      }
+      if (!key) {
+        console.error('Signing key not found for kid:', header.kid);
+        return callback(new Error('Signing key not found'));
+      }
+      try {
+        const signingKey = key.getPublicKey();
+        if (!signingKey) {
+          console.error('Failed to extract public key from signing key');
+          return callback(new Error('Failed to extract public key from signing key'));
+        }
+        console.log('Successfully retrieved signing key for kid:', header.kid);
+        callback(null, signingKey);
+      } catch (keyErr: any) {
+        console.error('Error extracting public key:', keyErr.message, keyErr);
+        callback(keyErr);
+      }
+    });
+  } catch (error: any) {
+    console.error('Error in getKey function:', error.message, error);
+    callback(error);
+  }
 }
 
 /**
@@ -65,9 +91,18 @@ function isValidJWTFormat(token: string): boolean {
  */
 export async function verifyAuth0Token(token: string): Promise<any> {
   try {
+    // Normalize: strip optional 'Bearer ' prefix and trim
+    if (typeof token === 'string') {
+      token = token.replace(/^Bearer\s+/i, '').trim();
+    }
+    
     // Validate token format first
     if (!token || typeof token !== 'string') {
       throw new Error('Token is missing or invalid');
+    }
+
+    if (token.length === 0) {
+      throw new Error('Token is empty');
     }
 
     // Check if token is a valid JWT or JWE format
@@ -104,6 +139,34 @@ export async function verifyAuth0Token(token: string): Promise<any> {
       throw new Error('AUTH0_DOMAIN is not configured');
     }
 
+    // Try to decode the token first to see what we're working with
+    let unverifiedDecode: any = null;
+    try {
+      unverifiedDecode = jwt.decode(token, { complete: true });
+      if (unverifiedDecode) {
+        console.log('Token decoded (unverified) before verification:', {
+          header: unverifiedDecode.header,
+          payload: {
+            iss: (unverifiedDecode.payload as any)?.iss,
+            aud: (unverifiedDecode.payload as any)?.aud,
+            exp: (unverifiedDecode.payload as any)?.exp,
+            iat: (unverifiedDecode.payload as any)?.iat,
+            sub: (unverifiedDecode.payload as any)?.sub,
+            expDate: (unverifiedDecode.payload as any)?.exp ? new Date((unverifiedDecode.payload as any).exp * 1000).toISOString() : null,
+            now: new Date().toISOString(),
+          }
+        });
+      }
+    } catch (decodeErr) {
+      console.error('Failed to decode token before verification:', decodeErr);
+    }
+
+    console.log('Starting token verification with:', {
+      domain,
+      audience: audience || 'none',
+      expectedIssuer: `https://${domain}/`,
+    });
+
     return new Promise((resolve, reject) => {
       // First try with audience (for access tokens)
       const verifyOptions: jwt.VerifyOptions = {
@@ -115,6 +178,9 @@ export async function verifyAuth0Token(token: string): Promise<any> {
       // (some tokens might not have audience, or it might be different)
       if (audience) {
         verifyOptions.audience = audience;
+        console.log('Verifying with audience:', audience);
+      } else {
+        console.log('Verifying without audience check');
       }
 
       jwt.verify(
@@ -123,9 +189,15 @@ export async function verifyAuth0Token(token: string): Promise<any> {
         verifyOptions,
         (err, decoded) => {
           if (err) {
+            // Log the specific error for debugging
+            const errorMessage = err.message || 'Unknown error';
+            const errorName = err.name || 'JWTError';
+            console.error(`Auth0 token verification error (first attempt): ${errorName}: ${errorMessage}`);
+            
             // If verification failed with audience, try without audience check
             // (for ID tokens or tokens with different audience)
             if (audience) {
+              console.log('Retrying token verification without audience check...');
               jwt.verify(
                 token,
                 getKey,
@@ -137,15 +209,56 @@ export async function verifyAuth0Token(token: string): Promise<any> {
                 },
                 (err2, decoded2) => {
                   if (err2) {
-                    console.error('Auth0 token verification error:', err2.message);
+                    const errorMessage2 = err2.message || 'Unknown error';
+                    const errorName2 = err2.name || 'JWTError';
+                    console.error(`Auth0 token verification error (retry without audience): ${errorName2}: ${errorMessage2}`);
+                    
+                    // Try to decode without verification to get more info
+                    try {
+                      const unverified = jwt.decode(token, { complete: true });
+                      if (unverified) {
+                        console.error('Token decoded (unverified):', {
+                          header: unverified.header,
+                          payload: {
+                            iss: (unverified.payload as any)?.iss,
+                            aud: (unverified.payload as any)?.aud,
+                            exp: (unverified.payload as any)?.exp,
+                            iat: (unverified.payload as any)?.iat,
+                            sub: (unverified.payload as any)?.sub,
+                          }
+                        });
+                      }
+                    } catch (decodeErr) {
+                      console.error('Failed to decode token:', decodeErr);
+                    }
+                    
                     reject(err2);
                   } else {
+                    console.log('Token verification succeeded without audience check');
                     resolve(decoded2);
                   }
                 }
               );
             } else {
-              console.error('Auth0 token verification error:', err.message);
+              // Try to decode without verification to get more info
+              try {
+                const unverified = jwt.decode(token, { complete: true });
+                if (unverified) {
+                  console.error('Token decoded (unverified):', {
+                    header: unverified.header,
+                    payload: {
+                      iss: (unverified.payload as any)?.iss,
+                      aud: (unverified.payload as any)?.aud,
+                      exp: (unverified.payload as any)?.exp,
+                      iat: (unverified.payload as any)?.iat,
+                      sub: (unverified.payload as any)?.sub,
+                    }
+                  });
+                }
+              } catch (decodeErr) {
+                console.error('Failed to decode token:', decodeErr);
+              }
+              
               reject(err);
             }
           } else {
@@ -155,8 +268,8 @@ export async function verifyAuth0Token(token: string): Promise<any> {
       );
     });
   } catch (error: any) {
-    console.error('Auth0 token verification error:', error);
-    return null;
+    console.error('Auth0 token verification error:', error?.message || error);
+    throw error; // Re-throw instead of returning null to preserve error information
   }
 }
 
@@ -172,7 +285,7 @@ export async function getAuth0User(request: NextRequest): Promise<any> {
       return null;
     }
 
-    const token = authHeader.substring(7);
+    const token = authHeader.substring(7).trim();
     const decoded = await verifyAuth0Token(token);
     return decoded;
   } catch (error) {

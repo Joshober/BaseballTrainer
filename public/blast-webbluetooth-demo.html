@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blast Motion Bluetooth Demo</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #f3f4f6;
+        color: #111827;
+      }
+      h1 {
+        margin-top: 0;
+      }
+      .card {
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+        padding: 24px;
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      button {
+        border: none;
+        border-radius: 8px;
+        padding: 12px 18px;
+        font-size: 15px;
+        cursor: pointer;
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      button:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.24);
+      }
+      .btn-primary {
+        background: #2563eb;
+        color: #ffffff;
+      }
+      .btn-secondary {
+        background: #10b981;
+        color: #ffffff;
+      }
+      .btn-alert {
+        background: #ef4444;
+        color: #ffffff;
+      }
+      .grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        margin-top: 24px;
+      }
+      .metric {
+        background: #f9fafb;
+        border-radius: 10px;
+        padding: 16px;
+        border: 1px solid #e5e7eb;
+      }
+      .metric-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6b7280;
+        margin-bottom: 6px;
+      }
+      .metric-value {
+        font-size: 24px;
+        font-weight: 600;
+        color: #111827;
+      }
+      .metric-unit {
+        font-size: 14px;
+        color: #6b7280;
+        margin-left: 4px;
+      }
+      pre {
+        background: #0f172a;
+        color: #e0f2fe;
+        border-radius: 8px;
+        padding: 16px;
+        overflow-x: auto;
+        max-height: 220px;
+      }
+      #status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        background: #dbeafe;
+        color: #1d4ed8;
+      }
+      #status.error {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+      #status.success {
+        background: #dcfce7;
+        color: #15803d;
+      }
+      #logs {
+        height: 200px;
+        overflow-y: auto;
+        background: #111827;
+        color: #e5e7eb;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .hint {
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        color: #92400e;
+        margin-top: 20px;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #0f172a;
+          color: #e2e8f0;
+        }
+        .card {
+          background: #1e293b;
+          color: inherit;
+        }
+        .metric {
+          background: rgba(148, 163, 184, 0.08);
+          border-color: rgba(148, 163, 184, 0.2);
+        }
+        #status {
+          background: rgba(37, 99, 235, 0.2);
+          color: #93c5fd;
+        }
+        #status.error {
+          background: rgba(239, 68, 68, 0.2);
+          color: #fecaca;
+        }
+        #status.success {
+          background: rgba(34, 197, 94, 0.2);
+          color: #bbf7d0;
+        }
+        pre {
+          background: rgba(15, 23, 42, 0.94);
+        }
+        #logs {
+          background: rgba(15, 23, 42, 0.94);
+        }
+        .hint {
+          background: rgba(251, 191, 36, 0.15);
+          border-color: rgba(217, 119, 6, 0.4);
+          color: #fcd34d;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Blast Motion Bluetooth Demo</h1>
+      <p>
+        Use this standalone test page to pair with a Blast Motion sensor via Web Bluetooth and stream live swing metrics.
+        Update the UUID values once the official service and characteristic IDs are known.
+      </p>
+
+      <div id="status">Web Bluetooth not initialised yet.</div>
+
+      <div class="actions" style="margin: 20px 0 12px">
+        <button id="btnPair" class="btn-primary">Pair Device</button>
+        <button id="btnStart" class="btn-secondary" disabled>Start Streaming</button>
+        <button id="btnStop" class="btn-alert" disabled>Stop Streaming</button>
+        <button id="btnDisconnect" class="btn-alert" disabled>Disconnect</button>
+        <button id="btnClear" type="button">Clear Logs</button>
+      </div>
+
+      <section class="hint" id="hint">
+        Tip: Chrome/Edge desktops only. Ensure Bluetooth is enabled and the page is served over HTTPS
+        (localhost counts). The log panel below lists every service/characteristic discovered.
+      </section>
+
+      <h2>Latest Swing Metrics</h2>
+      <div id="metrics" class="grid">
+        <div class="metric">
+          <div class="metric-label">Bat Speed</div>
+          <div class="metric-value"><span data-field="batSpeed">—</span><span class="metric-unit">mph</span></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Attack Angle</div>
+          <div class="metric-value"><span data-field="attackAngle">—</span><span class="metric-unit">°</span></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Time to Contact</div>
+          <div class="metric-value"><span data-field="timeToContact">—</span><span class="metric-unit">ms</span></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Power</div>
+          <div class="metric-value"><span data-field="power">—</span></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Hand Speed</div>
+          <div class="metric-value"><span data-field="handSpeed">—</span><span class="metric-unit">mph</span></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Connection</div>
+          <div class="metric-value"><span data-field="connection">—</span><span class="metric-unit">%</span></div>
+        </div>
+      </div>
+
+      <h2>Raw Payload</h2>
+      <pre id="rawPayload">// Waiting for data…</pre>
+
+      <h2>Logs</h2>
+      <div id="logs"></div>
+
+      <h2>Discovered Services</h2>
+      <pre id="services">// No services discovered yet.</pre>
+    </div>
+
+    <script>
+      const DEFAULT_SERVICE_UUIDS = [
+        '0000fff0-0000-1000-8000-00805f9b34fb', // Placeholder – replace with Blast service UUID
+        '0000180d-0000-1000-8000-00805f9b34fb', // Heart Rate (example)
+      ];
+
+      const DEFAULT_CHARACTERISTIC_UUIDS = [
+        '0000fff1-0000-1000-8000-00805f9b34fb', // Placeholder – replace with Blast characteristic UUID
+        '00002a37-0000-1000-8000-00805f9b34fb',
+      ];
+
+      let device = null;
+      let server = null;
+      let activeCharacteristics = [];
+
+      const status = document.getElementById('status');
+      const logs = document.getElementById('logs');
+      const servicesEl = document.getElementById('services');
+      const rawPayload = document.getElementById('rawPayload');
+      const hint = document.getElementById('hint');
+      const metricsEls = Array.from(document.querySelectorAll('[data-field]')).reduce(
+        (acc, el) => ({ ...acc, [el.dataset.field]: el }),
+        {}
+      );
+
+      const btnPair = document.getElementById('btnPair');
+      const btnStart = document.getElementById('btnStart');
+      const btnStop = document.getElementById('btnStop');
+      const btnDisconnect = document.getElementById('btnDisconnect');
+      const btnClear = document.getElementById('btnClear');
+
+      const appendLog = (message) => {
+        const timestamp = new Date().toLocaleTimeString();
+        const line = document.createElement('div');
+        line.textContent = \`[\${timestamp}] \${message}\`;
+        logs.prepend(line);
+      };
+
+      const updateStatus = (message, tone = '') => {
+        status.textContent = message;
+        status.className = tone ? tone : '';
+      };
+
+      const safeNumber = (value) => (typeof value === 'number' && !Number.isNaN(value) ? value : null);
+
+      const updateMetrics = (data) => {
+        Object.entries({
+          batSpeed: data.batSpeed,
+          attackAngle: data.attackAngle,
+          timeToContact: data.timeToContact,
+          power: data.power,
+          handSpeed: data.handSpeed,
+          connection: data.connection,
+        }).forEach(([key, value]) => {
+          const el = metricsEls[key];
+          if (!el) return;
+          const safe = safeNumber(value);
+          el.textContent = safe === null ? '—' : safe.toFixed(2);
+        });
+
+        if (data.rawPayloadHex) {
+          rawPayload.textContent = data.rawPayloadHex;
+        }
+      };
+
+      const parseBlastPayload = (dataView, characteristic) => {
+        const toHex = () => {
+          const bytes = new Uint8Array(
+            dataView.buffer.slice(dataView.byteOffset, dataView.byteOffset + dataView.byteLength)
+          );
+          return Array.from(bytes)
+            .map((byte) => byte.toString(16).padStart(2, '0'))
+            .join(' ');
+        };
+
+        const readFloat = (index) => {
+          const offset = index * 4;
+          if (dataView.byteLength >= offset + 4) {
+            return Number(dataView.getFloat32(offset, true).toFixed(3));
+          }
+          return undefined;
+        };
+
+        return {
+          timestamp: Date.now(),
+          characteristic: characteristic.uuid,
+          batSpeed: readFloat(0),
+          attackAngle: readFloat(1),
+          timeToContact: readFloat(2),
+          power: readFloat(3),
+          handSpeed: readFloat(4),
+          connection: readFloat(5),
+          rawPayloadHex: toHex(),
+        };
+      };
+
+      const discoverServices = async () => {
+        if (!server) return;
+
+        const services = await server.getPrimaryServices();
+        const serviceDump = [];
+        activeCharacteristics = [];
+
+        for (const service of services) {
+          const characteristics = await service.getCharacteristics();
+          serviceDump.push({ service: service.uuid, characteristics: characteristics.map((c) => c.uuid) });
+
+          for (const characteristic of characteristics) {
+            const shouldSubscribe =
+              DEFAULT_CHARACTERISTIC_UUIDS.includes(characteristic.uuid) ||
+              characteristic.properties.notify ||
+              characteristic.properties.indicate;
+
+            if (shouldSubscribe) {
+              activeCharacteristics.push(characteristic);
+            }
+          }
+        }
+
+        servicesEl.textContent = JSON.stringify(serviceDump, null, 2);
+        appendLog(\`Discovered \${services.length} services, \${activeCharacteristics.length} streamable characteristics.\`);
+      };
+
+      const handleNotifications = async () => {
+        appendLog('Starting characteristic notifications…');
+
+        for (const characteristic of activeCharacteristics) {
+          const handler = (event) => {
+            const target = event.target;
+            if (!target?.value) return;
+            const parsed = parseBlastPayload(target.value, target);
+            updateMetrics(parsed);
+            appendLog(\`Data from \${target.uuid}: \${parsed.rawPayloadHex}\`);
+          };
+
+          characteristic.addEventListener('characteristicvaluechanged', handler);
+          if (characteristic.properties.notify || characteristic.properties.indicate) {
+            await characteristic.startNotifications();
+          } else {
+            const value = await characteristic.readValue();
+            const parsed = parseBlastPayload(value, characteristic);
+            updateMetrics(parsed);
+            appendLog(\`Polling \${characteristic.uuid}: \${parsed.rawPayloadHex}\`);
+          }
+        }
+
+        updateStatus('Streaming live data…', 'success');
+        btnStart.disabled = true;
+        btnStop.disabled = false;
+      };
+
+      const stopNotifications = async () => {
+        for (const characteristic of activeCharacteristics) {
+          characteristic.removeEventListener('characteristicvaluechanged', () => {});
+          if (characteristic.properties.notify || characteristic.properties.indicate) {
+            try {
+              await characteristic.stopNotifications();
+            } catch (error) {
+              appendLog(\`Failed to stop notifications for \${characteristic.uuid}: \${error.message}\`);
+            }
+          }
+        }
+
+        btnStart.disabled = !server;
+        btnStop.disabled = true;
+        updateStatus('Streaming paused.', '');
+      };
+
+      const disconnectDevice = async () => {
+        if (!device) return;
+        appendLog('Disconnecting from device…');
+        try {
+          if (device.gatt?.connected) {
+            device.gatt.disconnect();
+          }
+        } catch (error) {
+          appendLog(\`Failed to disconnect: \${error.message}\`);
+        }
+        device = null;
+        server = null;
+        activeCharacteristics = [];
+        updateStatus('Disconnected.', '');
+        btnStart.disabled = true;
+        btnStop.disabled = true;
+        btnDisconnect.disabled = true;
+      };
+
+      btnPair.addEventListener('click', async () => {
+        if (!navigator.bluetooth) {
+          updateStatus('Web Bluetooth is not supported in this browser.', 'error');
+          return;
+        }
+
+        try {
+          updateStatus('Requesting device…');
+          appendLog('Opening device picker…');
+          device = await navigator.bluetooth.requestDevice({
+            filters: [{ namePrefix: 'Blast' }],
+            optionalServices: Array.from(new Set([...DEFAULT_SERVICE_UUIDS, ...DEFAULT_CHARACTERISTIC_UUIDS])),
+          });
+
+          device.addEventListener('gattserverdisconnected', () => {
+            appendLog('Device disconnected.');
+            updateStatus('Device disconnected.', 'error');
+            btnStart.disabled = true;
+            btnStop.disabled = true;
+            btnDisconnect.disabled = true;
+          });
+
+          updateStatus(\`Connecting to \${device.name || device.id}…\`);
+          server = await device.gatt.connect();
+
+          appendLog(\`Connected to \${device.name || device.id}\`);
+          updateStatus('Connected. Discovering services…', 'success');
+          hint.textContent =
+            'All services/characteristics appear in the panel below. Replace the placeholder UUIDs once identified.';
+
+          btnStart.disabled = false;
+          btnDisconnect.disabled = false;
+
+          await discoverServices();
+        } catch (error) {
+          appendLog(\`Pairing error: \${error.message}\`);
+          updateStatus(\`Pairing failed: \${error.message}\`, 'error');
+        }
+      });
+
+      btnStart.addEventListener('click', async () => {
+        if (!server) return;
+        try {
+          await handleNotifications();
+        } catch (error) {
+          appendLog(\`Failed to start streaming: \${error.message}\`);
+          updateStatus(\`Failed to start streaming: \${error.message}\`, 'error');
+        }
+      });
+
+      btnStop.addEventListener('click', async () => {
+        try {
+          await stopNotifications();
+        } catch (error) {
+          appendLog(\`Failed to stop streaming: \${error.message}\`);
+        }
+      });
+
+      btnDisconnect.addEventListener('click', async () => {
+        await disconnectDevice();
+      });
+
+      btnClear.addEventListener('click', () => {
+        logs.innerHTML = '';
+        rawPayload.textContent = '// Waiting for data…';
+      });
+
+      // Initial feature detection
+      if (!navigator.bluetooth) {
+        updateStatus('Web Bluetooth not supported. Use Chrome or Edge on desktop.', 'error');
+      } else {
+        updateStatus('Ready. Click “Pair Device” to begin.');
+        appendLog('Page loaded. Waiting for user interaction.');
+      }
+    </script>
+  </body>
+</html>
+
+

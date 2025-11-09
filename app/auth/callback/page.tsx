@@ -54,11 +54,14 @@ export default function AuthCallbackPage() {
       
       if (response.ok) {
         const userData = await response.json();
-        if (userData.role === 'coach') {
-          router.push('/coach');
-        } else {
-          router.push('/player');
+        // Respect returnTo saved before redirect (if any)
+        const rt = localStorage.getItem('auth_return_to');
+        if (rt) {
+          localStorage.removeItem('auth_return_to');
+          router.push(rt);
+          return;
         }
+        router.push(userData.role === 'coach' ? '/coach' : '/player');
       } else {
         // User doesn't exist yet, redirect to signup
         router.push('/signup');

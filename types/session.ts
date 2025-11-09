@@ -153,6 +153,7 @@ export interface Session {
   };
   label: 'good' | 'needs_work';
   videoAnalysis?: VideoAnalysis;
+  recommendations?: any; // drill recommendations
 }
 
 export interface CreateSessionInput {

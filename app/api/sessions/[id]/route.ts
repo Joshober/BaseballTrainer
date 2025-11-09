@@ -12,10 +12,24 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const decodedToken = await verifyIdToken(token);
-    if (!decodedToken) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    const token = authHeader.substring(7).trim();
+    console.log('Token received:', {
+      length: token.length,
+      preview: token.substring(0, 20) + '...' + token.substring(token.length - 20),
+      parts: token.split('.').length,
+    });
+    let decodedToken;
+    try {
+      decodedToken = await verifyIdToken(token);
+      if (!decodedToken) {
+        return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+      }
+    } catch (error: any) {
+      console.error('Token verification failed:', error?.message || error);
+      return NextResponse.json({ 
+        error: 'Invalid token', 
+        message: error?.message || 'Token verification failed' 
+      }, { status: 401 });
     }
 
     const { id } = await params;

@@ -97,4 +97,23 @@ export async function signOutUser(): Promise<void> {
   auth0SignOut();
 }
 
+/**
+ * Ensure user is signed in; if not, redirect to login preserving return path
+ */
+export function ensureSignedIn(returnTo?: string) {
+  const token = getAuthToken();
+  const user = getAuthUser();
+  if (!token || !user) {
+    try {
+      const rt = returnTo || (typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/');
+      const url = new URL('/login', window.location.origin);
+      url.searchParams.set('returnTo', rt);
+      window.location.href = url.toString();
+    } catch {
+      // Fallback
+      window.location.href = '/login';
+    }
+  }
+}
+
 

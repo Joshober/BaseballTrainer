@@ -27,6 +27,28 @@ export async function POST(request: NextRequest) {
 
     const db = getDatabaseAdapter();
     const session = await db.createSession(body);
+
+    // Kick off background AI analysis if this session has a video
+    try {
+      if (session.videoPath || session.videoURL) {
+        // Build absolute URL for internal call
+        const url = new URL('/api/video-analyses', request.url);
+        // Fire and forget; do not await
+        fetch(url.toString(), {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sessionId: session.id,
+            videoPath: session.videoPath || undefined,
+            videoUrl: session.videoURL || undefined,
+          }),
+        }).catch(() => {});
+      }
+    } catch {}
+
     return NextResponse.json(session);
   } catch (error: any) {
     console.error('Session creation error:', error);
@@ -66,7 +88,12 @@ export async function GET(request: NextRequest) {
       sessions = await db.getSessionsByUser(uid);
     }
     
-    return NextResponse.json(sessions);
+    return NextResponse.json(sessions, {
+      headers: {
+        // Modest private cache to speed up rapid reloads while keeping user-specific
+        'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
+      },
+    });
   } catch (error) {
     console.error('Session fetch error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
