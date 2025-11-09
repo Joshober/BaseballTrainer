@@ -353,29 +353,93 @@ app.post('/api/pose/detect', authenticate, upload.single('image'), async (req, r
 });
 
 // Proxy to Python Backend (Video Analysis)
-app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async (req, res) => {
+// Use upload.any() to allow optional file upload when videoPath is provided
+app.post('/api/pose/analyze-video', authenticate, upload.any(), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No video provided' });
+    // Get videoUrl if provided (for videos already in storage)
+    const videoUrl = req.body.videoUrl as string | undefined;
+    
+    // Extract videoPath from videoUrl if provided
+    let videoPath: string | undefined;
+    if (videoUrl) {
+      // Extract path from URL format: /api/storage/videos/user_id/file.mp4 or full URL
+      try {
+        const urlMatch = videoUrl.match(/\/api\/storage\/(.+)/);
+        if (urlMatch) {
+          videoPath = urlMatch[1];
+        } else {
+          // Try parsing as full URL
+          const urlObj = new URL(videoUrl);
+          const pathMatch = urlObj.pathname.match(/\/api\/storage\/(.+)/);
+          if (pathMatch) {
+            videoPath = pathMatch[1];
+          }
+        }
+      } catch (e) {
+        // If URL parsing fails, try to extract path directly
+        const pathMatch = videoUrl.match(/\/api\/storage\/(.+)/);
+        if (pathMatch) {
+          videoPath = pathMatch[1];
+        }
+      }
+    }
+
+    // Get uploaded file if any (multer stores files in req.files array when using upload.any())
+    const uploadedFile = Array.isArray(req.files) && req.files.length > 0 
+      ? req.files[0] 
+      : (req as any).file;
+    
+    // If videoPath is provided, we can use direct file access (no file upload needed)
+    // Otherwise, require file upload
+    if (!videoPath && !uploadedFile) {
+      return res.status(400).json({ error: 'No video provided. Either upload a video file or provide videoUrl.' });
     }
 
     // Get configuration parameters from request body or query
+    // Validate and sanitize parameters
+    const rawProcessingMode = req.body.processingMode || 'full';
+    const validProcessingModes = ['full', 'sampled', 'streaming'];
+    const processingMode = validProcessingModes.includes(rawProcessingMode) ? rawProcessingMode : 'full';
+    
+    const rawSampleRate = parseInt(req.body.sampleRate || '1', 10);
+    const sampleRate = Math.max(1, Math.min(10, rawSampleRate)); // Clamp between 1-10
+    
+    const rawMaxFrames = req.body.maxFrames ? parseInt(req.body.maxFrames, 10) : undefined;
+    const maxFrames = rawMaxFrames ? Math.max(1, Math.min(1000, rawMaxFrames)) : undefined; // Clamp between 1-1000
+    
+    const enableYOLO = req.body.enableYOLO !== 'false';
+    
+    const rawYoloConfidence = parseFloat(req.body.yoloConfidence || '0.5');
+    const yoloConfidence = Math.max(0.1, Math.min(1.0, rawYoloConfidence)); // Clamp between 0.1-1.0
+    
+    const rawCalibration = req.body.calibration ? parseFloat(req.body.calibration) : undefined;
+    const calibration = rawCalibration ? Math.max(0.5, Math.min(3.0, rawCalibration)) : undefined; // Clamp between 0.5-3.0m
+    
     const config = {
-      processingMode: req.body.processingMode || 'full',
-      sampleRate: parseInt(req.body.sampleRate || '1', 10),
-      maxFrames: req.body.maxFrames ? parseInt(req.body.maxFrames, 10) : undefined,
-      enableYOLO: req.body.enableYOLO !== 'false',
-      yoloConfidence: parseFloat(req.body.yoloConfidence || '0.5'),
-      calibration: req.body.calibration ? parseFloat(req.body.calibration) : undefined,
+      processingMode,
+      sampleRate,
+      maxFrames,
+      enableYOLO,
+      yoloConfidence,
+      calibration,
     };
 
     // Create FormData for Python backend
     const FormData = require('form-data');
     const formData = new FormData();
-    formData.append('video', req.file.buffer, {
-      filename: req.file.originalname || 'video.mp4',
-      contentType: req.file.mimetype || 'video/mp4',
-    });
+    
+    // If videoPath is provided, use direct file access (more efficient)
+    if (videoPath) {
+      console.log(`[Gateway] Using direct file access for video: ${videoPath}`);
+      formData.append('videoPath', videoPath);
+    } else if (uploadedFile) {
+      // Otherwise, upload video bytes
+      console.log(`[Gateway] Uploading video file: ${uploadedFile.originalname || uploadedFile.fieldname}`);
+      formData.append('video', uploadedFile.buffer, {
+        filename: uploadedFile.originalname || 'video.mp4',
+        contentType: uploadedFile.mimetype || 'video/mp4',
+      });
+    }
     
     // Append configuration parameters
     Object.entries(config).forEach(([key, value]) => {
@@ -383,6 +447,22 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
         formData.append(key, String(value));
       }
     });
+
+    // Check service health before processing (optional but helpful for debugging)
+    try {
+      const healthCheck = await axios.get(`${POSE_DETECTION_SERVICE_URL}/api/health`, {
+        timeout: 5000, // 5 second timeout for health check
+      }).catch(() => null);
+      
+      if (!healthCheck || healthCheck.status !== 200) {
+        console.warn(`[Gateway] Pose detection service health check failed, but continuing with request`);
+      } else {
+        console.log(`[Gateway] Pose detection service health check passed`);
+      }
+    } catch (healthError) {
+      // Health check failed, but we'll try the request anyway
+      console.warn(`[Gateway] Could not verify pose detection service health: ${healthError}`);
+    }
 
     // Forward to Pose Detection Service
     const response = await axios.post(
@@ -402,9 +482,21 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
     res.json(response.data);
   } catch (error: any) {
     console.error('Video analysis error:', error.message);
-    res.status(error.response?.status || 500).json({
+    const statusCode = error.response?.status || 500;
+    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+    
+    // Check for service unavailable errors
+    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || statusCode === 503) {
+      return res.status(503).json({
+        error: 'Service unavailable',
+        message: 'Pose detection service is not available. Please ensure the service is running.',
+        hint: 'Check if the pose detection service is running on the configured port.'
+      });
+    }
+    
+    res.status(statusCode).json({
       error: 'Internal server error',
-      message: error.message
+      message: errorMessage
     });
   }
 });

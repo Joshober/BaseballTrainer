@@ -70,8 +70,18 @@ def log_request():
     logger.info(f"{request.method} {request.path}")
 
 if __name__ == '__main__':
-    port = int(os.getenv('PYTHON_BACKEND_PORT', 5000))
+    # Use POSE_DETECTION_SERVICE_PORT if set, otherwise PYTHON_BACKEND_PORT, otherwise default to 5003
+    port = int(os.getenv('POSE_DETECTION_SERVICE_PORT') or os.getenv('PYTHON_BACKEND_PORT', '5003'))
     debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     logger.info(f"Starting Python backend on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    
+    try:
+        app.run(host='0.0.0.0', port=port, debug=debug)
+    except OSError as e:
+        if 'Address already in use' in str(e):
+            logger.error(f"Port {port} is already in use. Please stop the process using this port or use a different port.")
+            logger.error("On macOS, port 5000 might be used by AirPlay Receiver. Use port 5003 instead.")
+            raise
+        else:
+            raise
 

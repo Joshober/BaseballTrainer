@@ -63,14 +63,14 @@ def analyze_video():
     """
     Analyze video for baseball swing
     Returns comprehensive swing analysis with pose, bat, ball detection, and metrics
+    
+    Supports two modes:
+    1. Video file upload (multipart/form-data with 'video' file)
+    2. Direct file path (form data with 'videoPath' parameter pointing to file in uploads folder)
     """
     try:
-        if 'video' not in request.files:
-            return jsonify({'error': 'No video provided', 'ok': False}), 400
-        
-        file = request.files['video']
-        if file.filename == '':
-            return jsonify({'error': 'No video selected', 'ok': False}), 400
+        from pathlib import Path
+        import os
         
         # Get configuration parameters
         processing_mode = request.form.get('processingMode', 'full')
@@ -80,9 +80,6 @@ def analyze_video():
         yolo_confidence = float(request.form.get('yoloConfidence', '0.5'))
         calibration = request.form.get('calibration')
         batter_height_m = float(calibration) if calibration else None
-        
-        # Read video bytes
-        video_bytes = file.read()
         
         # Initialize video analyzer
         analyzer = VideoAnalyzer(
@@ -94,7 +91,77 @@ def analyze_video():
             batter_height_m=batter_height_m
         )
         
-        # Analyze video
+        # Check if videoPath is provided (direct file system access)
+        video_path = request.form.get('videoPath')
+        if video_path:
+            # Resolve upload directory (same logic as storage server)
+            upload_dir_str = os.getenv('STORAGE_UPLOAD_DIR', 'uploads')
+            if os.path.isabs(upload_dir_str):
+                upload_dir = Path(upload_dir_str)
+            else:
+                # Try root project directory first
+                root_uploads = Path(__file__).parent.parent.parent / upload_dir_str
+                if root_uploads.exists():
+                    upload_dir = root_uploads
+                else:
+                    upload_dir = Path(__file__).parent.parent / upload_dir_str
+            
+            # Normalize and validate path
+            video_path = video_path.strip().strip('/').replace('\\', '/')
+            
+            # Security: Prevent directory traversal
+            if '..' in video_path or video_path.startswith('/') or not video_path:
+                return jsonify({
+                    'error': 'Invalid video path',
+                    'ok': False,
+                    'message': 'Path contains invalid characters or directory traversal attempt'
+                }), 400
+            
+            # Build full path
+            full_path = upload_dir / video_path
+            full_path = full_path.resolve()
+            upload_dir_resolved = upload_dir.resolve()
+            
+            # Verify path is within upload directory
+            try:
+                full_path.relative_to(upload_dir_resolved)
+            except ValueError:
+                return jsonify({
+                    'error': 'Invalid video path',
+                    'ok': False,
+                    'message': 'Path is outside upload directory'
+                }), 400
+            
+            # Check if file exists
+            if not full_path.exists():
+                return jsonify({
+                    'error': 'Video file not found',
+                    'ok': False,
+                    'message': f'Video file not found at path: {video_path}'
+                }), 404
+            
+            # Analyze video from file path
+            logger.info(f"Analyzing video from path: {full_path}")
+            result = analyzer.analyze_video_from_path(str(full_path), full_path.name)
+            return jsonify(result)
+        
+        # Fall back to file upload mode
+        if 'video' not in request.files:
+            return jsonify({
+                'error': 'No video provided',
+                'ok': False,
+                'message': 'Either provide a video file or videoPath parameter'
+            }), 400
+        
+        file = request.files['video']
+        if file.filename == '':
+            return jsonify({'error': 'No video selected', 'ok': False}), 400
+        
+        # Read video bytes
+        video_bytes = file.read()
+        
+        # Analyze video from bytes
+        logger.info(f"Analyzing video from uploaded file: {file.filename}")
         result = analyzer.analyze_video(video_bytes, file.filename)
         
         return jsonify(result)

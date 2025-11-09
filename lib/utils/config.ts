@@ -29,9 +29,11 @@ export const config = {
     url: process.env.BLAST_CONNECTOR_URL || process.env.NGROK_BLAST_CONNECTOR_URL || 'http://localhost:5002',
     port: parseInt(process.env.BLAST_CONNECTOR_PORT || '5002', 10),
   },
+  // Storage is handled by the Pose Detection Service (includes storage routes)
+  // No separate storage server needed
   storageServer: {
-    url: process.env.STORAGE_SERVER_URL || process.env.NGROK_STORAGE_SERVER_URL || 'http://localhost:5003',
-    port: parseInt(process.env.STORAGE_SERVER_PORT || '5003', 10),
+    url: process.env.STORAGE_SERVER_URL || process.env.NGROK_STORAGE_SERVER_URL || process.env.POSE_DETECTION_SERVICE_URL || process.env.NGROK_POSE_DETECTION_URL || 'http://localhost:5003',
+    port: parseInt(process.env.POSE_DETECTION_SERVICE_PORT || '5003', 10),
   },
   gateway: {
     url: process.env.GATEWAY_URL || process.env.NGROK_GATEWAY_URL || 'http://localhost:3001',

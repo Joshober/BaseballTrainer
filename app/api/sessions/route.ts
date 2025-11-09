@@ -61,9 +61,23 @@ export async function GET(request: NextRequest) {
     }
     
     return NextResponse.json(sessions);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Session fetch error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const errorMessage = error?.message || 'Internal server error';
+    
+    // Check for MongoDB connection errors
+    if (errorMessage.includes('ENOTFOUND') || errorMessage.includes('Mongo')) {
+      return NextResponse.json({ 
+        error: 'Database connection failed',
+        message: 'Unable to connect to MongoDB. Please check your MongoDB connection string in .env.local',
+        hint: 'The MongoDB cluster might not exist or be accessible. Please verify your MongoDB Atlas connection string.'
+      }, { status: 503 });
+    }
+    
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      message: errorMessage
+    }, { status: 500 });
   }
 }
 

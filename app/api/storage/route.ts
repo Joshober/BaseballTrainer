@@ -58,16 +58,30 @@ export async function GET(request: NextRequest) {
 
     // Get storage server URL (prioritizes ngrok URL)
     const storageServerUrl = getStorageServerUrl();
+    console.log('[Storage API] Fetching file:', path, 'from:', storageServerUrl);
+    
+    // Normalize path (remove leading/trailing slashes, decode if needed)
+    const normalizedPath = decodeURIComponent(path).replace(/^\/+|\/+$/g, '');
     
     // Proxy request to Flask storage server
-    const response = await fetch(`${storageServerUrl}/api/storage/${path}`, {
+    const storageUrl = `${storageServerUrl}/api/storage/${normalizedPath}`;
+    console.log('[Storage API] Requesting:', storageUrl);
+    
+    const response = await fetch(storageUrl, {
       method: 'GET',
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: response.statusText }));
+      const errorText = await response.text();
+      let error;
+      try {
+        error = JSON.parse(errorText);
+      } catch {
+        error = { error: errorText || response.statusText };
+      }
+      console.error('[Storage API] Error fetching file:', error, 'Status:', response.status);
       return NextResponse.json(
-        { error: error.error || error.message || 'File not found' },
+        { error: error.error || error.message || 'File not found', path: normalizedPath },
         { status: response.status }
       );
     }

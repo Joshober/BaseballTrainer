@@ -78,7 +78,7 @@ class VideoAnalyzer:
     
     def analyze_video(self, video_bytes: bytes, filename: str = 'video.mp4') -> Dict:
         """
-        Analyze video file
+        Analyze video file from bytes
         
         Args:
             video_bytes: Video file bytes
@@ -98,8 +98,30 @@ class VideoAnalyzer:
             with os.fdopen(temp_fd, 'wb') as f:
                 f.write(video_bytes)
             
+            # Analyze from file path
+            return self.analyze_video_from_path(temp_path, filename)
+        finally:
+            # Clean up temporary file
+            if temp_file and os.path.exists(temp_file):
+                try:
+                    os.unlink(temp_file)
+                except Exception as e:
+                    logger.warning(f"Failed to delete temp file {temp_file}: {e}")
+    
+    def analyze_video_from_path(self, video_path: str, filename: str = 'video.mp4') -> Dict:
+        """
+        Analyze video file from file system path
+        
+        Args:
+            video_path: Path to video file on file system
+            filename: Original filename (for metadata)
+            
+        Returns:
+            Dictionary with analysis results
+        """
+        try:
             # Open video with OpenCV
-            cap = cv2.VideoCapture(temp_path)
+            cap = cv2.VideoCapture(video_path)
             
             if not cap.isOpened():
                 return {
@@ -334,14 +356,6 @@ class VideoAnalyzer:
                 'ok': False,
                 'error': str(e)
             }
-        
-        finally:
-            # Clean up temporary file
-            if temp_file and os.path.exists(temp_file):
-                try:
-                    os.unlink(temp_file)
-                except Exception as e:
-                    logger.warning(f"Could not delete temp file: {e}")
     
     def _process_frame(self, 
                       frame: np.ndarray,

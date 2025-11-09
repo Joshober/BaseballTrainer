@@ -404,18 +404,6 @@ export default function PlayerDashboard() {
               </div>
             </Link>
 
-            <Link
-              href="/messages"
-              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">Messages</h3>
-                  <p className="text-gray-600">Chat with coaches and AI bot</p>
-                </div>
-                <ArrowRight className="w-6 h-6 text-blue-600" />
-              </div>
-            </Link>
           </div>
 
           {/* Real-Time Analysis Card */}

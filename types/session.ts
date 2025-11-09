@@ -121,10 +121,19 @@ export interface VideoAnalysis {
     severity_score?: number;
   };
   trackingQuality?: {
-    overallScore: number;
-    personTrackingRatio: number;
-    batTrackingRatio: number;
-    ballTrackingRatio: number;
+    overallScore?: number;
+    score?: number; // Alternative field name from backend
+    personTrackingRatio?: number;
+    person_tracking_ratio?: number; // Alternative field name from backend
+    batTrackingRatio?: number;
+    bat_tracking_ratio?: number; // Alternative field name from backend
+    ballTrackingRatio?: number;
+    ball_tracking_ratio?: number; // Alternative field name from backend
+    issues?: string[]; // Tracking issues reported by backend
+    totalFrames?: number;
+    personDetected?: number;
+    batDetected?: number;
+    ballDetected?: number;
   };
   trackingTrajectories?: any;
   error?: string;

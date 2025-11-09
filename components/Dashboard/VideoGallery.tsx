@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Video, Send, Bot, Play, Calendar, TrendingUp } from 'lucide-react';
+import { Video, Bot, Play, Calendar, TrendingUp } from 'lucide-react';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import type { Session } from '@/types/session';
 import type { VideoAnalysis } from '@/types/session';
 
 interface VideoGalleryProps {
   sessions: Session[];
-  onSendToMessenger: (session: Session) => void;
   onSendToAIBot: (session: Session) => void;
 }
 
@@ -16,7 +15,7 @@ interface SessionWithAnalysis extends Session {
   videoAnalysisData?: VideoAnalysis | null;
 }
 
-export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot }: VideoGalleryProps) {
+export default function VideoGallery({ sessions, onSendToAIBot }: VideoGalleryProps) {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [filter, setFilter] = useState<'all' | 'good' | 'needs_work'>('all');
   const [sessionsWithAnalysis, setSessionsWithAnalysis] = useState<SessionWithAnalysis[]>([]);
@@ -191,18 +190,11 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                 {/* Action Buttons */}
                 <div className="flex gap-2">
                   <button
-                    onClick={() => onSendToMessenger(session)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                  >
-                    <Send className="w-4 h-4" />
-                    Send
-                  </button>
-                  <button
                     onClick={() => onSendToAIBot(session)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
                   >
                     <Bot className="w-4 h-4" />
-                    AI Bot
+                    Analyze with AI
                   </button>
                 </div>
               </div>

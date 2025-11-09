@@ -130,7 +130,11 @@ export default function AnalyzePage() {
         }
       }
 
-      // Fetch the video through Next.js API route (which handles ngrok/local URLs)
+      // OPTIMIZATION: For videos in storage, we can pass URL directly to avoid double download
+      // Store the original URL for direct analysis
+      const storageUrl = url.startsWith('http') ? url : `/api/storage/${videoPath}`;
+      
+      // Still fetch for preview, but mark that we have storage URL
       const response = await fetch(`/api/storage?path=${encodeURIComponent(videoPath)}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -147,11 +151,19 @@ export default function AnalyzePage() {
       const pathParts = videoPath.split('/');
       const filename = pathParts[pathParts.length - 1] || `video-${Date.now()}.mp4`;
       
-      // Create a File object from the blob
+      // Create a File object from the blob for preview
       const file = new File([blob], filename, { type: blob.type || 'video/mp4' });
       
       setSelectedFile(file);
       setVideoUrl(URL.createObjectURL(file));
+      
+      // Store original storage URL for optimized analysis
+      // This will be passed to backend to avoid re-upload
+      if (searchParams) {
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.set('videoUrl', storageUrl);
+        router.replace(`/analyze?${newSearchParams.toString()}`);
+      }
       
       // Automatically start analysis after video is loaded
       setTimeout(() => {
@@ -222,16 +234,8 @@ export default function AnalyzePage() {
       formData.append('enableYOLO', 'true');
       formData.append('yoloConfidence', '0.5');
 
-      // Simulate progress (since we can't track real progress easily)
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 500);
+      // Simplified progress - no animation, just show analyzing state
+      setProgress(50); // Show 50% while processing
 
       // Call video analysis API with extended timeout
       const controller = new AbortController();
@@ -247,8 +251,6 @@ export default function AnalyzePage() {
       });
       
       clearTimeout(timeoutId);
-
-      clearInterval(progressInterval);
       setProgress(100);
 
       if (!response.ok) {
@@ -408,18 +410,12 @@ export default function AnalyzePage() {
                 </div>
               )}
 
-              {/* Progress Bar */}
+              {/* Analysis Status - No animation */}
               {analyzing && (
-                <div className="mt-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Analyzing...</span>
-                    <span className="text-sm text-gray-500">{progress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${progress}%` }}
-                    ></div>
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex items-center gap-3">
+                    <Activity className="h-5 w-5 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">Analyzing video... Please wait.</span>
                   </div>
                 </div>
               )}
