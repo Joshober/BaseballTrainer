@@ -28,6 +28,7 @@
     "dev:all": "powershell -ExecutionPolicy Bypass -File scripts/start-all.ps1",
     "dev:all:unix": "bash scripts/start-all.sh",
     "start:all": "tsx scripts/run-and-check.ts",
+    "everything": "npm run start:all",
     "run:check": "tsx scripts/run-and-check.ts",
     "dev:ngrok:backend": "ngrok start baseball-backend --config ngrok.yml",
     "dev:ngrok:frontend": "ngrok start baseball-frontend --config ngrok.yml",

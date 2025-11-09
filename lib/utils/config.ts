@@ -30,8 +30,8 @@ export const config = {
     port: parseInt(process.env.BLAST_CONNECTOR_PORT || '5002', 10),
   },
   storageServer: {
-    url: process.env.STORAGE_SERVER_URL || process.env.NGROK_STORAGE_SERVER_URL || 'http://localhost:5003',
-    port: parseInt(process.env.STORAGE_SERVER_PORT || '5003', 10),
+    url: process.env.STORAGE_SERVER_URL || process.env.NGROK_STORAGE_SERVER_URL || 'http://localhost:5004',
+    port: parseInt(process.env.STORAGE_SERVER_PORT || '5004', 10),
   },
   gateway: {
     url: process.env.GATEWAY_URL || process.env.NGROK_GATEWAY_URL || 'http://localhost:3001',
@@ -47,7 +47,9 @@ export const config = {
   // OpenRouter configuration
   openRouter: {
     apiKey: process.env.OPENROUTER_API_KEY || '',
-    apiUrl: 'https://openrouter.ai/api/v1/chat/completions',
+    apiUrl: process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1/chat/completions',
+    model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet',
+    maxFrames: parseInt(process.env.OPENROUTER_MAX_FRAMES || '10', 10),
   },
 } as const;
 

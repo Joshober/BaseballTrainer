@@ -17,9 +17,6 @@ export default function VideosPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [showMessengerModal, setShowMessengerModal] = useState(false);
   const [showAIBotModal, setShowAIBotModal] = useState(false);
-  const [showOpenRouterModal, setShowOpenRouterModal] = useState(false);
-  const [openRouterFeedback, setOpenRouterFeedback] = useState<string | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isAnalyzingVideo, setIsAnalyzingVideo] = useState(false);
@@ -76,49 +73,6 @@ export default function VideosPage() {
   const handleSendToAIBot = (session: Session) => {
     setSelectedSession(session);
     setShowAIBotModal(true);
-  };
-
-  const handleSendToOpenRouter = async (session: Session) => {
-    setSelectedSession(session);
-    setShowOpenRouterModal(true);
-    setIsAnalyzing(true);
-    setOpenRouterFeedback(null);
-
-    try {
-      const authUser = getAuthUser();
-      const token = getAuthToken();
-      if (!authUser || !token) {
-        throw new Error('User not authenticated');
-      }
-
-      const response = await fetch('/api/openrouter/analyze-video', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sessionId: session.id,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Analysis failed' }));
-        throw new Error(errorData.error || 'Failed to analyze video');
-      }
-
-      const data = await response.json();
-      if (data.ok && data.feedback) {
-        setOpenRouterFeedback(data.feedback);
-      } else {
-        throw new Error('No feedback received');
-      }
-    } catch (error: any) {
-      console.error('OpenRouter analysis error:', error);
-      setOpenRouterFeedback(`Error: ${error.message || 'Failed to analyze video. Please try again.'}`);
-    } finally {
-      setIsAnalyzing(false);
-    }
   };
 
   const sendToMessenger = async (receiverUid: string) => {
@@ -485,7 +439,6 @@ export default function VideosPage() {
             sessions={sessions}
             onSendToMessenger={handleSendToMessenger}
             onSendToAIBot={handleSendToAIBot}
-            onSendToOpenRouter={handleSendToOpenRouter}
           />
           </div>
         </div>
@@ -534,60 +487,6 @@ export default function VideosPage() {
         </div>
       )}
 
-      {/* OpenRouter Analysis Modal */}
-      {showOpenRouterModal && selectedSession && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <Bot className="w-6 h-6 text-orange-600" />
-                <h2 className="text-2xl font-bold">AI Coaching Feedback</h2>
-              </div>
-              <button
-                onClick={() => {
-                  setShowOpenRouterModal(false);
-                  setSelectedSession(null);
-                  setOpenRouterFeedback(null);
-                  setIsAnalyzing(false);
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ✕
-              </button>
-            </div>
-            
-            {isAnalyzing ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Analyzing your swing... This may take a moment.</p>
-              </div>
-            ) : openRouterFeedback ? (
-              <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-lg p-6 border border-orange-200">
-                <h3 className="font-semibold text-lg mb-3 text-orange-900">Coaching Feedback</h3>
-                <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">{openRouterFeedback}</p>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <p>No feedback available.</p>
-              </div>
-            )}
-            
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => {
-                  setShowOpenRouterModal(false);
-                  setSelectedSession(null);
-                  setOpenRouterFeedback(null);
-                  setIsAnalyzing(false);
-                }}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
