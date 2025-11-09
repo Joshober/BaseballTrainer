@@ -14,6 +14,7 @@ interface Service {
   name: string;
   port: number;
   command: string;
+  requiresPython?: boolean;
   healthCheck?: string;
   process?: ChildProcess;
 }
@@ -28,7 +29,8 @@ const services: Service[] = [
   {
     name: 'Pose Detection Service',
     port: 5003,
-    command: 'cd pose-detection-service && DEMO_MODE=true PYTHON_BACKEND_PORT=5003 /usr/local/bin/python3.10 app.py',
+    command: 'cd pose-detection-service && DEMO_MODE=true PYTHON_BACKEND_PORT=5003 {PYTHON} app.py',
+    requiresPython: true,
     healthCheck: 'http://localhost:5003/health',
   },
   {
@@ -162,7 +164,7 @@ async function waitForService(url: string, timeout: number = 30000): Promise<boo
 }
 
 // Fix common issues
-async function fixIssues(): Promise<void> {
+async function fixIssues(): Promise<string> {
   console.log('\n🔧 Checking and fixing issues...\n');
 
   // 1. Check Node.js dependencies
@@ -254,11 +256,21 @@ async function fixIssues(): Promise<void> {
   } else {
     console.log('✅ All ports are available\n');
   }
+
+  return python.command;
 }
 
 // Start a service
-function startService(service: Service): ChildProcess {
-  const [command, ...args] = service.command.split(' ');
+function startService(service: Service, pythonCommand: string): ChildProcess {
+  const commandString = service.requiresPython
+    ? service.command.replace('{PYTHON}', pythonCommand)
+    : service.command;
+
+  if (service.requiresPython && !pythonCommand) {
+    throw new Error(`Python command not resolved for ${service.name}`);
+  }
+
+  const [command, ...args] = commandString.split(' ');
   
   const child = spawn(command, args, {
     cwd: projectRoot,
@@ -290,7 +302,7 @@ async function main() {
 
   try {
     // Step 1: Fix issues
-    await fixIssues();
+    const pythonCommand = await fixIssues();
 
     // Step 2: Start all services
     console.log('🚀 Starting all services...\n');
@@ -299,7 +311,7 @@ async function main() {
     
     for (const service of services) {
       console.log(`Starting ${service.name} (Port ${service.port})...`);
-      const process = startService(service);
+      const process = startService(service, pythonCommand);
       service.process = process;
       processes.push(process);
       

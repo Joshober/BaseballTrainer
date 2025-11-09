@@ -366,7 +366,6 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
       return res.status(400).json({ error: 'No video provided' });
     }
 
-    // Get configuration parameters from request body or query
     const analysisConfig = {
       processingMode: req.body.processingMode || 'full',
       sampleRate: parseInt(req.body.sampleRate || '1', 10),
@@ -376,36 +375,28 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
       calibration: req.body.calibration ? parseFloat(req.body.calibration) : undefined,
     };
 
-    // Create FormData for Python backend
     const FormData = require('form-data');
     const formData = new FormData();
     formData.append('video', req.file.buffer, {
       filename: req.file.originalname || 'video.mp4',
       contentType: req.file.mimetype || 'video/mp4',
     });
-    
-    // Append configuration parameters
+
     Object.entries(analysisConfig).forEach(([key, value]) => {
-      if (value !== undefined) {
+      if (value !== undefined && value !== null && value !== '') {
         formData.append(key, String(value));
       }
     });
 
-    // Forward to Pose Detection Service
-<<<<<<< Updated upstream
-    console.log('Forwarding video analysis request to:', `${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video`);
+    console.log(`Forwarding video analysis request to: ${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video`);
     console.log('Video file info:', {
       filename: req.file.originalname,
       mimetype: req.file.mimetype,
       size: req.file.size,
-      bufferLength: req.file.buffer.length
+      bufferLength: req.file.buffer.length,
+      config: analysisConfig,
     });
-=======
-    console.log(`Forwarding video analysis request to: ${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video`);
-    console.log(`Video file: ${req.file.originalname}, size: ${req.file.size} bytes, mimetype: ${req.file.mimetype}`);
-    console.log(`Config: processingMode=${analysisConfig.processingMode}, sampleRate=${analysisConfig.sampleRate}, enableYOLO=${analysisConfig.enableYOLO}`);
->>>>>>> Stashed changes
-    
+
     const response = await axios.post(
       `${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video`,
       formData,
@@ -417,18 +408,15 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
         },
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
-        timeout: 600000, // 10 minute timeout for video processing
+        timeout: 600000,
       }
     );
-    
-<<<<<<< Updated upstream
-    console.log('Pose detection service response status:', response.status);
-=======
+
     console.log(`Pose detection service responded with status: ${response.status}`);
     if (response.data) {
       console.log(`Response data keys: ${Object.keys(response.data).join(', ')}`);
       console.log(`Response ok: ${response.data?.ok}`);
-      
+
       if (!response.data.ok) {
         console.error('Pose detection service returned error:', JSON.stringify(response.data, null, 2));
       } else {
@@ -437,44 +425,29 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
     } else {
       console.warn('Pose detection service returned empty response');
     }
-    
->>>>>>> Stashed changes
-    res.json(response.data);
+
+    res.status(response.status).json(response.data);
   } catch (error: any) {
-    console.error('Video analysis error:', error.message);
+    console.error('Video analysis error:', error?.message || error);
     console.error('Error details:', {
-<<<<<<< Updated upstream
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      code: error.code,
-      message: error.message
-=======
-      code: error.code,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      stack: error.stack,
+      code: error?.code,
+      status: error?.response?.status,
+      statusText: error?.response?.statusText,
+      data: error?.response?.data,
+      stack: error?.stack,
     });
-    
-    const statusCode = error.response?.status || 500;
-    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Internal server error';
-    
+
+    const statusCode = error?.response?.status || 500;
+    const responseData = error?.response?.data;
+    const normalized =
+      responseData && typeof responseData === 'object'
+        ? responseData
+        : { error: responseData || error?.message || 'Internal server error' };
+
     res.status(statusCode).json({
-      error: errorMessage,
-      message: error.message,
-      ok: false
->>>>>>> Stashed changes
-    });
-    
-    // Return more detailed error information
-    const statusCode = error.response?.status || 500;
-    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Internal server error';
-    
-    res.status(statusCode).json({
-      error: errorMessage,
-      message: error.message,
-      ok: false
+      error: normalized.error || normalized.message || 'Internal server error',
+      message: error?.message,
+      ok: false,
     });
   }
 });

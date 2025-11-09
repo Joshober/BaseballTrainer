@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl } from '@/lib/utils/backend-url';
 import { verifyIdToken } from '@/lib/auth0/admin';
 import { saveVideoAnalysis } from '@/lib/mongodb/operations';
+import { getOpenRouterFeedback } from '@/lib/utils/openrouter';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * Next.js API route for video analysis
@@ -22,6 +26,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No video provided' }, { status: 400 });
     }
     
+    // Read file into buffer so we can reuse it for OpenRouter
+    const fileBuffer = await file.arrayBuffer();
+    const fileBlob = new Blob([fileBuffer], { type: file.type });
+    const reusableFile = new File([fileBlob], file.name, { type: file.type });
+    
     // Get videoUrl if provided (for videos from existing sessions)
     const videoUrl = formData.get('videoUrl') as string | null;
 
@@ -39,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // Create new form data for gateway
     const proxyFormData = new FormData();
-    proxyFormData.append('video', file);
+    proxyFormData.append('video', reusableFile);
     proxyFormData.append('processingMode', processingMode);
     proxyFormData.append('sampleRate', sampleRate);
     if (maxFrames) {
@@ -66,12 +75,12 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
-      let errorMessage = 'Error al procesar el video';
+      let errorMessage = 'Error processing video';
       try {
         const errorData = await response.json();
         errorMessage = errorData.error || errorData.message || errorMessage;
       } catch (e) {
-        errorMessage = `Error HTTP ${response.status}: ${response.statusText}`;
+        errorMessage = `HTTP Error ${response.status}: ${response.statusText}`;
       }
       return NextResponse.json(
         { error: errorMessage, ok: false },
@@ -80,6 +89,35 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await response.json();
+    
+    // Get OpenRouter feedback (non-blocking - don't fail if it errors)
+    let openRouterFeedback: string | null = null;
+    try {
+      console.log('[Pose Analysis] Getting OpenRouter feedback...');
+      // Create a new File from the buffer for OpenRouter (reuse the buffer)
+      const openRouterFileBlob = new Blob([fileBuffer], { type: file.type });
+      const openRouterFile = new File([openRouterFileBlob], file.name, { type: file.type });
+      openRouterFeedback = await getOpenRouterFeedback(openRouterFile, authHeader);
+      if (openRouterFeedback) {
+        console.log('[Pose Analysis] OpenRouter feedback received:', openRouterFeedback.substring(0, 100) + '...');
+        // Add OpenRouter feedback to the result
+        if (!result.formAnalysis) {
+          result.formAnalysis = {};
+        }
+        if (!result.formAnalysis.feedback) {
+          result.formAnalysis.feedback = [];
+        }
+        // Add OpenRouter feedback as the first item
+        result.formAnalysis.feedback = [openRouterFeedback, ...result.formAnalysis.feedback];
+        // Also add it as a top-level property for easy access
+        result.openRouterFeedback = openRouterFeedback;
+      } else {
+        console.warn('[Pose Analysis] No OpenRouter feedback received');
+      }
+    } catch (error: any) {
+      console.error('[Pose Analysis] Error getting OpenRouter feedback:', error);
+      // Don't fail the request if OpenRouter fails
+    }
     
     // Save to MongoDB if analysis was successful
     if (result.ok) {
@@ -113,7 +151,7 @@ export async function POST(request: NextRequest) {
     // Handle timeout
     if (error.name === 'TimeoutError' || error.name === 'AbortError') {
       return NextResponse.json(
-        { error: 'El análisis del video tomó demasiado tiempo. Intenta con un video más corto o reduce el número de frames.', ok: false },
+        { error: 'Video analysis took too long. Try a shorter video or reduce the number of frames.', ok: false },
         { status: 408 }
       );
     }
@@ -121,7 +159,7 @@ export async function POST(request: NextRequest) {
     // Handle network errors
     if (error.message?.includes('fetch')) {
       return NextResponse.json(
-        { error: 'No se pudo conectar al servicio de análisis. Verifica que el backend esté corriendo.', ok: false },
+        { error: 'Could not connect to the analysis backend. Confirm the gateway is running and reachable.', ok: false },
         { status: 503 }
       );
     }
