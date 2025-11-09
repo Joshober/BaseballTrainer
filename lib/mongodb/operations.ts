@@ -75,23 +75,28 @@ export async function updateUser(uid: string, updates: Partial<CreateUserInput>)
 
 // Sessions
 export async function createSession(input: CreateSessionInput): Promise<Session> {
-  const db = await getMongoDb();
-  const session = {
-    id: crypto.randomUUID(),
-    uid: input.uid,
-    teamId: input.teamId,
-    photoPath: input.photoPath,
-    photoURL: input.photoURL || null,
-    videoPath: input.videoPath || null,
-    videoURL: input.videoURL || null,
-    metrics: input.metrics,
-    game: input.game,
-    label: input.label,
-    videoAnalysis: input.videoAnalysis || null,
-    createdAt: new Date(),
-  };
-  await db.collection('sessions').insertOne(session);
-  return session as Session;
+  try {
+    const db = await getMongoDb();
+    const session = {
+      id: crypto.randomUUID(),
+      uid: input.uid,
+      teamId: input.teamId,
+      photoPath: input.photoPath || '',
+      photoURL: input.photoURL || null,
+      videoPath: input.videoPath || null,
+      videoURL: input.videoURL || null,
+      metrics: input.metrics,
+      game: input.game,
+      label: input.label,
+      videoAnalysis: input.videoAnalysis || null,
+      createdAt: new Date(),
+    };
+    await db.collection('sessions').insertOne(session);
+    return session as Session;
+  } catch (error: any) {
+    console.error('MongoDB createSession error:', error);
+    throw new Error(`Failed to create session in database: ${error.message || 'Unknown error'}`);
+  }
 }
 
 export async function getSession(sessionId: string): Promise<Session | null> {

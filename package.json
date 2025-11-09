@@ -30,6 +30,7 @@
     "start:all": "tsx scripts/run-and-check.ts",
     "start:dev": "concurrently -n \"Gateway,Blast,Frontend\" -c \"blue,green,yellow\" \"npm run dev:gateway\" \"npm run dev:blast\" \"npm run dev\"",
     "start:dev:full": "concurrently -n \"Gateway,Pose,Drills,Blast,Frontend\" -c \"blue,cyan,magenta,green,yellow\" \"npm run dev:gateway\" \"npm run dev:pose\" \"npm run dev:drills\" \"npm run dev:blast\" \"npm run dev\"",
+    "everything": "npm run start:all",
     "run:check": "tsx scripts/run-and-check.ts",
     "dev:ngrok:backend": "ngrok start baseball-backend --config ngrok.yml",
     "dev:ngrok:frontend": "ngrok start baseball-frontend --config ngrok.yml",

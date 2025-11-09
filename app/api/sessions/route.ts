@@ -50,9 +50,15 @@ export async function POST(request: NextRequest) {
     } catch {}
 
     return NextResponse.json(session);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Session creation error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const errorMessage = error?.message || 'Internal server error';
+    const errorDetails = error?.stack || '';
+    console.error('Error details:', errorDetails);
+    return NextResponse.json({ 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? errorDetails : undefined
+    }, { status: 500 });
   }
 }
 

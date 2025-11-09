@@ -11,7 +11,7 @@ import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import { config } from '../lib/utils/config';
-import { verifyIdToken } from '../lib/auth0/admin';
+import { verifyIdToken } from './auth';
 import axios from 'axios';
 import type { Request, Response, NextFunction } from 'express';
 
@@ -40,12 +40,19 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
     }
 
     const token = authHeader.substring(7);
+    
+    // Log token info for debugging (first 20 chars only for security)
+    console.log('Verifying token:', token.substring(0, 20) + '...');
+    
     const decodedToken = await verifyIdToken(token);
     
     if (!decodedToken) {
       console.error('Token verification failed - decodedToken is null');
+      console.error('Token preview:', token.substring(0, 50) + '...');
       return res.status(401).json({ error: 'Unauthorized', message: 'Invalid token' });
     }
+    
+    console.log('Token verified successfully for user:', decodedToken.sub || decodedToken.user_id);
 
     (req as any).user = decodedToken;
     // Auth0 uses 'sub' as the user ID
@@ -360,7 +367,7 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
     }
 
     // Get configuration parameters from request body or query
-    const config = {
+    const analysisConfig = {
       processingMode: req.body.processingMode || 'full',
       sampleRate: parseInt(req.body.sampleRate || '1', 10),
       maxFrames: req.body.maxFrames ? parseInt(req.body.maxFrames, 10) : undefined,
@@ -378,13 +385,22 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
     });
     
     // Append configuration parameters
-    Object.entries(config).forEach(([key, value]) => {
+    Object.entries(analysisConfig).forEach(([key, value]) => {
       if (value !== undefined) {
         formData.append(key, String(value));
       }
     });
 
     // Forward to Pose Detection Service
+    console.log(`Forwarding video analysis request to: ${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video`);
+    console.log('Video file info:', {
+      filename: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      bufferLength: req.file.buffer.length
+    });
+    console.log(`Config: processingMode=${analysisConfig.processingMode}, sampleRate=${analysisConfig.sampleRate}, enableYOLO=${analysisConfig.enableYOLO}`);
+    
     const response = await axios.post(
       `${POSE_DETECTION_SERVICE_URL}/api/pose/analyze-video`,
       formData,
@@ -396,15 +412,42 @@ app.post('/api/pose/analyze-video', authenticate, upload.single('video'), async 
         },
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
-        timeout: 300000, // 5 minute timeout for video processing
+        timeout: 600000, // 10 minute timeout for video processing
       }
     );
+    
+    console.log(`Pose detection service responded with status: ${response.status}`);
+    if (response.data) {
+      console.log(`Response data keys: ${Object.keys(response.data).join(', ')}`);
+      console.log(`Response ok: ${response.data?.ok}`);
+      
+      if (!response.data.ok) {
+        console.error('Pose detection service returned error:', JSON.stringify(response.data, null, 2));
+      } else {
+        console.log('Analysis completed successfully');
+      }
+    } else {
+      console.warn('Pose detection service returned empty response');
+    }
+    
     res.json(response.data);
   } catch (error: any) {
     console.error('Video analysis error:', error.message);
-    res.status(error.response?.status || 500).json({
-      error: 'Internal server error',
-      message: error.message
+    console.error('Error details:', {
+      code: error.code,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      stack: error.stack,
+    });
+    
+    const statusCode = error.response?.status || 500;
+    const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Internal server error';
+    
+    res.status(statusCode).json({
+      error: errorMessage,
+      message: error.message,
+      ok: false
     });
   }
 });
@@ -459,6 +502,50 @@ app.post('/api/pose/analyze-live', authenticate, upload.single('video'), async (
     res.json(response.data);
   } catch (error: any) {
     console.error('Live stream analysis error:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+// Proxy to Python Backend (Extract Frames)
+app.post('/api/pose/extract-frames', authenticate, upload.single('video'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No video provided' });
+    }
+
+    // Get frame interval parameter
+    const frameInterval = req.body.frameInterval ? parseInt(req.body.frameInterval, 10) : 5;
+
+    // Create FormData for Python backend
+    const FormData = require('form-data');
+    const formData = new FormData();
+    formData.append('video', req.file.buffer, {
+      filename: req.file.originalname || 'video.mp4',
+      contentType: req.file.mimetype || 'video/mp4',
+    });
+    formData.append('frameInterval', String(frameInterval));
+
+    // Forward to Pose Detection Service
+    const response = await axios.post(
+      `${POSE_DETECTION_SERVICE_URL}/api/pose/extract-frames`,
+      formData,
+      {
+        headers: {
+          'X-Internal-Request': 'true',
+          'X-User-Id': (req as any).userId || 'anonymous',
+          ...formData.getHeaders(),
+        },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        timeout: 60000, // 1 minute timeout for frame extraction
+      }
+    );
+    res.json(response.data);
+  } catch (error: any) {
+    console.error('Frame extraction error:', error.message);
     res.status(error.response?.status || 500).json({
       error: 'Internal server error',
       message: error.message

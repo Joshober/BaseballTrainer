@@ -17,14 +17,19 @@ export async function GET(request: NextRequest) {
 
     const db = getDatabaseAdapter();
     // Auth0 uses 'sub' as the user ID
-    const conversations = await db.getConversations(decodedToken.sub);
-    
-    return NextResponse.json(conversations || []);
+    try {
+      const conversations = await db.getConversations(decodedToken.sub);
+      return NextResponse.json(conversations);
+    } catch (dbError: any) {
+      console.error('Conversations database error:', dbError);
+      // Return empty array instead of error - conversations are optional
+      // This allows the app to work even if conversations fail
+      return NextResponse.json([]);
+    }
   } catch (error: any) {
     console.error('Conversations fetch error:', error);
     // Return empty array instead of 500 error to prevent UI errors
     // This allows the app to work even if database is not available
-    console.warn('Returning empty conversations array due to error:', error?.message || 'Unknown error');
     return NextResponse.json([]);
   }
 }

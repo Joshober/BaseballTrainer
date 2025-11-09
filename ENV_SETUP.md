@@ -99,6 +99,7 @@ To enable AI coaching feedback via OpenRouter:
 # Drill Recommender AI Integration (Optional)
 # These are optional - if not provided, recommendations will work without AI enhancement
 GOOGLE_GEMINI_API_KEY=your_gemini_api_key_here
+GOOGLE_GEMINI_MODEL_ID=gemini-flash-latest   # Optional override for clubhouse coach
 SERPAPI_KEY=your_serpapi_key_here
 
 # ElevenLabs Voice Narration (Optional but recommended for audio feedback)
@@ -106,6 +107,9 @@ ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
 ELEVENLABS_DOMINICAN_VOICE_ID=voice_id_for_dominican_slugger
 ELEVENLABS_JAPANESE_VOICE_ID=voice_id_for_japanese_ace
 ELEVENLABS_BLACK_AMERICAN_VOICE_ID=voice_id_for_black_american_all_star
+NEXT_PUBLIC_ELEVENLABS_DOMINICAN_VOICE_ID=voice_id_for_dominican_slugger
+NEXT_PUBLIC_ELEVENLABS_JAPANESE_VOICE_ID=voice_id_for_japanese_ace
+NEXT_PUBLIC_ELEVENLABS_BLACK_AMERICAN_VOICE_ID=voice_id_for_black_american_all_star
 # Optional tuning overrides (sensible defaults applied if omitted)
 ELEVENLABS_MODEL_ID=eleven_turbo_v2
 ELEVENLABS_STABILITY=0.35
@@ -179,6 +183,9 @@ Bring your drill recommendations to life with play-by-play style narration from 
   - `ELEVENLABS_DOMINICAN_VOICE_ID`
   - `ELEVENLABS_JAPANESE_VOICE_ID`
   - `ELEVENLABS_BLACK_AMERICAN_VOICE_ID`
+  - `NEXT_PUBLIC_ELEVENLABS_DOMINICAN_VOICE_ID`
+  - `NEXT_PUBLIC_ELEVENLABS_JAPANESE_VOICE_ID`
+  - `NEXT_PUBLIC_ELEVENLABS_BLACK_AMERICAN_VOICE_ID`
 
 ### 3. Optional Fine Tuning
 - The defaults for stability, similarity boost, style, and speaker boost are tuned for an energetic clubhouse vibe.
