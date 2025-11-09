@@ -33,8 +33,8 @@ start_service() {
 # Start Backend Gateway (Port 3001)
 start_service "Backend Gateway" "npm run dev:gateway" "3001"
 
-# Start Pose Detection Service (Port 5003)
-start_service "Pose Detection Service" "PYTHON_BACKEND_PORT=5003 npm run dev:pose" "5003"
+# Start Pose Detection Service (Port 5005)
+start_service "Pose Detection Service" "PYTHON_BACKEND_PORT=5005 python3.10 pose-detection-service/app.py || PYTHON_BACKEND_PORT=5005 python pose-detection-service/app.py" "5005"
 
 # Start Drill Recommender (Port 5001)
 start_service "Drill Recommender" "npm run dev:drills" "5001"
