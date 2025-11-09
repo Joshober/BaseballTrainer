@@ -34,22 +34,31 @@ export async function generateDrillNarration({
 export const BASEBALL_VOICE_OPTIONS: Array<{
   value: BaseballVoice;
   label: string;
-  description: string;
+  voiceId: string;
 }> = [
   {
     value: 'dominican',
     label: 'Dominican Slugger',
-    description: 'Energetic, rhythmic delivery with Latin baseball swagger',
+    voiceId:
+      process.env.NEXT_PUBLIC_ELEVENLABS_DOMINICAN_VOICE_ID ??
+      process.env.ELEVENLABS_DOMINICAN_VOICE_ID ??
+      'unknown-dominican-voice-id',
   },
   {
     value: 'japanese',
     label: 'Japanese Ace',
-    description: 'Precise, disciplined tone inspired by Nippon baseball legends',
+    voiceId:
+      process.env.NEXT_PUBLIC_ELEVENLABS_JAPANESE_VOICE_ID ??
+      process.env.ELEVENLABS_JAPANESE_VOICE_ID ??
+      'unknown-japanese-voice-id',
   },
   {
     value: 'black_american',
     label: 'Black American All-Star',
-    description: 'Warm, confident cadence with clubhouse leadership energy',
+    voiceId:
+      process.env.NEXT_PUBLIC_ELEVENLABS_BLACK_AMERICAN_VOICE_ID ??
+      process.env.ELEVENLABS_BLACK_AMERICAN_VOICE_ID ??
+      'unknown-black-american-voice-id',
   },
 ];
 
