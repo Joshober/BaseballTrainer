@@ -24,7 +24,19 @@ class Bus {
     }
     console.log(`[Bus] ✅ Event emitted to all listeners`);
   }
+  
+  getListenerCount(): number {
+    return this.listeners.size;
+  }
 }
 
-export const swingsBus = new Bus();
+// Use global variable to ensure singleton across module reloads in Next.js
+const globalForBus = globalThis as unknown as {
+  swingsBus: Bus | undefined;
+};
+
+export const swingsBus = globalForBus.swingsBus ?? new Bus();
+
+// Always store in global to ensure singleton across module reloads
+globalForBus.swingsBus = swingsBus;
 

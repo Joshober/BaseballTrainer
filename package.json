@@ -10,7 +10,7 @@
     "install:python:blast": "cd blast-connector && pip install -r requirements.txt",
     "dev": "next dev --webpack",
     "dev:gateway": "tsx backend-gateway/index.ts",
-    "dev:pose": "cd pose-detection-service && python app.py",
+    "dev:pose": "cd pose-detection-service && PYTHON_BACKEND_PORT=5005 python3.10 app.py || cd pose-detection-service && PYTHON_BACKEND_PORT=5005 python app.py",
     "dev:pose:demo": "cd pose-detection-service && DEMO_MODE=true python app.py",
     "dev:pose:test": "cd pose-detection-service && TEST_MODE=true python app.py",
     "dev:pose:gunicorn": "cd pose-detection-service && gunicorn -w 4 -b 0.0.0.0:5000 app:app",
