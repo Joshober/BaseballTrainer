@@ -765,6 +765,70 @@ app.post('/api/blast/sync/compare', authenticate, async (req, res) => {
   }
 });
 
+// Swing Detection Endpoints
+app.post('/api/blast/swing-detection/start', authenticate, async (req, res) => {
+  try {
+    const response = await axios.post(
+      `${BLAST_CONNECTOR_URL}/api/blast/swing-detection/start`,
+      req.body,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    res.json(response.data);
+  } catch (error: any) {
+    console.error('Swing detection start error:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: 'Failed to start swing detection',
+      message: error.response?.data?.message || error.message,
+    });
+  }
+});
+
+app.post('/api/blast/swing-detection/stop', authenticate, async (req, res) => {
+  try {
+    const response = await axios.post(
+      `${BLAST_CONNECTOR_URL}/api/blast/swing-detection/stop`,
+      req.body,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    res.json(response.data);
+  } catch (error: any) {
+    console.error('Swing detection stop error:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: 'Failed to stop swing detection',
+      message: error.response?.data?.message || error.message,
+    });
+  }
+});
+
+app.get('/api/blast/swing-detection/status', authenticate, async (req, res) => {
+  try {
+    const sessionId = req.query.sessionId as string;
+    const response = await axios.get(
+      `${BLAST_CONNECTOR_URL}/api/blast/swing-detection/status?sessionId=${encodeURIComponent(sessionId)}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    res.json(response.data);
+  } catch (error: any) {
+    console.error('Swing detection status error:', error.message);
+    res.status(error.response?.status || 500).json({
+      error: 'Failed to get swing detection status',
+      message: error.response?.data?.message || error.message,
+    });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log('\n' + '='.repeat(60));

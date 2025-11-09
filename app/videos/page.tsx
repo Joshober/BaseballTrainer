@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Video, MessageCircle, Bot, ArrowLeft, Upload, Camera } from 'lucide-react';
+import { Video, MessageCircle, Bot, ArrowLeft, Upload, Camera, RefreshCw, Activity } from 'lucide-react';
 import { onAuthChange } from '@/lib/hooks/useAuth';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import { getStorageAdapter } from '@/lib/storage';
 import type { Session } from '@/types/session';
 import VideoGallery from '@/components/Dashboard/VideoGallery';
 import AnalysisAnimation from '@/components/Analysis/AnalysisAnimation';
+// Removed complex swing detection service - using simple script instead
 
 export default function VideosPage() {
   const router = useRouter();
@@ -25,11 +26,15 @@ export default function VideosPage() {
   const [isAnalyzingVideo, setIsAnalyzingVideo] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [currentRecordingSessionId, setCurrentRecordingSessionId] = useState<string | null>(null);
+  const [swingDetectionStatus, setSwingDetectionStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
+  const [isRetryingSwingDetection, setIsRetryingSwingDetection] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+  const swingDetectionPollingRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthChange((authUser) => {
@@ -41,7 +46,13 @@ export default function VideosPage() {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      // Cleanup polling on unmount
+      if (swingDetectionPollingRef.current) {
+        clearInterval(swingDetectionPollingRef.current);
+      }
+    };
   }, [router]);
 
   const loadSessions = async () => {
@@ -188,6 +199,37 @@ export default function VideosPage() {
 
   const startVideoRecording = async () => {
     try {
+      const token = getAuthToken();
+      if (!token) {
+        alert('Please log in to record video');
+        return;
+      }
+
+      // Generate session ID for this recording
+      const sessionId = crypto.randomUUID();
+      setCurrentRecordingSessionId(sessionId);
+
+      // Automatically start swing detection via Flask service
+      setSwingDetectionStatus('connecting');
+      try {
+        const { startSwingDetection } = await import('@/lib/services/blast-connector');
+        const swingData = await startSwingDetection(sessionId, token);
+        console.log('✅ Swing detection started automatically:', swingData);
+        if (swingData.session_id) {
+          console.log(`   Session ID: ${swingData.session_id}`);
+          console.log(`   Status: ${swingData.status}`);
+          console.log(`   Check Flask service logs for swing detection output`);
+          setSwingDetectionStatus('connected');
+        } else {
+          setSwingDetectionStatus('error');
+        }
+      } catch (error: any) {
+        console.warn('⚠️ Error starting swing detection automatically:', error?.message || error);
+        console.warn('   Recording will continue without swing detection');
+        setSwingDetectionStatus('error');
+        // Continue recording even if swing detection fails to start
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
         audio: false,
@@ -223,20 +265,138 @@ export default function VideosPage() {
           streamRef.current.getTracks().forEach((track) => track.stop());
           streamRef.current = null;
         }
+        
+               // Stop swing detection when recording stops (fire and forget)
+               if (currentRecordingSessionId) {
+                 const sessionIdToStop = currentRecordingSessionId;
+                 const token = getAuthToken();
+                 if (token) {
+                   import('@/lib/services/blast-connector').then(({ stopSwingDetection }) => {
+                     stopSwingDetection(sessionIdToStop, token).catch((error) => {
+                       console.warn('Error stopping swing detection:', error);
+                     });
+                   });
+                 }
+               }
+        
+        setCurrentRecordingSessionId(null);
       };
 
       mediaRecorder.start();
       setIsRecording(true);
+
+      // Poll for swing data and stop signal to auto-stop recording
+      startSwingDataPolling(sessionId);
     } catch (error) {
       console.error('Video recording error:', error);
       alert('Could not access camera for video recording');
     }
   };
 
-  const stopVideoRecording = () => {
+  const startSwingDataPolling = (sessionId: string) => {
+    // Poll the API to check if swing data was received or stop signal was sent
+    if (swingDetectionPollingRef.current) {
+      clearInterval(swingDetectionPollingRef.current);
+    }
+
+    swingDetectionPollingRef.current = setInterval(async () => {
+      try {
+        // Check if stop signal was sent
+        const stopResponse = await fetch(`/api/videos/stop?sessionId=${sessionId}`);
+        if (stopResponse.ok) {
+          const stopData = await stopResponse.json();
+          if (stopData.shouldStop) {
+            console.log('Stop signal received, stopping recording');
+            stopVideoRecording();
+            return;
+          }
+        }
+
+        // Also check if swing data was received (backup method)
+        const swingResponse = await fetch(`/api/blast/swings?sessionId=${sessionId}`);
+        if (swingResponse.ok) {
+          const swingData = await swingResponse.json();
+          // If swing data exists, stop recording
+          if (swingData.hasSwingData) {
+            console.log('Swing data received, stopping recording');
+            stopVideoRecording();
+          }
+        }
+      } catch (error) {
+        console.error('Error polling for swing data/stop signal:', error);
+      }
+    }, 500); // Poll every 500ms
+  };
+
+  const retrySwingDetection = async () => {
+    if (!currentRecordingSessionId) return;
+    
+    setIsRetryingSwingDetection(true);
+    setSwingDetectionStatus('connecting');
+    
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        alert('Please log in to retry swing detection');
+        setIsRetryingSwingDetection(false);
+        return;
+      }
+
+      // Stop existing detection first
+      try {
+        const { stopSwingDetection } = await import('@/lib/services/blast-connector');
+        await stopSwingDetection(currentRecordingSessionId, token);
+      } catch (error) {
+        // Ignore errors when stopping
+      }
+
+      // Wait a moment before restarting
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Start swing detection again
+      const { startSwingDetection } = await import('@/lib/services/blast-connector');
+      const swingData = await startSwingDetection(currentRecordingSessionId, token);
+      
+      if (swingData.session_id) {
+        console.log('✅ Swing detection retry successful:', swingData);
+        setSwingDetectionStatus('connected');
+      } else {
+        setSwingDetectionStatus('error');
+      }
+    } catch (error: any) {
+      console.error('⚠️ Error retrying swing detection:', error?.message || error);
+      setSwingDetectionStatus('error');
+    } finally {
+      setIsRetryingSwingDetection(false);
+    }
+  };
+
+  const stopVideoRecording = async () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
     }
+    
+    // Stop polling
+    if (swingDetectionPollingRef.current) {
+      clearInterval(swingDetectionPollingRef.current);
+      swingDetectionPollingRef.current = null;
+    }
+    
+    // Stop swing detection if it's running
+    if (currentRecordingSessionId) {
+      try {
+        const token = getAuthToken();
+        if (token) {
+          const { stopSwingDetection } = await import('@/lib/services/blast-connector');
+          await stopSwingDetection(currentRecordingSessionId, token);
+        }
+      } catch (error) {
+        console.warn('Error stopping swing detection:', error);
+      }
+    }
+    
+    setCurrentRecordingSessionId(null);
+    setSwingDetectionStatus('idle');
   };
 
   const saveRecordedVideo = async () => {
@@ -428,7 +588,7 @@ export default function VideosPage() {
           {/* Recording UI */}
           {isRecording && (
             <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
                   <span className="font-medium">Recording...</span>
@@ -440,6 +600,54 @@ export default function VideosPage() {
                   Stop Recording
                 </button>
               </div>
+              
+              {/* Swing Detection Status */}
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Activity className={`w-4 h-4 ${
+                      swingDetectionStatus === 'connected' ? 'text-green-600' :
+                      swingDetectionStatus === 'connecting' ? 'text-yellow-600 animate-pulse' :
+                      swingDetectionStatus === 'error' ? 'text-red-600' :
+                      'text-gray-400'
+                    }`} />
+                    <span className="text-sm font-medium">
+                      Swing Detection: {
+                        swingDetectionStatus === 'connected' ? 'Connected' :
+                        swingDetectionStatus === 'connecting' ? 'Connecting...' :
+                        swingDetectionStatus === 'error' ? 'Connection Failed' :
+                        'Idle'
+                      }
+                    </span>
+                  </div>
+                  {swingDetectionStatus === 'error' && (
+                    <button
+                      onClick={retrySwingDetection}
+                      disabled={isRetryingSwingDetection}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isRetryingSwingDetection ? 'animate-spin' : ''}`} />
+                      {isRetryingSwingDetection ? 'Retrying...' : 'Retry Connection'}
+                    </button>
+                  )}
+                </div>
+                {swingDetectionStatus === 'connecting' && (
+                  <p className="text-xs text-gray-600 mt-2">
+                    Scanning for BLAST@MOTION device... Make sure your bat is powered on.
+                  </p>
+                )}
+                {swingDetectionStatus === 'error' && (
+                  <p className="text-xs text-red-600 mt-2">
+                    Failed to connect to swing detection. Click "Retry Connection" to try again.
+                  </p>
+                )}
+                {swingDetectionStatus === 'connected' && (
+                  <p className="text-xs text-green-600 mt-2">
+                    ✓ Swing detection active. Video will stop automatically when a swing is detected.
+                  </p>
+                )}
+              </div>
+              
               <video
                 ref={videoRef}
                 autoPlay

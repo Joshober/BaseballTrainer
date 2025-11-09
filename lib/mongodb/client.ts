@@ -24,7 +24,27 @@ function encodePasswordInUri(uri: string): string {
 }
 
 export async function getMongoClient(): Promise<MongoClient> {
-  if (!client) {
+  // Check if client exists and is connected
+  let isConnected = false;
+  try {
+    if (client) {
+      // Try to ping the server to check connection
+      await client.db().admin().ping();
+      isConnected = true;
+    }
+  } catch {
+    // Client is not connected, reset it
+    if (client) {
+      try {
+        await client.close();
+      } catch {
+        // Ignore errors when closing
+      }
+      client = null;
+    }
+  }
+
+  if (!client || !isConnected) {
     if (!config.mongodb.uri) {
       throw new Error('MONGODB_URI is not configured');
     }
@@ -36,9 +56,14 @@ export async function getMongoClient(): Promise<MongoClient> {
     uri = encodePasswordInUri(uri);
     
     try {
-      client = new MongoClient(uri);
+      client = new MongoClient(uri, {
+        serverSelectionTimeoutMS: 5000, // 5 second timeout
+        connectTimeoutMS: 5000,
+      });
       await client.connect();
     } catch (error: any) {
+      // Reset client on error
+      client = null;
       if (error.message?.includes('unescaped characters') || error.message?.includes('MongoParseError')) {
         throw new Error(
           'MongoDB connection string has unescaped characters. ' +
