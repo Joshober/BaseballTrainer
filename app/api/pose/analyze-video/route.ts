@@ -70,6 +70,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Forward request to gateway (which will route to Python backend)
+    console.log('[Pose Analysis] Forwarding to gateway:', gatewayApiUrl);
+    console.log('[Pose Analysis] Video file size:', file.size, 'bytes');
+    console.log('[Pose Analysis] Processing mode:', processingMode, 'sampleRate:', sampleRate);
+    
+    const startTime = Date.now();
     const response = await fetch(gatewayApiUrl, {
       method: 'POST',
       headers: {
@@ -79,6 +84,9 @@ export async function POST(request: NextRequest) {
       // Increase timeout for video processing (10 minutes for long videos)
       signal: AbortSignal.timeout(600000), // 10 minutes
     });
+    
+    const fetchTime = Date.now() - startTime;
+    console.log('[Pose Analysis] Gateway response received after', fetchTime, 'ms, status:', response.status);
 
     if (!response.ok) {
       let errorMessage = 'Error processing video';
@@ -102,21 +110,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const parseStartTime = Date.now();
     const result = await response.json();
+    const parseTime = Date.now() - parseStartTime;
+    console.log('[Pose Analysis] Response parsed in', parseTime, 'ms');
+    console.log('[Pose Analysis] ===== Analysis result received =====');
+    console.log('[Pose Analysis] Analysis result ok:', result?.ok);
+    console.log('[Pose Analysis] Has metrics:', !!result?.metrics);
+    console.log('[Pose Analysis] Has frames:', !!result?.frames, 'Count:', result?.frames?.length || 0);
+    console.log('[Pose Analysis] Has swing phases:', !!result?.swingPhases);
+    console.log('[Pose Analysis] Has biomechanics:', !!result?.biomechanics);
+    console.log('[Pose Analysis] Has form errors:', !!result?.formErrors);
+    console.log('[Pose Analysis] Has tracking quality:', !!result?.trackingQuality);
+    if (result?.error) {
+      console.warn('[Pose Analysis] Analysis error:', result.error);
+    }
     
-    // Get OpenRouter feedback (non-blocking - don't fail if it errors)
-    console.log('[Pose Analysis] ========== STARTING OPENROUTER FEEDBACK ==========');
+    // Get OpenRouter feedback (completely optional - don't block response)
+    // NOTE: OpenRouter can take a very long time, so we'll skip it for now to speed up analysis
+    // TODO: Make OpenRouter async/background job in the future
+    console.log('[Pose Analysis] Skipping OpenRouter feedback for faster response');
     let openRouterFeedback: string | null = null;
     let openRouterError: string | null = null;
     let openRouterStep: string | null = null;
     
+    // DISABLED: OpenRouter is too slow and blocks the response
+    // Uncomment below to re-enable (but expect 30-60 second delays)
+    /*
+    const openRouterStartTime = Date.now();
+    const openRouterTimeout = 15000; // 15 seconds max
+    
     try {
-      console.log('[Pose Analysis] Getting OpenRouter feedback...');
-      // Create a new File from the buffer for OpenRouter (reuse the buffer)
+      console.log('[Pose Analysis] Getting OpenRouter feedback (with', openRouterTimeout, 'ms timeout)...');
       const openRouterFileBlob = new Blob([fileBuffer], { type: file.type });
       const openRouterFile = new File([openRouterFileBlob], file.name, { type: file.type });
       
-      const openRouterResult = await getOpenRouterFeedback(openRouterFile, authHeader);
+      const openRouterPromise = getOpenRouterFeedback(openRouterFile, authHeader);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('OpenRouter timeout after 15s')), openRouterTimeout)
+      );
+      
+      const openRouterResult = await Promise.race([openRouterPromise, timeoutPromise]) as any;
       
       console.log('[Pose Analysis] OpenRouter result:', {
         success: openRouterResult.success,
@@ -158,8 +192,10 @@ export async function POST(request: NextRequest) {
         message: `Exception getting OpenRouter feedback: ${openRouterError}`,
       };
     }
+    */
     
-    console.log('[Pose Analysis] ========== OPENROUTER FEEDBACK COMPLETE ==========');
+    // Skip OpenRouter for now - it's too slow
+    console.log('[Pose Analysis] OpenRouter skipped for faster response');
     console.log('[Pose Analysis] Final status:', {
       hasFeedback: !!openRouterFeedback,
       hasError: !!openRouterError,

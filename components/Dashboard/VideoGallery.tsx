@@ -180,6 +180,15 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
   });
 
   const videosWithURLs = filteredByLabel.filter((s) => s.videoURL);
+  
+  // Debug logging
+  console.log('[VideoGallery] Sessions received:', sessions.length);
+  console.log('[VideoGallery] Sessions with analysis:', sessionsWithAnalysis.length);
+  console.log('[VideoGallery] Filtered sessions:', filteredByLabel.length);
+  console.log('[VideoGallery] Videos with URLs:', videosWithURLs.length);
+  if (videosWithURLs.length > 0) {
+    console.log('[VideoGallery] Video URLs:', videosWithURLs.map(s => s.videoURL));
+  }
 
   return (
     <div className="space-y-6">
@@ -234,6 +243,7 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                       <Video className="h-12 w-12 text-gray-400" />
                     </div>
                   )}
+                  {/* Removed 'Pending analysis' overlay per request */}
                   <div className="absolute top-2 right-2">
                     <span
                       className={`rounded-full px-2 py-1 text-xs font-medium ${
@@ -243,18 +253,6 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                       {session.label === 'good' ? 'Good' : 'Needs Work'}
                     </span>
                   </div>
-                )}
-                {/* Removed 'Pending analysis' overlay per request */}
-                <div className="absolute top-2 right-2">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      session.label === 'good'
-                        ? 'bg-green-500 text-white'
-                        : 'bg-yellow-500 text-white'
-                    }`}
-                  >
-                    {session.label === 'good' ? 'Good' : 'Needs Work'}
-                  </span>
                 </div>
 
                 <div className="p-4">
@@ -317,6 +315,7 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                       Pending
                     </button>
                   )}
+                </div>
                 </div>
               </div>
             );

@@ -48,12 +48,15 @@ class PoseDetector:
         
         self.mp_pose = mp.solutions.pose
         self.mp_drawing = mp.solutions.drawing_utils
+        # Use model_complexity=1 for faster processing (0=fastest, 1=balanced, 2=most accurate)
+        # For real-time analysis, we prioritize speed
+        # Lower confidence thresholds to improve detection rate
         self.pose = self.mp_pose.Pose(
             static_image_mode=True,
-            model_complexity=2,  # Use full model for better accuracy
+            model_complexity=1,  # Reduced from 2 to 1 for 2-3x speed improvement
             enable_segmentation=False,
-            min_detection_confidence=0.6,  # Increased from 0.5 for better accuracy
-            min_tracking_confidence=0.6  # Increased from 0.5 for better tracking
+            min_detection_confidence=0.3,  # Reduced from 0.5 to improve detection rate
+            min_tracking_confidence=0.3  # Reduced from 0.5 to improve detection rate
         )
         
         self.use_person_detection = use_person_detection

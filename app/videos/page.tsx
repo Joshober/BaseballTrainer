@@ -36,10 +36,15 @@ export default function VideosPage() {
   useEffect(() => {
     const unsubscribe = onAuthChange((authUser) => {
       if (!authUser) {
+        console.log('[Videos Page] No auth user, redirecting to login');
         router.push('/login');
       } else {
+        console.log('[Videos Page] Auth user found:', authUser.sub);
         setUser(authUser);
-        loadSessions();
+        // Small delay to ensure state is set
+        setTimeout(() => {
+          loadSessions();
+        }, 100);
       }
     });
 
@@ -55,22 +60,36 @@ export default function VideosPage() {
   const loadSessions = async () => {
     try {
       const authUser = getAuthUser();
-      const token = getAuthToken();
-      if (!authUser || !token) return;
+      if (!authUser) {
+        console.log('[Videos Page] No authenticated user');
+        setLoading(false);
+        return;
+      }
 
-      const response = await fetch(`/api/sessions?uid=${authUser.sub}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      // Normalize UID: Auth0 uses pipe (|) but directories use underscore (_)
+      // The API will handle both formats, but we'll send the original for compatibility
+      const uid = authUser.sub;
+      console.log('[Videos Page] Loading videos for user:', uid);
+
+      // Load videos directly from local storage instead of API
+      const response = await fetch(`/api/videos/local?uid=${encodeURIComponent(uid)}`);
+
+      console.log('[Videos Page] API response status:', response.status);
 
       if (response.ok) {
         const data: Session[] = await response.json();
-        // Filter to only sessions with videos
-        setSessions(data.filter((s) => s.videoURL));
+        console.log('[Videos Page] Loaded sessions:', data.length);
+        console.log('[Videos Page] Sessions data:', data.map(s => ({ id: s.id, videoURL: s.videoURL, hasVideo: !!s.videoURL })));
+        // All sessions from local storage have videos
+        setSessions(data);
+      } else {
+        const errorText = await response.text();
+        console.error('[Videos Page] Failed to load local videos:', response.status, errorText);
+        setSessions([]);
       }
     } catch (error) {
-      console.error('Failed to load sessions:', error);
+      console.error('[Videos Page] Error loading sessions:', error);
+      setSessions([]);
     } finally {
       setLoading(false);
     }
@@ -375,103 +394,39 @@ export default function VideosPage() {
         throw new Error('User not authenticated');
       }
 
-      // Upload video to storage server
+      // Upload video to local storage (no database session needed)
       const storage = getStorageAdapter();
       const sessionId = crypto.randomUUID();
-      const uid = authUser.sub;
+      // Normalize UID: Auth0 uses pipe (|) but directories use underscore (_)
+      const uid = authUser.sub.replace(/\|/g, '_');
       const ext = file.type.includes('mp4') ? 'mp4' : file.type.includes('webm') ? 'webm' : 'mp4';
       const videoPath = `videos/${uid}/${sessionId}.${ext}`;
       
+      console.log('[Videos Page] Normalized UID for upload:', uid, '(original:', authUser.sub, ')');
+      
+      // Upload file to local storage
       const videoURL = await storage.uploadFile(videoPath, file);
+      
+      console.log('[Videos Page] Video uploaded successfully:', videoURL);
+      console.log('[Videos Page] Video path:', videoPath);
 
-      // Create session in database with video
-      const sessionResponse = await fetch('/api/sessions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          uid: authUser.sub,
-          teamId: 'default',
-          photoPath: '', // No photo for video-only uploads
-          photoURL: '',
-          videoPath,
-          videoURL,
-          metrics: {
-            launchAngleEst: 28, // Default values for video-only uploads
-            attackAngleEst: null,
-            exitVelocity: 0,
-            confidence: 0,
-          },
-          game: {
-            distanceFt: 0,
-            zone: 'unknown',
-            milestone: 'none',
-            progressToNext: 0,
-          },
-          label: 'needs_work' as const,
-        }),
-      });
+      // Small delay to ensure file is written to disk
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      if (!sessionResponse.ok) {
-        throw new Error('Failed to create session');
-      }
-      const createdSession: Session = await sessionResponse.json();
-
-      // Reload sessions
+      // Reload sessions from local storage
+      console.log('[Videos Page] Reloading sessions after upload...');
       await loadSessions();
       
-      // Trigger video analysis after successful upload
+      // Upload complete - user can analyze video from the videos page or analyze page
       setIsUploading(false);
-      setIsAnalyzingVideo(true);
       
-      try {
-        // Create FormData for video analysis
-        const formData = new FormData();
-        formData.append('video', file);
-        // Attach identifiers so backend can associate and persist
-        if (createdSession?.id) formData.append('sessionId', createdSession.id);
-        if (createdSession?.videoURL) formData.append('videoUrl', createdSession.videoURL || '');
-        formData.append('processingMode', 'full');
-        formData.append('sampleRate', '1');
-        formData.append('enableYOLO', 'true');
-        formData.append('yoloConfidence', '0.5');
-
-        // Call video analysis API
-        const analysisResponse = await fetch('/api/pose/analyze-video', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          body: formData,
-        });
-
-        if (!analysisResponse.ok) {
-          const errorData = await analysisResponse.json().catch(() => ({ error: 'Analysis failed' }));
-          console.error('Video analysis error:', errorData);
-          // Don't throw - analysis failure shouldn't prevent upload success
-        } else {
-          const analysisResult = await analysisResponse.json();
-          // Optionally update the session with analysis results
-          if (analysisResult.ok && createdSession.id) {
-            // Update session with analysis results if needed
-            console.log('Video analysis completed:', analysisResult);
-          }
-        }
-      } catch (analysisError) {
-        console.error('Failed to analyze video:', analysisError);
-        // Don't show error to user - analysis is optional
-      } finally {
-        setIsAnalyzingVideo(false);
-        alert('Video uploaded and analyzed successfully!');
-      }
-    } catch (error) {
-      console.error('Failed to upload video:', error);
-      alert('Failed to upload video. Please try again.');
-      setIsAnalyzingVideo(false);
-    } finally {
+      // Show success message
+      console.log('[Videos Page] Upload complete! Video should now appear in the list.');
+    } catch (error: any) {
+      console.error('Video upload error:', error);
+      alert(`Failed to upload video: ${error.message || 'Unknown error'}`);
       setIsUploading(false);
+    } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -516,6 +471,18 @@ export default function VideosPage() {
               >
                 <Upload className="w-5 h-5" />
                 {isUploading ? 'Uploading...' : 'Upload Video'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  console.log('[Videos Page] Manual reload triggered');
+                  loadSessions();
+                }}
+                disabled={loading}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
               </button>
               <input
                 id="video-upload"
@@ -643,11 +610,37 @@ export default function VideosPage() {
 
           {/* Video Gallery */}
           <div className="bg-white rounded-lg shadow-lg p-6">
-          <VideoGallery
-            sessions={sessions}
-            onSendToMessenger={handleSendToMessenger}
-            onSendToAIBot={handleSendToAIBot}
-          />
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <span className="ml-4 text-gray-600">Loading videos...</span>
+              </div>
+            ) : (
+              <>
+                {sessions.length === 0 && (
+                  <div className="py-8 text-center border-b border-gray-200 mb-6">
+                    <p className="text-gray-600 mb-2">No videos found in local storage</p>
+                    <p className="text-xs text-gray-500 mb-4">
+                      User ID: {user?.sub || 'Not authenticated'}
+                    </p>
+                    <button
+                      onClick={() => {
+                        console.log('[Videos Page] Manual reload from empty state');
+                        loadSessions();
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                    >
+                      Refresh Videos
+                    </button>
+                  </div>
+                )}
+                <VideoGallery
+                  sessions={sessions}
+                  onSendToMessenger={handleSendToMessenger}
+                  onSendToAIBot={handleSendToAIBot}
+                />
+              </>
+            )}
           </div>
         </div>
       </div>

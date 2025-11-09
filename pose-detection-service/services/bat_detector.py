@@ -132,13 +132,12 @@ class BatDetector:
         
         if use_yolo:
             try:
-                from ultralytics import YOLO
-                # Try to load a custom bat detection model, fallback to general YOLOv8
-                try:
-                    self.yolo_model = YOLO('yolov8n.pt')  # Start with nano model
-                    logger.info("YOLOv8 model loaded for bat detection")
-                except Exception as e:
-                    logger.warning(f"Could not load YOLOv8 model: {e}. Falling back to MediaPipe-based detection.")
+                from services.yolo_cache import get_yolo_model
+                self.yolo_model = get_yolo_model()
+                if self.yolo_model:
+                    logger.info("YOLOv8 model loaded for bat detection (from cache)")
+                else:
+                    logger.warning("Could not load YOLOv8 model. Falling back to MediaPipe-based detection.")
                     self.use_yolo = False
             except ImportError:
                 logger.warning("ultralytics not available. Using MediaPipe-based detection.")
@@ -158,17 +157,35 @@ class BatDetector:
             return None
         
         try:
-            # Run YOLO detection
-            results = self.yolo_model(frame, conf=self.yolo_confidence, verbose=False)
-            
+            # Optimize: Resize frame for faster YOLO processing (max 640px width)
             h, w = frame.shape[:2]
+            if w > 640:
+                scale = 640 / w
+                new_h = int(h * scale)
+                resized_frame = cv2.resize(frame, (640, new_h), interpolation=cv2.INTER_LINEAR)
+            else:
+                resized_frame = frame
+                scale = 1.0
+            
+            # Run YOLO detection on resized frame
+            results = self.yolo_model(resized_frame, conf=self.yolo_confidence, verbose=False, imgsz=640)
+            
+            # Use original frame dimensions for coordinate scaling
+            resized_h, resized_w = resized_frame.shape[:2]
+            scale_x = w / resized_w
+            scale_y = h / resized_h
             candidates = []
             
             for result in results:
                 boxes = result.boxes
                 if boxes is not None:
                     for box in boxes:
+                        # Scale coordinates back to original frame size
                         x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                        x1 = x1 * scale_x
+                        y1 = y1 * scale_y
+                        x2 = x2 * scale_x
+                        y2 = y2 * scale_y
                         width = x2 - x1
                         height = y2 - y1
                         aspect_ratio = width / height if height > 0 else 0

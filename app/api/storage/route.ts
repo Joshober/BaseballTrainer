@@ -20,10 +20,18 @@ function getContentType(filePath: string): string {
 function sanitizeAndResolve(p: string): { relative: string; resolved: string } | null {
   const normalized = p.replace(/\\/g, '/').replace(/^\/+/, '');
   if (normalized.includes('..')) return null;
+  
+  // More permissive sanitization - only remove truly dangerous characters
+  // Allow alphanumeric, dots, dashes, underscores, and common path characters
   const safeSegments = normalized
     .split('/')
     .filter((seg) => seg.length > 0 && seg !== '.' && seg !== '..')
-    .map((seg) => seg.replace(/[^a-zA-Z0-9._-]/g, '_'));
+    .map((seg) => {
+      // Only replace characters that are truly problematic, keep UUIDs and common IDs intact
+      // Allow: a-z, A-Z, 0-9, ., -, _, and @ (for email-like IDs)
+      return seg.replace(/[^a-zA-Z0-9.@_-]/g, '_');
+    });
+  
   if (safeSegments.length === 0) return null;
   const relative = safeSegments.join('/');
   const resolved = path.resolve(UPLOAD_DIR, ...safeSegments);
@@ -54,16 +62,42 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const relPath = request.nextUrl.searchParams.get('path');
-    if (!relPath) return NextResponse.json({ error: 'Missing path' }, { status: 400 });
+    console.log('[Storage API] GET request for path:', relPath);
+    
+    if (!relPath) {
+      console.error('[Storage API] Missing path parameter');
+      return NextResponse.json({ error: 'Missing path' }, { status: 400 });
+    }
+    
     const safe = sanitizeAndResolve(relPath);
-    if (!safe) return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
+    if (!safe) {
+      console.error('[Storage API] Invalid path after sanitization:', relPath);
+      return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
+    }
+    
+    console.log('[Storage API] Resolved path:', safe.resolved);
+    
     const exists = await fs.access(safe.resolved).then(() => true).catch(() => false);
-    if (!exists) return NextResponse.json({ error: 'File not found' }, { status: 404 });
+    if (!exists) {
+      console.error('[Storage API] File not found at:', safe.resolved);
+      return NextResponse.json({ error: 'File not found' }, { status: 404 });
+    }
+    
+    const stat = await fs.stat(safe.resolved);
+    console.log('[Storage API] File found, size:', stat.size, 'bytes');
+    
     const data = await fs.readFile(safe.resolved);
     const contentType = getContentType(safe.resolved);
-    return new NextResponse(data, { headers: { 'Content-Type': contentType } });
+    console.log('[Storage API] Returning file with content-type:', contentType);
+    
+    return new NextResponse(data, { 
+      headers: { 
+        'Content-Type': contentType,
+        'Content-Length': String(stat.size),
+      } 
+    });
   } catch (e) {
-    console.error('Storage file retrieval error:', e);
+    console.error('[Storage API] Error retrieving file:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
