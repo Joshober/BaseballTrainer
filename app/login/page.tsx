@@ -44,7 +44,7 @@ export default function LoginPage() {
           router.push(returnTo);
           return;
         }
-        router.push(userData.role === 'coach' ? '/coach' : '/player');
+        router.push('/player');
       } else {
         // If user doesn't exist yet, redirect to signup
         router.push('/signup');

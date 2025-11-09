@@ -61,7 +61,7 @@ export default function AuthCallbackPage() {
           router.push(rt);
           return;
         }
-        router.push(userData.role === 'coach' ? '/coach' : '/player');
+        router.push('/player');
       } else {
         // User doesn't exist yet, redirect to signup
         router.push('/signup');

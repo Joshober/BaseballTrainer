@@ -1,49 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Rocket, Home, LayoutDashboard, Video, Play, Target, Users, Trophy, MessageCircle, Menu, X } from 'lucide-react';
-import { getAuthUser } from '@/lib/auth0/client';
+import { Rocket, Home, LayoutDashboard, Video, Target, Users, Trophy, Menu, X } from 'lucide-react';
 import UserMenu from '@/components/Navigation/UserMenu';
-import NotificationBell from '@/components/Navigation/NotificationBell';
-import type { Auth0User } from '@/lib/auth0/client';
 
 export default function Header() {
-  const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<Auth0User | null>(null);
-  const [userRole, setUserRole] = useState<'player' | 'coach' | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const authUser = getAuthUser();
-    setUser(authUser);
-    loadUserRole();
-  }, []);
-
-  const loadUserRole = async () => {
-    try {
-      const authUser = getAuthUser();
-      if (!authUser) return;
-
-      const token = localStorage.getItem('auth_token');
-      if (!token) return;
-
-      const response = await fetch(`/api/users?uid=${authUser.sub}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUserRole(userData.role || 'player');
-      }
-    } catch (error) {
-      console.error('Failed to load user role:', error);
-    }
-  };
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -54,11 +19,7 @@ export default function Header() {
 
   const navLinks = [
     { href: '/', label: 'Home', icon: Home },
-    { 
-      href: userRole === 'coach' ? '/coach' : '/player', 
-      label: 'Dashboard', 
-      icon: LayoutDashboard 
-    },
+    { href: '/player', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/videos', label: 'Videos', icon: Video },
     { href: '/blast-off', label: 'Blast Off', icon: Rocket },
     { href: '/drills', label: 'Drills', icon: Target },
@@ -99,25 +60,7 @@ export default function Header() {
 
           {/* Right Side Actions */}
           <div className="flex items-center gap-2">
-            {user && (
-              <>
-                <NotificationBell />
-                <Link
-                  href="/messages"
-                  className={`p-2 rounded-lg transition-colors ${
-                    isActive('/messages')
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  title="Messages"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                </Link>
-              </>
-            )}
             <UserMenu />
-            
-            {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
@@ -149,20 +92,6 @@ export default function Header() {
                   </Link>
                 );
               })}
-              {user && (
-                <Link
-                  href="/messages"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                    isActive('/messages')
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  <span>Messages</span>
-                </Link>
-              )}
             </div>
           </nav>
         )}

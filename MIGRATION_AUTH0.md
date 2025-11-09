@@ -21,9 +21,6 @@ The following API routes need to be updated:
 - `app/api/storage/route.ts` - ✅ Updated
 - `app/api/sessions/route.ts` - ⚠️ Needs update (uid → sub)
 - `app/api/sessions/[id]/route.ts` - ⚠️ Needs update (uid → sub)
-- `app/api/messages/route.ts` - ⚠️ Needs update (uid → sub)
-- `app/api/messages/read/route.ts` - ⚠️ Needs update (uid → sub)
-- `app/api/conversations/route.ts` - ⚠️ Needs update (uid → sub)
 - `app/api/teams/route.ts` - ⚠️ Needs update (uid → sub)
 - `app/api/leaderboard/route.ts` - ⚠️ Needs update (uid → sub)
 

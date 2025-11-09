@@ -1,18 +1,14 @@
 ﻿'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Video, Send, Bot, Play, Calendar, TrendingUp, Sparkles } from 'lucide-react';
+import { Video, Play, Calendar, TrendingUp } from 'lucide-react';
 import { getAuthUser, getAuthToken } from '@/lib/auth0/client';
 import type { Session } from '@/types/session';
 import type { VideoAnalysis } from '@/types/session';
 
 interface VideoGalleryProps {
   sessions: Session[];
-  onSendToMessenger: (session: Session) => void;
-  onSendToAIBot: (session: Session) => void;
-  onSendToOpenRouter?: (session: Session) => void;
 }
 
 interface SessionWithAnalysis extends Session {
@@ -20,9 +16,7 @@ interface SessionWithAnalysis extends Session {
   pendingAnalysis?: boolean;
 }
 
-export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBot, onSendToOpenRouter }: VideoGalleryProps) {
-  const router = useRouter();
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+export default function VideoGallery({ sessions }: VideoGalleryProps) {
   const [filter, setFilter] = useState<'all' | 'good' | 'needs_work'>('all');
   const [sessionsWithAnalysis, setSessionsWithAnalysis] = useState<SessionWithAnalysis[]>([]);
   const [polling, setPolling] = useState(false);
@@ -220,6 +214,7 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
           {videosWithURLs.map((session) => {
             const sessionWithAnalysis = session as SessionWithAnalysis;
             const hasAnalysis = !!sessionWithAnalysis.videoAnalysisData?.ok || !!session.videoAnalysis?.ok;
+            const metrics = getDisplayMetrics(sessionWithAnalysis);
 
             return (
               <div
@@ -243,80 +238,60 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
                       {session.label === 'good' ? 'Good' : 'Needs Work'}
                     </span>
                   </div>
-                )}
-                {/* Removed 'Pending analysis' overlay per request */}
-                <div className="absolute top-2 right-2">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      session.label === 'good'
-                        ? 'bg-green-500 text-white'
-                        : 'bg-yellow-500 text-white'
-                    }`}
-                  >
-                    {session.label === 'good' ? 'Good' : 'Needs Work'}
-                  </span>
                 </div>
 
-                <div className="p-4">
-                  <div className="mb-4 flex items-center gap-2 text-sm text-gray-600">
+                <div className="space-y-4 p-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Calendar className="h-4 w-4" />
                     <span>{new Date(session.createdAt).toLocaleDateString()}</span>
                   </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => onSendToMessenger(session)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                  >
-                    <Send className="w-4 h-4" />
-                    Send
-                  </button>
-                  <button
-                    onClick={() => onSendToAIBot(session)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
-                  >
-                    <Bot className="w-4 h-4" />
-                    AI Bot
-                  </button>
-                  <Link
-                    href={`/drills?sessionId=${encodeURIComponent(session.id)}`}
-                    prefetch
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700"
-                    title="View recommended drills for this session"
-                  >
-                    <TrendingUp className="w-4 h-4" />
-                    Drills
-                  </Link>
-                  {onSendToOpenRouter && (
-                    <button
-                      onClick={() => onSendToOpenRouter(session)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      Analyze
-                    </button>
-                  )}
-                  {(session as SessionWithAnalysis).videoAnalysisData?.ok ? (
+                  <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
+                    <div>
+                      <p className="font-medium text-gray-900">{metrics.launchAngle.toFixed(1)}°</p>
+                      <p>Launch Angle</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{metrics.velocity.toFixed(0)} mph</p>
+                      <p>Exit Velocity</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{metrics.distance.toFixed(0)} ft</p>
+                      <p>Distance</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
                     <Link
-                      href={`/analyze?sessionId=${encodeURIComponent(session.id)}`}
+                      href={`/drills?sessionId=${encodeURIComponent(session.id)}`}
                       prefetch
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium bg-gray-100 text-gray-900 hover:bg-gray-200"
+                      className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+                      title="View recommended drills for this session"
                     >
-                      <Play className="w-4 h-4" />
-                      View
+                      <TrendingUp className="w-4 h-4" />
+                      Drills
                     </Link>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
-                      title="Analysis pending"
-                    >
-                      <Play className="w-4 h-4" />
-                      Pending
-                    </button>
-                  )}
+                    {hasAnalysis ? (
+                      <Link
+                        href={`/analyze?sessionId=${encodeURIComponent(session.id)}`}
+                        prefetch
+                        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-200"
+                      >
+                        <Play className="w-4 h-4" />
+                        View Analysis
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-400"
+                        title="Analysis pending"
+                      >
+                        <Play className="w-4 h-4" />
+                        Pending
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -324,57 +299,6 @@ export default function VideoGallery({ sessions, onSendToMessenger, onSendToAIBo
         </div>
       )}
 
-      {selectedSession && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-          onClick={() => setSelectedSession(null)}
-        >
-          <div
-            className="mx-4 max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Video Details</h2>
-              <button
-                onClick={() => setSelectedSession(null)}
-                className="text-gray-500 transition-colors hover:text-gray-700"
-              >
-                âœ•
-              </button>
-            </div>
-            {selectedSession.videoURL && (
-              <video src={selectedSession.videoURL} controls className="mb-4 w-full rounded-lg" />
-            )}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <h3 className="mb-2 font-semibold">Metrics</h3>
-                <div className="space-y-1 text-sm">
-                  {(() => {
-                    const metrics = getDisplayMetrics(selectedSession as SessionWithAnalysis);
-                    return (
-                      <>
-                        <p>Launch Angle: {metrics.launchAngle.toFixed(1)}°</p>
-                        <p>Exit Velocity: {metrics.velocity.toFixed(0)} mph</p>
-                        <p>Distance: {metrics.distance.toFixed(0)} ft</p>
-                        <p>Zone: {selectedSession.game.zone}</p>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-              <div>
-                <h3 className="mb-2 font-semibold">Session Info</h3>
-                <div className="space-y-1 text-sm">
-                  <p>Date: {new Date(selectedSession.createdAt).toLocaleString()}</p>
-                  <p>Label: {selectedSession.label}</p>
-                  <p>Milestone: {selectedSession.game.milestone}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
-

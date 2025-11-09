@@ -19,7 +19,6 @@ export default function SettingsPage() {
   const [notifications, setNotifications] = useState({
     email: true,
     push: false,
-    messages: true,
     teamUpdates: true,
   });
   const [saving, setSaving] = useState(false);
@@ -210,15 +209,6 @@ export default function SettingsPage() {
                 className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
               />
               <span className="text-sm font-medium text-gray-700">Push Notifications</span>
-            </label>
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={notifications.messages}
-                onChange={(e) => setNotifications({ ...notifications, messages: e.target.checked })}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-gray-700">Message Notifications</span>
             </label>
             <label className="flex items-center gap-3">
               <input

@@ -40,11 +40,7 @@ export default function SignUpPage() {
       if (response.ok) {
         // User exists, redirect to appropriate dashboard
         const userData = await response.json();
-        if (userData.role === 'coach') {
-          router.push('/coach');
-        } else {
-          router.push('/player');
-        }
+        router.push('/player');
       }
       // If user doesn't exist, they need to complete signup
     } catch (error) {
@@ -150,11 +146,7 @@ export default function SignUpPage() {
           sessionStorage.removeItem('selectedRole');
           
           // Redirect based on selected role
-          if (role === 'coach') {
-            router.push('/coach');
-          } else {
-            router.push('/player');
-          }
+          router.push('/player');
         } else {
           const errorData = await createResponse.json();
           setError(errorData.error || 'Failed to create user profile');

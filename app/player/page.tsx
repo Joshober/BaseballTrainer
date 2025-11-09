@@ -209,20 +209,6 @@ export default function PlayerDashboard() {
               const userData = await userResponse.json();
               setUser(userData);
               
-              // Redirect if coach (unless viewing another player)
-              if (userData.role === 'coach') {
-                if (typeof window !== 'undefined') {
-                  const searchParams = new URLSearchParams(window.location.search);
-                  if (!searchParams.get('uid')) {
-                    router.push('/coach');
-                    return;
-                  }
-                } else {
-                  router.push('/coach');
-                  return;
-                }
-              }
-              
               loadDashboardData(authUser.sub);
             }
           } catch (error) {
@@ -399,19 +385,6 @@ export default function PlayerDashboard() {
                 <div>
                   <h3 className="text-xl font-semibold mb-2">My Videos</h3>
                   <p className="text-gray-600">View and share your recorded swings</p>
-                </div>
-                <ArrowRight className="w-6 h-6 text-blue-600" />
-              </div>
-            </Link>
-
-            <Link
-              href="/messages"
-              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">Messages</h3>
-                  <p className="text-gray-600">Chat with coaches and AI bot</p>
                 </div>
                 <ArrowRight className="w-6 h-6 text-blue-600" />
               </div>
